@@ -1,0 +1,19 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    extensions:
+    - backend:
+        services:
+        - headers:
+          - name: Authorization
+            value: $extension.metrics.token
+          url: https://metrics.example.com
+        transport:
+          connectionTimeout: 2s
+          keepAlive: 15s
+          maxIdleConnections: 10
+      name: metrics

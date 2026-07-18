@@ -1,0 +1,19 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  cluster:
+    inClusterEnabled: true
+  controller:
+    allowedNodeLabelKeys:
+    - topology.kubernetes.io/zone
+    - node.kubernetes.io/instance-type
+    instanceLabelKey: mycompany.com/appname
+    resourceTrackingMethod: annotation
+    sync:
+      impersonation:
+        enabled: true
+        enforced: true
+      requireOverridePrivilegeForRevisionSync: true

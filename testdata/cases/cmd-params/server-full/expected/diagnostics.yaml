@@ -1,0 +1,35 @@
+- direction: cr->cm
+  key: argocd-cm
+  message: no source ConfigMap provided; labels/annotations cannot be preserved
+  severity: warn
+- direction: cr->cm
+  key: argocd-rbac-cm
+  message: no source ConfigMap provided; labels/annotations cannot be preserved
+  severity: warn
+- direction: cr->cm
+  key: controller.repo.server.plaintext
+  message: writing same value to controller.repo.server.* and server.repo.server.*
+    keys
+  severity: warn
+- direction: cr->cm
+  key: controller.repo.server.strict.tls
+  message: writing same value to controller.repo.server.* and server.repo.server.*
+    keys
+  severity: warn
+- direction: cr->cm
+  key: controller.repo.server.timeout.seconds
+  message: writing same value to controller.repo.server.* and server.repo.server.*
+    keys
+  severity: warn
+- direction: cm->cr
+  key: server.repo.server.plaintext
+  message: using server.repo.server.* value; controller.repo.server.* is preferred
+  severity: warn
+- direction: cm->cr
+  key: server.repo.server.strict.tls
+  message: using server.repo.server.* value; controller.repo.server.* is preferred
+  severity: warn
+- direction: cm->cr
+  key: server.repo.server.timeout.seconds
+  message: using server.repo.server.* value; controller.repo.server.* is preferred
+  severity: warn

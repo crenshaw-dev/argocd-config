@@ -1,0 +1,2 @@
+description: "dex.config connectors map to typed DexConnector envelope with opaque config RawExtension"
+direction: roundtrip

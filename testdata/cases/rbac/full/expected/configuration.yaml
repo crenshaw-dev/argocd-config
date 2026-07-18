@@ -1,0 +1,23 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    rbac:
+      default: role:readonly
+      matchMode: glob
+      policyCSV: |
+        p, role:org-admin, applications, *, */*, allow
+        g, alice, role:org-admin
+      policyOverlays:
+      - csv: |
+          p, role:team-a, applications, get, team-a/*, allow
+        name: team-a
+      - csv: |
+          p, role:team-b, applications, sync, team-b/*, allow
+        name: team-b
+      scopes:
+      - groups
+      - email

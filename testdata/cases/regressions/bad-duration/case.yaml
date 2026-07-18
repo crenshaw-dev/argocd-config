@@ -1,0 +1,2 @@
+description: "Invalid duration values emit error diagnostics"
+direction: from

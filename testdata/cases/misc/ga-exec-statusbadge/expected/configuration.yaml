@@ -1,0 +1,18 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    exec:
+      enabled: true
+      shells:
+      - bash
+      - sh
+    googleAnalytics:
+      anonymizeUsers: true
+      trackingID: UA-123
+    statusBadge:
+      enabled: true
+      url: https://argocd.example.com

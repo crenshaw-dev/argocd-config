@@ -1,0 +1,2 @@
+description: "RBAC scopes as bracketed CSV fallback path"
+direction: roundtrip

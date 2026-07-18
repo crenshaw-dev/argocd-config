@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  extension.config: |
+    extensions:
+      - name: httpbin
+        backend:
+          connectionTimeout: 2s
+          keepAlive: 15s
+          idleConnectionTimeout: 60s
+          maxIdleConnections: 30
+          services:
+            - url: http://httpbin.org
+              cluster:
+                name: some-cluster
+                server: https://some-cluster
+              headers:
+                - name: Authorization
+                  value: $extension.httpbin.token
+                - name: X-Request-Id
+                  value: argocd
+      - name: metrics
+        backend:
+          maxIdleConnections: 10
+          services:
+            - url: https://metrics.example.com
+              headers:
+                - name: Authorization
+                  value: $extension.metrics.token

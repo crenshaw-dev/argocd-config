@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+data:
+  applicationsetcontroller.enable.leader.election: "true"
+  applicationsetcontroller.policy: create-update
+  applicationsetcontroller.enable.policy.override: "true"
+  applicationsetcontroller.concurrent.reconciliations.max: "10"
+  applicationsetcontroller.enable.new.git.file.globbing: "true"
+  applicationsetcontroller.debug: "false"
+  applicationsetcontroller.log.format: json
+  applicationsetcontroller.log.level: info
+  applicationsetcontroller.dryrun: "false"
+  applicationsetcontroller.enable.git.submodule: "true"
+  applicationsetcontroller.enable.progressive.syncs: "true"
+  applicationsetcontroller.namespaces: argocd,argocd-appsets-*
+  applicationsetcontroller.scm.root.ca.path: /app/config/scm/ca.crt
+  applicationsetcontroller.allowed.scm.providers: https://git.example.com/,https://gitlab.example.com/
+  applicationsetcontroller.enable.scm.providers: "true"
+  applicationsetcontroller.webhook.parallelism.limit: "50"
+  applicationsetcontroller.requeue.after: 3m
+  applicationsetcontroller.enable.tokenref.strict.mode: "true"
+  applicationsetcontroller.global.preserved.annotations: acme.com/annotation1,acme.com/annotation2
+  applicationsetcontroller.global.preserved.labels: acme.com/label1,acme.com/label2
+  applicationsetcontroller.enable.github.api.metrics: "true"
+  applicationsetcontroller.status.max.resources.count: "5000"
+  applicationsetcontroller.profile.enabled: "true"
+  applicationsetcontroller.grpc.enable.txt.service.config: "true"
+  applicationsetcontroller.k8s.client.qps: "50"
+  applicationsetcontroller.k8s.client.burst: "100"
+  applicationsetcontroller.k8s.client.max.idle.connections: "500"
+  applicationsetcontroller.k8s.tcp.timeout: 30s
+  applicationsetcontroller.k8s.tcp.keepalive: 30s
+  applicationsetcontroller.k8s.tls.handshake.timeout: 10s
+  applicationsetcontroller.k8s.tcp.idle.timeout: 5m
+  applicationsetcontroller.repo.server.ca.cert.path: /app/config/reposerver/tls/ca.crt
+  applicationsetcontroller.repo.server.client.cert.path: /app/config/reposerver/tls/tls.crt
+  applicationsetcontroller.repo.server.client.cert.key.path: /app/config/reposerver/tls/tls.key

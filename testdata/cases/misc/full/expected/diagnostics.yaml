@@ -1,0 +1,13 @@
+- direction: cr->cm
+  key: argocd-cmd-params-cm
+  message: no source ConfigMap provided; labels/annotations cannot be preserved
+  severity: warn
+- direction: cr->cm
+  key: argocd-rbac-cm
+  message: no source ConfigMap provided; labels/annotations cannot be preserved
+  severity: warn
+- direction: cm->cr
+  key: webhook.maxPayloadSizeMB
+  message: decimal megabyte (M) quantity may lose precision when round-tripped through
+    integer MB
+  severity: warn

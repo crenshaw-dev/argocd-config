@@ -1,0 +1,12 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  controller:
+    globalProjects:
+    - labelSelector:
+        matchLabels:
+          team: platform
+      projectName: default

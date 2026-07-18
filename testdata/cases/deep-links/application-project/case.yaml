@@ -1,0 +1,2 @@
+description: "application.links and project.links map to DeepLinksConfig"
+direction: roundtrip

@@ -1,0 +1,2 @@
+description: "OIDC clientSecretRef with non-argocd-secret name documents CR->CM limitation via error diagnostic"
+direction: to

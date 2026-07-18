@@ -1,0 +1,15 @@
+apiVersion: v1
+data:
+  controller.k8s.client.burst: "100"
+  controller.k8s.client.qps: "50"
+  controller.k8s.tcp.keepalive: 30s
+  controller.k8s.tcp.timeout: 30s
+  controller.k8sclient.retry.base.backoff: "100"
+  controller.k8sclient.retry.max: "3"
+  reposerver.max.combined.directory.manifests.size: 10M
+  reposerver.streamed.manifest.max.extracted.size: 1G
+  reposerver.streamed.manifest.max.tar.size: 100M
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argocd

@@ -1,0 +1,19 @@
+apiVersion: v1
+data:
+  extension.config: |
+    extensions:
+    - Backend:
+        services:
+        - headers:
+          - name: Authorization
+            value: $extension.metrics.token
+          url: https://metrics.example.com
+        transport:
+          connectionTimeout: 2s
+          keepAlive: 15s
+          maxIdleConnections: 10
+      Name: metrics
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd

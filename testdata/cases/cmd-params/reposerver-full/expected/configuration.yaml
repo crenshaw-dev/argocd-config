@@ -1,0 +1,52 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  commitServer: {}
+  controller: {}
+  repoServer:
+    allowOOBSymlinks: false
+    cache:
+      defaultExpiration: 24h0m0s
+      repoExpiration: 12h0m0s
+    clientCAPath: /app/config/tls/ca.crt
+    git:
+      builtinConfigDisabled: false
+      lsRemoteParallelismLimit: 8
+      requestTimeout: 15s
+      submoduleDisabled: false
+    grpcTXTServiceConfigEnabled: true
+    includeHiddenDirectories: true
+    listen:
+      address: 0.0.0.0
+      metricsAddress: 127.0.0.1
+    logFormat: json
+    logLevel: debug
+    maxCombinedDirectoryManifestsSize: 10M
+    oci:
+      layerMediaTypes:
+      - application/vnd.oci.image.layer.v1.tar
+      - application/vnd.oci.image.layer.v1.tar+gzip
+      manifest:
+        maxExtractedSize: 1G
+        maxExtractedSizeDisabled: false
+    parallelismLimit: 4
+    plugin:
+      tarExclusionGlobs:
+      - '*.git'
+      - '*.svn'
+      - node_modules
+      useManifestGeneratePaths: true
+    profileEnabled: true
+    streamedManifest:
+      maxExtractedSize: 1G
+      maxTarSize: 100M
+    tls:
+      ciphers:
+      - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+      maxVersion: "1.3"
+      minVersion: "1.2"
+    tlsDisabled: false
+  server: {}

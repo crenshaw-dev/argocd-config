@@ -1,0 +1,2 @@
+description: "Controller cmd-params: sharding, logs, processors, caches, metrics, self.heal, sync, extras from HA/metrics docs"
+direction: roundtrip

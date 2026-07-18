@@ -1,0 +1,12 @@
+- direction: cr->cm
+  key: argocd-cm
+  message: no source ConfigMap provided; labels/annotations cannot be preserved
+  severity: warn
+- direction: cr->cm
+  key: argocd-cmd-params-cm
+  message: no source ConfigMap provided; labels/annotations cannot be preserved
+  severity: warn
+- direction: cr->cm
+  key: argocd-rbac-cm
+  message: no source ConfigMap provided; labels/annotations cannot be preserved
+  severity: warn

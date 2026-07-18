@@ -1,0 +1,57 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  applicationSet:
+    allowedSCMProviderURLs:
+    - https://git.example.com/
+    - https://gitlab.example.com/
+    debug: false
+    dryRun: false
+    gitHubAPIMetricsEnabled: true
+    gitSubmoduleDisabled: false
+    globalPreserved:
+      annotationKeys:
+      - acme.com/annotation1
+      - acme.com/annotation2
+      labelKeys:
+      - acme.com/label1
+      - acme.com/label2
+    grpcTXTServiceConfigEnabled: true
+    k8sClient:
+      burst: 100
+      maxIdleConnections: 500
+      qps: "50"
+      tcp:
+        idleTimeout: 5m0s
+        keepAlive: 30s
+        timeout: 30s
+      tlsHandshakeTimeout: 10s
+    leaderElectionEnabled: true
+    logFormat: json
+    logLevel: info
+    namespaceGlobs:
+    - argocd
+    - argocd-appsets-*
+    newGitFileGlobbingEnabled: true
+    policy: create-update
+    policyOverrideEnabled: true
+    profileEnabled: true
+    progressiveSyncsEnabled: true
+    reconciliationsParallelismLimit: 10
+    repoServer:
+      caCertPath: /app/config/reposerver/tls/ca.crt
+      clientCertKeyPath: /app/config/reposerver/tls/tls.key
+      clientCertPath: /app/config/reposerver/tls/tls.crt
+    requeueAfter: 3m0s
+    scmProvidersEnabled: true
+    scmRootCAPath: /app/config/scm/ca.crt
+    statusMaxResourcesCount: 5000
+    tokenRefStrictModeEnabled: true
+    webhookParallelismLimit: 50
+  commitServer: {}
+  controller: {}
+  repoServer: {}
+  server: {}

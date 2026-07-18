@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: argocd
+data:
+  url: https://argocd.example.com
+  oidc.config: |
+    name: Example
+    issuer: https://issuer.example.com
+    clientID: argocd
+    clientSecret: $oidc.clientSecret
+    requestedScopes:
+      - openid
+      - profile
+      - email
+      - groups
+  dex.config: |
+    connectors:
+      - type: github
+        id: github
+        name: GitHub
+        config:
+          clientID: $dex.github.clientId
+          clientSecret: $dex.github.clientSecret
+          orgs:
+            - name: example-org
+  resource.exclusions: |
+    - apiGroups:
+        - "*"
+      kinds:
+        - ProviderConfigUsage
+  resource.compareoptions: |
+    ignoreResourceStatusField: all
+    ignoreDifferencesOnResourceUpdates: true
+  resource.customizations.health.cert-manager.io_Certificate: |
+    hs = {}
+    hs.status = "Healthy"
+    return hs
+  resource.customizations.actions.apps_Deployment: |
+    discovery.lua: |
+      actions = {}
+      actions["restart"] = {}
+      return actions
+    definitions:
+      - name: restart
+        action.lua: |
+          return obj
+  application.resourceTrackingMethod: annotation
+  application.sync.impersonation.enabled: "true"
+  cluster.inClusterEnabled: "true"
+  passwordPattern: "^.{8,32}$"
+  timeout.reconciliation: 180s
+  timeout.reconciliation.jitter: 60s
+  installationID: "sample-install"
+  jsonnet.enable: "true"
+  server.rbac.disableApplicationFineGrainedRBACInheritance: "false"
+  users.anonymous.enabled: "false"
+  ui.bannercontent: Welcome

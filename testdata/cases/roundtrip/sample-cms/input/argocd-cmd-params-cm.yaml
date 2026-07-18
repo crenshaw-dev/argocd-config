@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: argocd
+data:
+  application.namespaces: "team-*,sandbox"
+  repo.server: argocd-repo-server:8081
+  redis.server: argocd-redis:6379
+  redis.compression: gzip
+  server.insecure: "false"
+  controller.sharding.algorithm: legacy
+  controller.status.processors: "20"
+  controller.operation.processors: "10"
+  controller.self.heal.timeout.seconds: "5"
+  controller.sync.wave.delay.seconds: "2"
+  hydrator.enabled: "false"
+  reposerver.plugin.tar.exclusions: "*.git;*.tmp"
+  reposerver.parallelism.limit: "10"
+  server.basehref: /argo-cd
+  server.rootpath: /argo-cd
+  server.disable.auth: "false"
+  server.enable.gzip: "true"
+  server.webhook.parallelism.limit: "5"
+  applicationsetcontroller.enable.progressive.syncs: "true"
+  applicationsetcontroller.policy: sync
+  applicationsetcontroller.k8s.client.qps: "50"
+  applicationsetcontroller.k8s.client.burst: "100"
+  applicationsetcontroller.repo.server.ca.cert.path: /etc/argocd/appsset/ca.crt
+  applicationsetcontroller.repo.server.client.cert.path: /etc/argocd/appsset/tls.crt
+  applicationsetcontroller.repo.server.client.cert.key.path: /etc/argocd/appsset/tls.key
+  controller.profile.enabled: "false"
+  dexserver.disable.tls: "true"
+  notificationscontroller.processors.count: "5"
+  notificationscontroller.repo.server.ca.cert.path: /etc/argocd/notifications/ca.crt
+  notificationscontroller.repo.server.client.cert.path: /etc/argocd/notifications/tls.crt
+  notificationscontroller.repo.server.client.cert.key.path: /etc/argocd/notifications/tls.key

@@ -1,0 +1,17 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  commitServer:
+    address: argocd-commit-server:8086
+    commit:
+      author:
+        email: argocd@example.com
+        name: Argo CD
+  controller: {}
+  logging:
+    formatTimestamp: rfc3339
+  repoServer: {}
+  server: {}

@@ -1,0 +1,2 @@
+description: "Empty quantity string is ignored (parseQuantityPtr nil path)"
+direction: from

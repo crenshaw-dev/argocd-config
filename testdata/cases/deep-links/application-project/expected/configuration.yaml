@@ -1,0 +1,15 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    deepLinks:
+      application:
+      - conditionExpr: app.spec.project == "default"
+        title: Logs
+        urlTemplate: https://example.com/{{.app.metadata.name}}
+      project:
+      - title: Project docs
+        urlTemplate: https://example.com/projects/{{.project.metadata.name}}

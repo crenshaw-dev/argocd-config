@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  admin.enabled: "true"
+  accounts.alice: apiKey,login
+  accounts.alice.enabled: "true"
+  accounts.bob: login
+  accounts.bob.enabled: "false"

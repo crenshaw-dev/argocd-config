@@ -1,0 +1,20 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  commitServer: {}
+  controller: {}
+  otlp:
+    address: collector:4317
+    attrs:
+      env: prod
+      service.name: argocd
+    headers:
+      Authorization: Bearer x
+      X-Scope: prod
+    sampleRatio: "0.1"
+    tlsEnabled: false
+  repoServer: {}
+  server: {}

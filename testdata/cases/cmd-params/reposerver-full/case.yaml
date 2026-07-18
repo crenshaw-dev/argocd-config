@@ -1,0 +1,2 @@
+description: "Repo-server cmd-params: bools, timeouts, size quantities, OCI, TLS, client CA, tar exclusions"
+direction: roundtrip

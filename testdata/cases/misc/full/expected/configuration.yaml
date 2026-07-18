@@ -1,0 +1,45 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  commitServer:
+    commit:
+      author:
+        email: argo-cd@example.com
+        name: Argo CD
+  controller:
+    reconciliation:
+      jitter: 1m0s
+      timeout: 2m0s
+    sourceHydrator:
+      commitMessageTemplate: |
+        {{.metadata.drySha | trunc 7}}: {{ .metadata.subject }}
+      readmeMessageTemplate: |
+        # Manifest Hydration
+        git clone {{ .RepoURL }}
+  installationID: my-unique-id
+  repoServer:
+    jsonnet:
+      enabled: true
+  server:
+    exec:
+      enabled: true
+      shells:
+      - bash
+      - sh
+      - powershell
+      - cmd
+    googleAnalytics:
+      trackingID: UA-12345-1
+    rbac:
+      applicationFineGrainedInheritanceDisabled: true
+    statusBadge:
+      enabled: true
+      url: https://cd-status.apps.argoproj.io/
+    webhook:
+      maxPayloadSize: 50M
+      refresh:
+        jitter: 1m0s
+        jitterThreshold: 10

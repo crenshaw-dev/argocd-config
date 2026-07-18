@@ -1,0 +1,14 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    help:
+      binaryURLs:
+        darwin-amd64: https://example.com/argocd-darwin-amd64
+        linux-amd64: https://example.com/argocd-linux-amd64
+      chat:
+        text: Need help?
+        url: https://chat.example.com

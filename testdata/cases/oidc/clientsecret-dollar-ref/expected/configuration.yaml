@@ -1,0 +1,17 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    oidc:
+      clientID: argocd
+      clientSecretRef:
+        key: oidc.clientSecret
+        name: argocd-secret
+      issuerURL: https://issuer.example.com
+      name: Example
+      requestedScopes:
+      - openid
+      - profile

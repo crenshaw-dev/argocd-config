@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  oidc.config: |
+    name: Example
+    issuer: https://issuer.example.com
+    clientID: argocd
+    clientSecret: $oidc.clientSecret
+    requestedScopes:
+      - openid
+      - profile

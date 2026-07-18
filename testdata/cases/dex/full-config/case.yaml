@@ -1,0 +1,2 @@
+description: "Dex with multi-connector, staticClients, and top-level Extra fields from SSO docs"
+direction: roundtrip

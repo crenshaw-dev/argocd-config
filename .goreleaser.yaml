@@ -1,0 +1,60 @@
+version: 2
+
+project_name: argocd-config
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: argocd-config
+    main: ./cmd/argocd-config
+    binary: argocd-config
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/crenshaw-dev/argocd-config/cmd/argocd-config/commands.Version={{.Version}}
+      - -X github.com/crenshaw-dev/argocd-config/cmd/argocd-config/commands.Commit={{.Commit}}
+      - -X github.com/crenshaw-dev/argocd-config/cmd/argocd-config/commands.Date={{.Date}}
+
+archives:
+  - id: argocd-config
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+sboms:
+  - id: argocd-config
+    artifacts: archive
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  github:
+    owner: crenshaw-dev
+    name: argocd-config
+  draft: false
+  prerelease: auto

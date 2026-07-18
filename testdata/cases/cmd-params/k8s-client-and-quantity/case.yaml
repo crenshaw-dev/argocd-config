@@ -1,0 +1,2 @@
+description: "controller k8s client QPS/burst/TCP/retry and reposerver quantity size limits"
+direction: roundtrip

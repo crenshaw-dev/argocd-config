@@ -1,0 +1,139 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  applicationNamespaceGlobs:
+  - team-*
+  - sandbox
+  applicationSet:
+    k8sClient:
+      burst: 100
+      qps: "50"
+    policy: sync
+    progressiveSyncsEnabled: true
+    repoServer:
+      caCertPath: /etc/argocd/appsset/ca.crt
+      clientCertKeyPath: /etc/argocd/appsset/tls.key
+      clientCertPath: /etc/argocd/appsset/tls.crt
+  cluster:
+    inClusterEnabled: true
+  commitServer: {}
+  controller:
+    processors:
+      operation: 10
+      status: 20
+    profileEnabled: false
+    reconciliation:
+      jitter: 1m0s
+      timeout: 3m0s
+    resource:
+      compareOptions:
+        ignoreDifferencesOnResourceUpdates: true
+        ignoreResourceStatusField: all
+      customizations:
+      - actions:
+          definitions:
+          - actionLua: |
+              return obj
+            name: restart
+          discoveryLua: |
+            actions = {}
+            actions["restart"] = {}
+            return actions
+        group: apps
+        kind: Deployment
+      - group: cert-manager.io
+        healthLua: |
+          hs = {}
+          hs.status = "Healthy"
+          return hs
+        kind: Certificate
+      exclusions:
+      - apiGroups:
+        - '*'
+        kinds:
+        - ProviderConfigUsage
+    resourceTrackingMethod: annotation
+    selfHeal:
+      timeout: 5s
+    shardingAlgorithm: legacy
+    sourceHydrator:
+      enabled: false
+    sync:
+      impersonation:
+        enabled: true
+      waveDelay: 2s
+  dexServer:
+    tlsDisabled: true
+  installationID: sample-install
+  notifications:
+    processorsCount: 5
+    repoServer:
+      caCertPath: /etc/argocd/notifications/ca.crt
+      clientCertKeyPath: /etc/argocd/notifications/tls.key
+      clientCertPath: /etc/argocd/notifications/tls.crt
+  redis:
+    compression: gzip
+    server: argocd-redis:6379
+  repoServer:
+    address: argocd-repo-server:8081
+    jsonnet:
+      enabled: true
+    parallelismLimit: 10
+    plugin:
+      tarExclusionGlobs:
+      - '*.git'
+      - '*.tmp'
+  server:
+    authDisabled: false
+    baseHref: /argo-cd
+    dex:
+      connectors:
+      - config:
+          clientID: $dex.github.clientId
+          clientSecret: $dex.github.clientSecret
+          orgs:
+          - name: example-org
+        id: github
+        name: GitHub
+        type: github
+    gzipDisabled: false
+    oidc:
+      clientID: argocd
+      clientSecretRef:
+        key: oidc.clientSecret
+        name: argocd-secret
+      issuerURL: https://issuer.example.com
+      name: Example
+      requestedScopes:
+      - openid
+      - profile
+      - email
+      - groups
+    rbac:
+      applicationFineGrainedInheritanceDisabled: false
+      default: role:readonly
+      matchMode: glob
+      policyCSV: |
+        p, role:org-admin, applications, *, */*, allow
+        p, role:org-admin, clusters, get, *, allow
+        g, my-github-org:my-team, role:org-admin
+      policyOverlays:
+      - csv: |
+          p, role:extra, applications, get, */*, allow
+        name: extra
+      scopes:
+      - groups
+    rootPath: /argo-cd
+    tlsDisabled: false
+    ui:
+      banner:
+        content: Welcome
+    url: https://argocd.example.com
+    users:
+      anonymousEnabled: false
+      passwordRegex: ^.{8,32}$
+    webhook:
+      parallelismLimit: 5

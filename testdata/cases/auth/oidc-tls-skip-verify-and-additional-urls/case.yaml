@@ -1,0 +1,2 @@
+description: "oidc.tls.insecure.skip.verify plus additionalUrls from argocd-cm sample"
+direction: roundtrip

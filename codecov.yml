@@ -1,0 +1,27 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        # Allow a small dip so refactors that add un-covered scaffolding don't block.
+        threshold: 1%
+    patch:
+      default:
+        target: 80%
+        threshold: 5%
+
+# Generated code and fixtures are not meaningful coverage targets.
+ignore:
+  - "**/zz_generated.deepcopy.go"
+  - "api/v1alpha1/groupversion_info.go"
+  - "api/v1beta1/groupversion_info.go"
+  - "cmd/argocd-config/main.go"
+  - "testdata"
+  - "hack"
+
+comment:
+  layout: "reach, diff, files"
+  require_changes: true
+
+github_checks:
+  annotations: true

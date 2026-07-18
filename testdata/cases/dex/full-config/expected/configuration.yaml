@@ -1,0 +1,37 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    dex:
+      connectors:
+      - config:
+          clientID: $dex.github.clientId
+          clientSecret: $dex.github.clientSecret
+          orgs:
+          - name: example-org
+            teams:
+            - platform
+        id: github
+        name: GitHub
+        type: github
+      - config:
+          clientID: $dex.google.clientId
+          clientSecret: $dex.google.clientSecret
+          insecureSkipEmailVerified: true
+          issuer: https://accounts.google.com
+        id: google
+        name: Google
+        type: oidc
+      extra:
+        issuer: https://argocd.example.com/api/dex
+        storage:
+          type: memory
+      staticClients:
+      - id: argo-workflow
+        name: Argo Workflow
+        redirectURIs:
+        - https://workflows.example.com/oauth2/callback
+        secret: $dex.static.argoWorkflow

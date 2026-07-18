@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  helm.enable: "true"
+  helm.valuesFileSchemes: http,https
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd

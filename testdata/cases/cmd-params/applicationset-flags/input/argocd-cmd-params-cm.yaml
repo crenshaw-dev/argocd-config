@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+data:
+  applicationsetcontroller.enable.progressive.syncs: "true"
+  applicationsetcontroller.enable.policy.override: "true"
+  applicationsetcontroller.enable.scm.providers: "true"
+  applicationsetcontroller.concurrent.reconciliations.max: "10"
+  applicationsetcontroller.requeue.after: 3m
+  applicationsetcontroller.webhook.parallelism.limit: "5"
+  applicationsetcontroller.policy: sync
+  applicationsetcontroller.namespaces: team-*,sandbox

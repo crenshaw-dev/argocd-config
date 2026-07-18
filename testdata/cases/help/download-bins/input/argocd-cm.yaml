@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  help.chatUrl: https://chat.example.com
+  help.chatText: Need help?
+  help.download.darwin-amd64: https://example.com/argocd-darwin-amd64
+  help.download.linux-amd64: https://example.com/argocd-linux-amd64

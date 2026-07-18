@@ -1,0 +1,2 @@
+description: "Proxy extensions with two services including cluster ref and multiple headers"
+direction: roundtrip

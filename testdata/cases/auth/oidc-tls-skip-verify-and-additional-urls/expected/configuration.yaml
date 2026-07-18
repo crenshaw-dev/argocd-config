@@ -1,0 +1,12 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    additionalURLs:
+    - https://argo-cd-demo2.argoproj.io
+    - https://argocd-alt.example.com
+    oidcInsecureSkipVerify: true
+    url: https://argo-cd-demo.argoproj.io

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  globalProjects: |
+    - projectName: default
+      labelSelector:
+        matchLabels:
+          team: platform

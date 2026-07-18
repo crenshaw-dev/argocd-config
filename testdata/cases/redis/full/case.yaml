@@ -1,0 +1,2 @@
+description: "Redis server, compression, sentinel hosts/master, and db"
+direction: roundtrip

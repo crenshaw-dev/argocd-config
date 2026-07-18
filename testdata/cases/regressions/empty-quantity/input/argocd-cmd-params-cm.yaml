@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+data:
+  reposerver.max.combined.directory.manifests.size: ""
+  redis.server: argocd-redis:6379

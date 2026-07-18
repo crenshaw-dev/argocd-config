@@ -1,0 +1,12 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  repoServer:
+    helm:
+      enabled: true
+      valuesFileSchemes:
+      - http
+      - https

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  kustomize.enable: "true"
+  kustomize.buildOptions: "--enable-helm"
+  kustomize.path.v4.5.7: /usr/local/bin/kustomize-v4
+  kustomize.buildOptions.v4.5.7: "--load-restrictor LoadRestrictionsNone"

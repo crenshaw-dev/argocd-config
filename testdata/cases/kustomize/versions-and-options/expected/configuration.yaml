@@ -1,0 +1,14 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  repoServer:
+    kustomize:
+      buildOptions: --enable-helm
+      enabled: true
+      versions:
+      - buildOptions: --load-restrictor LoadRestrictionsNone
+        name: v4.5.7
+        path: /usr/local/bin/kustomize-v4

@@ -1,0 +1,21 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  applicationSet:
+    namespaceGlobs:
+    - team-*
+    - sandbox
+    policy: sync
+    policyOverrideEnabled: true
+    progressiveSyncsEnabled: true
+    reconciliationsParallelismLimit: 10
+    requeueAfter: 3m0s
+    scmProvidersEnabled: true
+    webhookParallelismLimit: 5
+  commitServer: {}
+  controller: {}
+  repoServer: {}
+  server: {}

@@ -1,0 +1,31 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  commitServer:
+    grpcTXTServiceConfigEnabled: true
+    listen:
+      address: 0.0.0.0
+      metricsAddress: 127.0.0.1
+    logFormat: json
+    logLevel: info
+  controller: {}
+  dexServer:
+    connectorFailureContinue: true
+    logFormat: json
+    logLevel: debug
+    tlsDisabled: false
+  notifications:
+    logFormat: json
+    logLevel: info
+    processorsCount: 2
+    repoServer:
+      caCertPath: /app/config/reposerver/tls/ca.crt
+      clientCertKeyPath: /app/config/reposerver/tls/tls.key
+      clientCertPath: /app/config/reposerver/tls/tls.crt
+    selfServiceEnabled: true
+    tlsDisabled: false
+  repoServer: {}
+  server: {}

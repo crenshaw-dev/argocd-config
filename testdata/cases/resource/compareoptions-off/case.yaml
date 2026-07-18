@@ -1,0 +1,2 @@
+description: "resource.compareoptions ignoreResourceStatusField off normalizes to none with warn"
+direction: from

@@ -1,0 +1,2 @@
+description: "Monolithic resource.customizations with actions map, mergeBuiltinActions, multiple definitions, useOpenLibs"
+direction: roundtrip

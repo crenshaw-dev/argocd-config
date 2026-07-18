@@ -1,0 +1,24 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  commitServer: {}
+  controller:
+    k8sClient:
+      burst: 100
+      qps: "50"
+      retry:
+        backoff:
+          duration: 100ms
+        max: 3
+      tcp:
+        keepAlive: 30s
+        timeout: 30s
+  repoServer:
+    maxCombinedDirectoryManifestsSize: 10M
+    streamedManifest:
+      maxExtractedSize: 1G
+      maxTarSize: 100M
+  server: {}

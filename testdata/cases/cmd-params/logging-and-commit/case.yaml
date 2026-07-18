@@ -1,0 +1,2 @@
+description: "log.format.timestamp, commit.server, and commit.author.* settings"
+direction: roundtrip

@@ -1,0 +1,2 @@
+description: "Full OIDC config from operator-manual SSO docs (Azure AD, claims, scopes, audiences, userinfo, PKCE, rootCA)"
+direction: roundtrip

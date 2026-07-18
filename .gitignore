@@ -1,0 +1,7 @@
+# Ignore build artifacts
+/bin/
+/dist/
+*.exe
+*.test
+coverage.out
+coverage.html

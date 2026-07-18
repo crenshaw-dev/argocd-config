@@ -1,0 +1,2 @@
+description: "extension.config with backend services, timeouts, and headers"
+direction: roundtrip

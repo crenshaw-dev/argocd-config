@@ -1,0 +1,12 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    maxPodLogsToRender: 25
+    users:
+      anonymousEnabled: true
+      passwordRegex: ^.{8,32}$
+      sessionDuration: 24h0m0s

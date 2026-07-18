@@ -1,0 +1,2 @@
+description: "Full RBAC: default, JSON scopes array, matchMode, policy.csv, two overlays"
+direction: roundtrip

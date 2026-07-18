@@ -1,0 +1,17 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    rbac:
+      default: role:readonly
+      policyCSV: |
+        p, role:org-admin, applications, *, */*, allow
+      policyOverlays:
+      - csv: |
+          p, role:extra, applications, get, */*, allow
+        name: extra
+      scopes:
+      - groups

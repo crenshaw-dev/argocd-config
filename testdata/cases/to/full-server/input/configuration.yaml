@@ -1,0 +1,63 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    url: https://argocd.example.com
+    additionalURLs:
+      - https://argocd-alt.example.com
+    oidcInsecureSkipVerify: true
+    maxPodLogsToRender: 15
+    ui:
+      cssURL: ./custom/my-styles.css
+      bannerContent: Hello there!
+      bannerURL: https://argoproj.github.io
+      bannerPermanent: true
+      bannerPosition: top
+      loginButtonText: SSO Login
+    users:
+      anonymousEnabled: true
+      sessionDuration: 12h
+      passwordRegex: "^.{10,}$"
+    help:
+      chatURL: https://mycorp.slack.com/argo-cd
+      chatText: Chat now!
+      binaryURLs:
+        linux-amd64: https://example.com/argocd-linux-amd64
+    googleAnalytics:
+      trackingID: UA-999
+      anonymizeUsers: true
+    exec:
+      enabled: true
+      shells:
+        - bash
+        - sh
+    statusBadge:
+      enabled: true
+      url: https://badge.example.com/
+    webhook:
+      maxPayloadSize: 25M
+      refreshJitter: 30s
+      refreshJitterThreshold: 5
+    rbac:
+      default: role:readonly
+      scopes:
+        - groups
+      matchMode: glob
+      policyCSV: |
+        p, role:readonly, applications, get, */*, allow
+      applicationFineGrainedInheritanceDisabled: true
+  controller:
+    instanceLabelKey: example.com/app
+    resourceTrackingMethod: label
+    allowedNodeLabelKeys:
+      - topology.kubernetes.io/zone
+    sync:
+      impersonationEnabled: true
+      impersonationEnforced: false
+      requireOverridePrivilegeForRevisionSync: true
+  cluster:
+    inClusterEnabled: true
+  installationID: install-from-cr

@@ -1,0 +1,4 @@
+- direction: cr->cm
+  key: argocd-rbac-cm
+  message: no source ConfigMap provided; labels/annotations cannot be preserved
+  severity: warn

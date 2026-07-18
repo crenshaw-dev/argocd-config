@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  commit.author.name: Argo CD
+  commit.author.email: argocd@example.com

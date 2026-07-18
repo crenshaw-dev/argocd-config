@@ -1,0 +1,2 @@
+description: "kustomize.enable, buildOptions, and per-version path/buildOptions"
+direction: roundtrip

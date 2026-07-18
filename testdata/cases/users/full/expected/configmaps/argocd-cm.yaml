@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  passwordPattern: ^.{8,32}$
+  server.maxPodLogsToRender: "25"
+  users.anonymous.enabled: "true"
+  users.session.duration: 24h0m0s
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd

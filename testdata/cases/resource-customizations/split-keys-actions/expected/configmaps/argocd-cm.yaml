@@ -1,0 +1,19 @@
+apiVersion: v1
+data:
+  resource.customizations.actions.apps_Deployment: |
+    definitions:
+    - action.lua: |
+        return obj
+      name: restart
+    discovery.lua: |
+      actions = {}
+      actions["restart"] = {}
+      return actions
+  resource.customizations.health.cert-manager.io_Certificate: |
+    hs = {}
+    hs.status = "Healthy"
+    return hs
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd

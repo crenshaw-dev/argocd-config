@@ -1,0 +1,31 @@
+apiVersion: v1
+data:
+  additionalUrls: |
+    - https://argocd-alt.example.com
+  application.allowedNodeLabels: topology.kubernetes.io/zone
+  application.instanceLabelKey: example.com/app
+  application.resourceTrackingMethod: label
+  application.sync.requireOverridePrivilegeForRevisionSync: "true"
+  cluster.inClusterEnabled: "true"
+  exec.enabled: "true"
+  exec.shells: bash,sh
+  ga.anonymizeusers: "true"
+  ga.trackingid: UA-999
+  help.download.linux-amd64: https://example.com/argocd-linux-amd64
+  installationID: install-from-cr
+  oidc.tls.insecure.skip.verify: "true"
+  passwordPattern: ^.{10,}$
+  server.maxPodLogsToRender: "15"
+  server.rbac.disableApplicationFineGrainedRBACInheritance: "true"
+  statusbadge.enabled: "true"
+  statusbadge.url: https://badge.example.com/
+  ui.cssurl: ./custom/my-styles.css
+  ui.loginButtonText: SSO Login
+  url: https://argocd.example.com
+  users.anonymous.enabled: "true"
+  users.session.duration: 12h0m0s
+  webhook.maxPayloadSizeMB: "25"
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd

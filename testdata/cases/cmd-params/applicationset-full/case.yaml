@@ -1,0 +1,2 @@
+description: "ApplicationSet controller flags including k8s client, repo server certs, scm root ca"
+direction: roundtrip

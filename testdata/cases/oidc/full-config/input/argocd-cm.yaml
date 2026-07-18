@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  oidc.config: |
+    name: Azure
+    issuer: https://login.microsoftonline.com/ffffffff-ffff-ffff-ffff-ffffffffffff/v2.0
+    clientID: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+    clientSecret: $oidc.azure.clientSecret
+    cliClientID: bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+    requestedScopes:
+      - openid
+      - profile
+      - email
+      - offline_access
+    allowedAudiences:
+      - aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+      - api://argocd
+    requestedIDTokenClaims:
+      groups:
+        essential: true
+      email:
+        essential: true
+        value: user@example.com
+      roles:
+        values:
+          - admin
+          - reader
+    enableUserInfoGroups: true
+    userInfoPath: /oidc/userinfo
+    userInfoBaseURL: https://graph.microsoft.com
+    userInfoCacheExpiration: 5m
+    logoutURL: https://login.microsoftonline.com/common/oauth2/logout?post_logout_redirect_uri={{logoutRedirectURL}}
+    rootCA: |
+      -----BEGIN CERTIFICATE-----
+      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0Z3VS5JJcds3xfn/ygWy
+      F1PEXAMPLE
+      -----END CERTIFICATE-----
+    enablePKCEAuthentication: true
+    skipAudienceCheckWhenTokenHasNoAudience: true
+    domainHint: contoso.com
+    refreshTokenThreshold: 10m
+    azure:
+      useWorkloadIdentity: true
+      graphApiEndpoint: https://graph.microsoft.com
+      enableUserGroupOverageClaim: true
+      userGroupOverageClaimCacheExpiration: 1h

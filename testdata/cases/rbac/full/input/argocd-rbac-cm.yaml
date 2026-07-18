@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+data:
+  policy.default: role:readonly
+  scopes: |
+    - groups
+    - email
+  policy.matchMode: glob
+  policy.csv: |
+    p, role:org-admin, applications, *, */*, allow
+    g, alice, role:org-admin
+  policy.team-a.csv: |
+    p, role:team-a, applications, get, team-a/*, allow
+  policy.team-b.csv: |
+    p, role:team-b, applications, sync, team-b/*, allow

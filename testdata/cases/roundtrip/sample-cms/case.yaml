@@ -1,0 +1,4 @@
+description: "Full sample ConfigMaps round-trip (CM->CR->CM); documents known YAML/lossy re-emissions"
+direction: roundtrip
+name: argocd-config
+namespace: argocd

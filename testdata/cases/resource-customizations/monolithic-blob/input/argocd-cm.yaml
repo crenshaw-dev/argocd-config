@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  resource.customizations: |
+    apps/Deployment:
+      health.lua: |
+        return {status="Healthy"}
+      ignoreDifferences:
+        jsonPointers:
+          - /spec/replicas

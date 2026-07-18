@@ -1,0 +1,3 @@
+description: "oidc.config clientSecret $ref must become a SecretKeySelector, not a literal"
+direction: roundtrip
+name: argocd-config

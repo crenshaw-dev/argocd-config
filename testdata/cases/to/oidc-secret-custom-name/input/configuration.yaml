@@ -1,0 +1,14 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    oidc:
+      name: Okta
+      issuerURL: https://dev-123456.okta.com
+      clientID: aaaabbbbccccddddeee
+      clientSecretRef:
+        name: custom-oidc-secret
+        key: clientSecret

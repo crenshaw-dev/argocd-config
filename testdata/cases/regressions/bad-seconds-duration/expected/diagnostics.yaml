@@ -1,0 +1,10 @@
+- direction: cm->cr
+  key: controller.self.heal.timeout.seconds
+  message: 'invalid seconds duration "not-an-int": strconv.Atoi: parsing "not-an-int":
+    invalid syntax'
+  severity: error
+- direction: cm->cr
+  key: controller.sync.timeout.seconds
+  message: 'invalid seconds duration "also-bad": strconv.Atoi: parsing "also-bad":
+    invalid syntax'
+  severity: error

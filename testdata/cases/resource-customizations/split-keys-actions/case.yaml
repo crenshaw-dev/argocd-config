@@ -1,0 +1,2 @@
+description: "resource.customizations.actions.* and health.* split keys map to ResourceCustomization"
+direction: roundtrip

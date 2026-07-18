@@ -1,0 +1,12 @@
+apiVersion: v1
+data:
+  policy.csv: |
+    p, role:org-admin, applications, *, */*, allow
+  policy.default: role:readonly
+  policy.extra.csv: |
+    p, role:extra, applications, get, */*, allow
+  scopes: '- groups'
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd

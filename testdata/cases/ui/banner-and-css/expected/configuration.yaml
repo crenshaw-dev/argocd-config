@@ -1,0 +1,15 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    ui:
+      banner:
+        content: Welcome
+        permanent: true
+        position: top
+        url: https://example.com/banner
+      cssURL: https://example.com/custom.css
+      loginButtonText: Sign in

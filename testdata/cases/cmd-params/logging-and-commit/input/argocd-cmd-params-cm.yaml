@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+data:
+  log.format.timestamp: rfc3339
+  commit.server: argocd-commit-server:8086

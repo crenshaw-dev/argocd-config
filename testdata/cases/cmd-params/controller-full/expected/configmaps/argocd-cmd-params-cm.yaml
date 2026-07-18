@@ -1,0 +1,48 @@
+apiVersion: v1
+data:
+  controller.app.state.cache.expiration: 2h0m0s
+  controller.cluster.cache.batch.events.processing: "true"
+  controller.cluster.cache.events.processing.interval: 100ms
+  controller.default.cache.expiration: 12h0m0s
+  controller.diff.server.side: "true"
+  controller.grpc.enable.txt.service.config: "true"
+  controller.hydration.processors: "8"
+  controller.k8s.client.burst: "100"
+  controller.k8s.client.max.idle.connections: "500"
+  controller.k8s.client.qps: "50"
+  controller.k8s.tcp.idle.timeout: 5m0s
+  controller.k8s.tcp.keepalive: 30s
+  controller.k8s.tcp.timeout: 30s
+  controller.k8s.tls.handshake.timeout: 10s
+  controller.k8sclient.retry.base.backoff: "100"
+  controller.k8sclient.retry.max: "3"
+  controller.kubectl.parallelism.limit: "25"
+  controller.log.format: json
+  controller.log.level: debug
+  controller.metrics.application.conditions: OrphanedResourceWarning,ComparisonError
+  controller.metrics.application.labels: team,env
+  controller.metrics.cache.expiration: 24h0m0s
+  controller.metrics.cluster.labels: environment,region
+  controller.operation.processors: "15"
+  controller.profile.enabled: "true"
+  controller.repo.error.grace.period.seconds: "180"
+  controller.repo.server.plaintext: "false"
+  controller.repo.server.strict.tls: "true"
+  controller.repo.server.timeout.seconds: "60"
+  controller.resource.health.persist: "true"
+  controller.self.heal.backoff.cap.seconds: "300"
+  controller.self.heal.backoff.factor: "3"
+  controller.self.heal.backoff.timeout.seconds: "2"
+  controller.self.heal.timeout.seconds: "5"
+  controller.sharding.algorithm: consistent-hashing
+  controller.status.processors: "30"
+  controller.sync.timeout.seconds: "600"
+  controller.sync.wave.delay.seconds: "3"
+  hydrator.enabled: "true"
+  server.repo.server.plaintext: "false"
+  server.repo.server.strict.tls: "true"
+  server.repo.server.timeout.seconds: "60"
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argocd

@@ -1,0 +1,2 @@
+description: "otlp.address, insecure->tlsEnabled invert, headers (=) and attrs (:) KV maps"
+direction: roundtrip

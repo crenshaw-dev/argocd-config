@@ -1,0 +1,70 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  commitServer: {}
+  controller:
+    cache:
+      appStateExpiration: 2h0m0s
+      defaultExpiration: 12h0m0s
+    clusterCache:
+      batchEventsProcessing: true
+      eventsProcessingInterval: 100ms
+    diffServerSide: true
+    grpcTXTServiceConfigEnabled: true
+    k8sClient:
+      burst: 100
+      maxIdleConnections: 500
+      qps: "50"
+      retry:
+        backoff:
+          duration: 100ms
+        max: 3
+      tcp:
+        idleTimeout: 5m0s
+        keepAlive: 30s
+        timeout: 30s
+      tlsHandshakeTimeout: 10s
+    kubectlParallelismLimit: 25
+    logFormat: json
+    logLevel: debug
+    metrics:
+      application:
+        conditions:
+        - OrphanedResourceWarning
+        - ComparisonError
+        labelKeys:
+        - team
+        - env
+      cacheExpiration: 24h0m0s
+      cluster:
+        labelKeys:
+        - environment
+        - region
+    processors:
+      hydration: 8
+      operation: 15
+      status: 30
+    profileEnabled: true
+    repoErrorGracePeriod: 3m0s
+    resourceHealthPersist: true
+    selfHeal:
+      backoff:
+        duration: 2s
+        factor: 3
+        maxDuration: 5m0s
+      timeout: 5s
+    shardingAlgorithm: consistent-hashing
+    sourceHydrator:
+      enabled: true
+    sync:
+      timeout: 10m0s
+      waveDelay: 3s
+  repoServer:
+    client:
+      insecureSkipVerify: false
+      timeout: 1m0s
+      tlsDisabled: false
+  server: {}

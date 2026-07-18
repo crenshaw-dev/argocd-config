@@ -1,0 +1,2 @@
+description: "Invalid seconds duration values emit error diagnostics via secondsDurationPtr"
+direction: from

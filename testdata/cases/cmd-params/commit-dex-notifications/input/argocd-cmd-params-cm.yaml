@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+data:
+  commitserver.listen.address: "0.0.0.0"
+  commitserver.metrics.listen.address: "127.0.0.1"
+  commitserver.log.format: json
+  commitserver.log.level: info
+  commitserver.grpc.enable.txt.service.config: "true"
+  dexserver.log.format: json
+  dexserver.log.level: debug
+  dexserver.disable.tls: "false"
+  dexserver.connector.failure.continue: "true"
+  notificationscontroller.log.level: info
+  notificationscontroller.log.format: json
+  notificationscontroller.processors.count: "2"
+  notificationscontroller.selfservice.enabled: "true"
+  notificationscontroller.repo.server.plaintext: "false"
+  notificationscontroller.repo.server.ca.cert.path: /app/config/reposerver/tls/ca.crt
+  notificationscontroller.repo.server.client.cert.path: /app/config/reposerver/tls/tls.crt
+  notificationscontroller.repo.server.client.cert.key.path: /app/config/reposerver/tls/tls.key

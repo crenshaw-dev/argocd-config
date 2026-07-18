@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  ga.trackingid: UA-123
+  ga.anonymizeusers: "true"
+  exec.enabled: "true"
+  exec.shells: bash,sh
+  statusbadge.enabled: "true"
+  statusbadge.url: https://argocd.example.com

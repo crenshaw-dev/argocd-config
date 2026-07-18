@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  ga.trackingid: UA-12345-1
+  ga.anonymizeusers: "false"
+  exec.enabled: "true"
+  exec.shells: bash,sh,powershell,cmd
+  statusbadge.enabled: "true"
+  statusbadge.url: https://cd-status.apps.argoproj.io/
+  webhook.maxPayloadSizeMB: "50"
+  webhook.refresh.jitter: 60s
+  webhook.refresh.jitter.threshold: "10"
+  sourceHydrator.commitMessageTemplate: |
+    {{.metadata.drySha | trunc 7}}: {{ .metadata.subject }}
+  sourceHydrator.readmeMessageTemplate: |
+    # Manifest Hydration
+    git clone {{ .RepoURL }}
+  commit.author.name: Argo CD
+  commit.author.email: argo-cd@example.com
+  timeout.reconciliation: 120s
+  timeout.reconciliation.jitter: 60s
+  jsonnet.enable: "true"
+  installationID: my-unique-id
+  server.rbac.disableApplicationFineGrainedRBACInheritance: "true"

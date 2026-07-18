@@ -1,0 +1,4 @@
+- direction: cm->cr
+  key: totally.unknown.setting
+  message: unhandled key in argocd-cm; value will be dropped on conversion
+  severity: warn

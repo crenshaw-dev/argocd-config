@@ -1,0 +1,41 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  controller:
+    resource:
+      compareOptions:
+        ignoreAggregatedRoles: true
+        ignoreDifferencesOnResourceUpdates: true
+        ignoreResourceStatusField: all
+      customLabelKeys:
+      - tier
+      - app.kubernetes.io/name
+      eventLabels:
+        excludeKeyGlobs:
+        - environment
+        - bu
+        includeKeyGlobs:
+        - team
+        - env*
+      exclusions:
+      - apiGroups:
+        - repositories.stash.appscode.com
+        clusters:
+        - '*.local'
+        kinds:
+        - Snapshot
+      ignoreResourceUpdatesEnabled: true
+      inclusions:
+      - apiGroups:
+        - apps
+        clusters:
+        - '*'
+        kinds:
+        - Deployment
+      respectRBAC: normal
+      sensitiveMaskAnnotationKeys:
+      - openshift.io/token-secret.value
+      - api-key

@@ -1,0 +1,2 @@
+description: "webhook.maxPayloadSizeMB converts to decimal M Quantity with lossy warn"
+direction: roundtrip

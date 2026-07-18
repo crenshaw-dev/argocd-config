@@ -1,0 +1,11 @@
+apiVersion: v1
+data:
+  otlp.address: collector:4317
+  otlp.attrs: env:prod,service.name:argocd
+  otlp.headers: Authorization=Bearer x,X-Scope=prod
+  otlp.insecure: "true"
+  otlp.sample.ratio: "0.1"
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argocd

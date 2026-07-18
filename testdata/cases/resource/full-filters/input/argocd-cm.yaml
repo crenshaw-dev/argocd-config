@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  resource.exclusions: |
+    - apiGroups:
+        - repositories.stash.appscode.com
+      kinds:
+        - Snapshot
+      clusters:
+        - "*.local"
+  resource.inclusions: |
+    - apiGroups:
+        - apps
+      kinds:
+        - Deployment
+      clusters:
+        - "*"
+  resource.compareoptions: |
+    ignoreAggregatedRoles: true
+    ignoreResourceStatusField: all
+    ignoreDifferencesOnResourceUpdates: true
+  resource.respectRBAC: "normal"
+  resource.ignoreResourceUpdatesEnabled: "true"
+  resource.customLabels: tier,app.kubernetes.io/name
+  resource.sensitive.mask.annotations: openshift.io/token-secret.value,api-key
+  resource.includeEventLabelKeys: team,env*
+  resource.excludeEventLabelKeys: environment,bu

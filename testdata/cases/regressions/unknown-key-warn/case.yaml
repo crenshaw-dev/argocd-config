@@ -1,0 +1,2 @@
+description: "Unhandled ConfigMap keys emit warn diagnostics and are dropped"
+direction: from

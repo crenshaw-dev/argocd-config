@@ -1,0 +1,18 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  server:
+    accounts:
+    - enabled: true
+      name: admin
+    - capabilities:
+      - apiKey
+      - login
+      enabled: true
+      name: alice
+    - capabilities:
+      - login
+      name: bob

@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  controller.repo.server.plaintext: "false"
+  controller.repo.server.timeout.seconds: "60"
+  server.repo.server.plaintext: "false"
+  server.repo.server.timeout.seconds: "60"
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argocd

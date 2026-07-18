@@ -1,0 +1,44 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  controller:
+    resource:
+      customizations:
+      - actions:
+          definitions:
+          - actionLua: |
+              return obj
+            name: restart
+          - actionLua: |
+              obj.spec.paused = true
+              return obj
+            name: pause
+          discoveryLua: |
+            actions = {}
+            actions["restart"] = {}
+            actions["pause"] = {}
+            return actions
+          mergeBuiltinActions: true
+        group: apps
+        healthLua: |
+          hs = {}
+          hs.status = "Healthy"
+          return hs
+        ignoreDifferences:
+          jsonPointers:
+          - /spec/replicas
+        ignoreResourceUpdates:
+          jsonPointers:
+          - /metadata/resourceVersion
+        kind: Deployment
+        knownTypeFields:
+        - field: spec.template.spec
+          type: core/v1/PodSpec
+        useOpenLibs: true
+      - group: cert-manager.io
+        healthLua: |
+          return {status="Healthy"}
+        kind: Certificate

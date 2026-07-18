@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  ui.cssurl: https://example.com/custom.css
+  ui.bannercontent: Welcome
+  ui.bannerurl: https://example.com/banner
+  ui.bannerpermanent: "true"
+  ui.bannerposition: top
+  ui.loginButtonText: Sign in

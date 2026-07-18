@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  resource.customizations.ignoreDifferences.admissionregistration.k8s.io_MutatingWebhookConfiguration: |
+    jqPathExpressions:
+      - '.webhooks[]?.clientConfig.caBundle'
+    jsonPointers:
+      - /webhooks/0/clientConfig/caBundle
+    managedFieldsManagers:
+      - kube-controller-manager
+  resource.customizations.ignoreDifferences.all: |
+    managedFieldsManagers:
+      - kube-controller-manager
+    jsonPointers:
+      - /spec/replicas
+  resource.customizations.ignoreResourceUpdates.all: |
+    jsonPointers:
+      - /metadata/resourceVersion
+  resource.customizations.ignoreResourceUpdates.argoproj.io_Application: |
+    jsonPointers:
+      - /status
+  resource.customizations.knownTypeFields.argoproj.io_Rollout: |
+    - field: spec.template.spec
+      type: core/v1/PodSpec
+  resource.customizations.useOpenLibs.cert-manager.io_Certificate: "true"
+  resource.customizations.health.ConfigMap: |
+    hs = {}
+    hs.status = "Healthy"
+    return hs
+  resource.customizations.actions.apps_Deployment: |
+    discovery.lua: |
+      actions = {}
+      actions["restart"] = {}
+      return actions
+    mergeBuiltinActions: true
+    definitions:
+      - name: restart
+        action.lua: |
+          return obj

@@ -1,0 +1,58 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  controller:
+    resource:
+      customizations:
+      - group: '*'
+        ignoreDifferences:
+          jsonPointers:
+          - /spec/replicas
+          managedFieldsManagers:
+          - kube-controller-manager
+        ignoreResourceUpdates:
+          jsonPointers:
+          - /metadata/resourceVersion
+        kind: '*'
+      - healthLua: |
+          hs = {}
+          hs.status = "Healthy"
+          return hs
+        kind: ConfigMap
+      - group: admissionregistration.k8s.io
+        ignoreDifferences:
+          jqPathExpressions:
+          - .webhooks[]?.clientConfig.caBundle
+          jsonPointers:
+          - /webhooks/0/clientConfig/caBundle
+          managedFieldsManagers:
+          - kube-controller-manager
+        kind: MutatingWebhookConfiguration
+      - actions:
+          definitions:
+          - actionLua: |
+              return obj
+            name: restart
+          discoveryLua: |
+            actions = {}
+            actions["restart"] = {}
+            return actions
+          mergeBuiltinActions: true
+        group: apps
+        kind: Deployment
+      - group: argoproj.io
+        ignoreResourceUpdates:
+          jsonPointers:
+          - /status
+        kind: Application
+      - group: argoproj.io
+        kind: Rollout
+        knownTypeFields:
+        - field: spec.template.spec
+          type: core/v1/PodSpec
+      - group: cert-manager.io
+        kind: Certificate
+        useOpenLibs: true
