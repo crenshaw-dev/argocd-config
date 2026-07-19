@@ -12,7 +12,9 @@ spec:
     clusterCache:
       batchEventsProcessing: true
       eventsProcessingInterval: 100ms
-    diffServerSide: true
+    diff:
+      serverSide:
+        enabled: true
     grpcTXTServiceConfigEnabled: true
     k8sClient:
       burst: 100
@@ -28,8 +30,9 @@ spec:
         timeout: 30s
       tlsHandshakeTimeout: 10s
     kubectlParallelismLimit: 25
-    logFormat: json
-    logLevel: debug
+    log:
+      format: json
+      level: debug
     metrics:
       application:
         conditions:
@@ -56,15 +59,17 @@ spec:
         factor: 3
         maxDuration: 5m0s
       timeout: 5s
-    shardingAlgorithm: consistent-hashing
+    sharding:
+      algorithm: consistent-hashing
     sourceHydrator:
       enabled: true
     sync:
       timeout: 10m0s
-      waveDelay: 3s
+      wave:
+        delay: 3s
   repoServer:
     client:
       insecureSkipVerify: false
       timeout: 1m0s
-      tlsDisabled: false
+      tlsEnabled: true
   server: {}

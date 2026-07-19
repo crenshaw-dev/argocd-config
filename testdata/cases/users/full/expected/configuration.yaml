@@ -5,7 +5,8 @@ metadata:
   namespace: argocd
 spec:
   server:
-    maxPodLogsToRender: 25
+    logs:
+      maxPodsToRender: 25
     users:
       anonymousEnabled: true
       passwordRegex: ^.{8,32}$

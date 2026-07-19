@@ -48,7 +48,8 @@ metadata:
   namespace: argocd
 spec:
   server:
-    url: https://argocd.example.com
+    urls:
+    - https://argocd.example.com
 `
 	if err := os.WriteFile(path, []byte(crYAML), 0o644); err != nil {
 		t.Fatalf("write CR: %v", err)
@@ -394,7 +395,8 @@ metadata:
   namespace: argocd
 spec:
   server:
-    url: https://argocd.example.com
+    urls:
+    - https://argocd.example.com
 `
 	if err := os.WriteFile(crFile, []byte(crYAML), 0o644); err != nil {
 		t.Fatalf("write CR: %v", err)
@@ -477,6 +479,31 @@ data:
 	}
 }
 
+func TestFromConfigMapsFromClusterConflictsWithDir(t *testing.T) {
+	root := NewRootCommand()
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{
+		"from-configmaps",
+		"--from-cluster",
+		"--dir", testdataPath(t, "sample-cms"),
+	})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error when combining --from-cluster and --dir")
+	}
+	if !strings.Contains(err.Error(), "--from-cluster") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestLoadConfigMapsInputRequiresSource(t *testing.T) {
+	_, err := loadConfigMapsInput(t.Context(), false, "", "", "argocd", "", "", "", "")
+	if err == nil {
+		t.Fatal("expected error when no source provided")
+	}
+}
+
 func TestReadConfigurationFromStdin(t *testing.T) {
 	const crYAML = `apiVersion: argo.crenshaw.dev/v1alpha1
 kind: ArgoCDConfiguration
@@ -485,7 +512,8 @@ metadata:
   namespace: argocd
 spec:
   server:
-    url: https://stdin.example.com
+    urls:
+    - https://stdin.example.com
 `
 	oldStdin := os.Stdin
 	r, w, err := os.Pipe()

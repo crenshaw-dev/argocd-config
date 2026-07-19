@@ -26,8 +26,14 @@ func mapServerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSp
 	if listen := mapListen(kt, "server"); listen != nil {
 		s.Listen = listen
 	}
-	setBoolPtr(kt, "server.disable.auth", &s.AuthDisabled)
-	setBoolPtrInverted(kt, "server.enable.gzip", &s.GzipDisabled)
+	setBoolPtrInverted(kt, "server.disable.auth", &s.AuthEnabled)
+	if v, ok := kt.get("server.enable.gzip"); ok {
+		if strings.EqualFold(v, "true") {
+			s.Compression = "gzip"
+		} else {
+			s.Compression = "disabled"
+		}
+	}
 	setBoolPtr(kt, "server.enable.proxy.extension", &s.ProxyExtensionEnabled)
 	setBoolPtr(kt, "server.sync.replace.allowed", &s.SyncReplaceAllowed)
 	if v, ok := kt.get("server.x.frame.options"); ok {
@@ -45,7 +51,7 @@ func mapServerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSp
 		dex.Address = v
 		dexChanged = true
 	}
-	if setBoolPtr(kt, "server.dex.server.plaintext", &dex.TLSDisabled) {
+	if setBoolPtrInverted(kt, "server.dex.server.plaintext", &dex.TLSEnabled) {
 		dexChanged = true
 	}
 	if v, ok := kt.get("server.dex.server.strict.tls"); ok {
@@ -124,8 +130,13 @@ func unmapServerCmdParams(s *argov1alpha1.ServerConfig, data map[string]string) 
 	setStr(data, "server.rootpath", s.RootPath)
 	setStr(data, "server.staticassets", s.StaticAssetsPath)
 	unmapListen(s.Listen, data, "server")
-	setBoolKey(data, "server.disable.auth", s.AuthDisabled)
-	setBoolKeyInverted(data, "server.enable.gzip", s.GzipDisabled)
+	setBoolKeyInverted(data, "server.disable.auth", s.AuthEnabled)
+	switch s.Compression {
+	case "gzip":
+		data["server.enable.gzip"] = "true"
+	case "disabled":
+		data["server.enable.gzip"] = "false"
+	}
 	setBoolKey(data, "server.enable.proxy.extension", s.ProxyExtensionEnabled)
 	setBoolKey(data, "server.sync.replace.allowed", s.SyncReplaceAllowed)
 	setStr(data, "server.x.frame.options", s.XFrameOptions)
@@ -144,7 +155,7 @@ func unmapServerCmdParams(s *argov1alpha1.ServerConfig, data map[string]string) 
 	}
 	if d := s.DexServer; d != nil {
 		setStr(data, "server.dex.server", d.Address)
-		setBoolKey(data, "server.dex.server.plaintext", d.TLSDisabled)
+		setBoolKeyInverted(data, "server.dex.server.plaintext", d.TLSEnabled)
 		if d.InsecureSkipVerify != nil {
 			data["server.dex.server.strict.tls"] = strconv.FormatBool(!*d.InsecureSkipVerify)
 		}
@@ -181,13 +192,13 @@ func mapRepoServerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurati
 	if listen := mapListen(kt, "reposerver"); listen != nil {
 		r.Listen = listen
 	}
-	setBoolPtr(kt, "reposerver.disable.tls", &r.TLSDisabled)
+	setBoolPtrInverted(kt, "reposerver.disable.tls", &r.TLSEnabled)
 	setBoolPtr(kt, "reposerver.allow.oob.symlinks", &r.AllowOOBSymlinks)
 	setBoolPtr(kt, "reposerver.include.hidden.directories", &r.IncludeHiddenDirectories)
 
 	gitChanged := false
 	git := &argov1alpha1.RepoServerGitConfig{}
-	if setBoolPtrInverted(kt, "reposerver.enable.git.submodule", &git.SubmoduleDisabled) {
+	if setBoolPtr(kt, "reposerver.enable.git.submodule", &git.SubmoduleEnabled) {
 		gitChanged = true
 	}
 	if v, ok := kt.get("reposerver.git.request.timeout"); ok {
@@ -201,7 +212,7 @@ func mapRepoServerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurati
 			gitChanged = true
 		}
 	}
-	if setBoolPtrInverted(kt, "reposerver.enable.builtin.git.config", &git.BuiltinConfigDisabled) {
+	if setBoolPtr(kt, "reposerver.enable.builtin.git.config", &git.BuiltinConfigEnabled) {
 		gitChanged = true
 	}
 	if gitChanged {
@@ -266,7 +277,7 @@ func mapRepoServerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurati
 		manifest.MaxExtractedSize, _ = parseQuantityPtr(diag, "reposerver.oci.manifest.max.extracted.size", v)
 		manifestChanged = true
 	}
-	if setBoolPtr(kt, "reposerver.disable.oci.manifest.max.extracted.size", &manifest.MaxExtractedSizeDisabled) {
+	if setBoolPtrInverted(kt, "reposerver.disable.oci.manifest.max.extracted.size", &manifest.MaxExtractedSizeEnabled) {
 		manifestChanged = true
 	}
 	if manifestChanged {
@@ -290,18 +301,18 @@ func unmapRepoServerCmdParams(r *argov1alpha1.RepoServerConfig, data map[string]
 		data["reposerver.parallelism.limit"] = strconv.Itoa(int(*r.ParallelismLimit))
 	}
 	unmapListen(r.Listen, data, "reposerver")
-	setBoolKey(data, "reposerver.disable.tls", r.TLSDisabled)
+	setBoolKeyInverted(data, "reposerver.disable.tls", r.TLSEnabled)
 	setBoolKey(data, "reposerver.allow.oob.symlinks", r.AllowOOBSymlinks)
 	setBoolKey(data, "reposerver.include.hidden.directories", r.IncludeHiddenDirectories)
 	if g := r.Git; g != nil {
-		setBoolKeyInverted(data, "reposerver.enable.git.submodule", g.SubmoduleDisabled)
+		setBoolKey(data, "reposerver.enable.git.submodule", g.SubmoduleEnabled)
 		if s := durationString(g.RequestTimeout); s != "" {
 			data["reposerver.git.request.timeout"] = s
 		}
 		if g.LSRemoteParallelismLimit != nil {
 			data["reposerver.git.lsremote.parallelism.limit"] = strconv.Itoa(int(*g.LSRemoteParallelismLimit))
 		}
-		setBoolKeyInverted(data, "reposerver.enable.builtin.git.config", g.BuiltinConfigDisabled)
+		setBoolKey(data, "reposerver.enable.builtin.git.config", g.BuiltinConfigEnabled)
 	}
 	if c := r.Cache; c != nil {
 		if s := durationString(c.DefaultExpiration); s != "" {
@@ -326,7 +337,7 @@ func unmapRepoServerCmdParams(r *argov1alpha1.RepoServerConfig, data map[string]
 	if o := r.OCI; o != nil {
 		if m := o.Manifest; m != nil {
 			setQuantityKey(data, "reposerver.oci.manifest.max.extracted.size", m.MaxExtractedSize)
-			setBoolKey(data, "reposerver.disable.oci.manifest.max.extracted.size", m.MaxExtractedSizeDisabled)
+			setBoolKeyInverted(data, "reposerver.disable.oci.manifest.max.extracted.size", m.MaxExtractedSizeEnabled)
 		}
 		if len(o.LayerMediaTypes) > 0 {
 			data["reposerver.oci.layer.media.types"] = strings.Join(o.LayerMediaTypes, ",")
@@ -369,7 +380,6 @@ func mapApplicationSetCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigu
 		"applicationsetcontroller.enable.tokenref.strict.mode",
 		"applicationsetcontroller.enable.github.api.metrics",
 		"applicationsetcontroller.dryrun",
-		"applicationsetcontroller.debug",
 		"applicationsetcontroller.enable.leader.election",
 		"applicationsetcontroller.profile.enabled",
 		"applicationsetcontroller.grpc.enable.txt.service.config",
@@ -383,9 +393,12 @@ func mapApplicationSetCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigu
 			case "applicationsetcontroller.enable.policy.override":
 				setBoolPtr(kt, k, &a.PolicyOverrideEnabled)
 			case "applicationsetcontroller.enable.progressive.syncs":
-				setBoolPtr(kt, k, &a.ProgressiveSyncsEnabled)
+				if a.ProgressiveSyncs == nil {
+					a.ProgressiveSyncs = &argov1alpha1.ProgressiveSyncsConfig{}
+				}
+				setBoolPtr(kt, k, &a.ProgressiveSyncs.Enabled)
 			case "applicationsetcontroller.enable.git.submodule":
-				setBoolPtrInverted(kt, k, &a.GitSubmoduleDisabled)
+				setBoolPtr(kt, k, &a.GitSubmoduleEnabled)
 			case "applicationsetcontroller.enable.new.git.file.globbing":
 				setBoolPtr(kt, k, &a.NewGitFileGlobbingEnabled)
 			case "applicationsetcontroller.enable.tokenref.strict.mode":
@@ -394,8 +407,6 @@ func mapApplicationSetCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigu
 				setBoolPtr(kt, k, &a.GitHubAPIMetricsEnabled)
 			case "applicationsetcontroller.dryrun":
 				setBoolPtr(kt, k, &a.DryRun)
-			case "applicationsetcontroller.debug":
-				setBoolPtr(kt, k, &a.Debug)
 			case "applicationsetcontroller.enable.leader.election":
 				setBoolPtr(kt, k, &a.LeaderElectionEnabled)
 			case "applicationsetcontroller.profile.enabled":
@@ -430,10 +441,30 @@ func mapApplicationSetCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigu
 		ensure().SCMRootCAPath = v
 	}
 	if v, ok := kt.get("applicationsetcontroller.log.format"); ok {
-		ensure().LogFormat = v
+		ensureLog(&ensure().Log).Format = v
 	}
 	if v, ok := kt.get("applicationsetcontroller.log.level"); ok {
-		ensure().LogLevel = v
+		ensureLog(&ensure().Log).Level = v
+	}
+	// Legacy applicationsetcontroller.debug forces log level to debug (takes precedence over log.level).
+	if v, ok := kt.get("applicationsetcontroller.debug"); ok {
+		if strings.EqualFold(v, "true") {
+			a := ensure()
+			prev := ""
+			if a.Log != nil {
+				prev = a.Log.Level
+			}
+			ensureLog(&a.Log).Level = "debug"
+			if diag != nil {
+				if prev != "" && prev != "debug" {
+					diag.Warn(DirCMToCR, "applicationsetcontroller.debug",
+						fmt.Sprintf("collapsed to log.level=debug (overrides applicationsetcontroller.log.level=%q)", prev))
+				} else {
+					diag.Info(DirCMToCR, "applicationsetcontroller.debug",
+						"collapsed to log.level=debug (legacy alias)")
+				}
+			}
+		}
 	}
 	if kc := mapK8sClient(kt, diag, "applicationsetcontroller"); kc != nil {
 		ensure().K8sClient = kc
@@ -460,13 +491,14 @@ func unmapApplicationSetCmdParams(a *argov1alpha1.ApplicationSetConfig, data map
 	}
 	setBoolKey(data, "applicationsetcontroller.enable.scm.providers", a.SCMProvidersEnabled)
 	setBoolKey(data, "applicationsetcontroller.enable.policy.override", a.PolicyOverrideEnabled)
-	setBoolKey(data, "applicationsetcontroller.enable.progressive.syncs", a.ProgressiveSyncsEnabled)
-	setBoolKeyInverted(data, "applicationsetcontroller.enable.git.submodule", a.GitSubmoduleDisabled)
+	if ps := a.ProgressiveSyncs; ps != nil {
+		setBoolKey(data, "applicationsetcontroller.enable.progressive.syncs", ps.Enabled)
+	}
+	setBoolKey(data, "applicationsetcontroller.enable.git.submodule", a.GitSubmoduleEnabled)
 	setBoolKey(data, "applicationsetcontroller.enable.new.git.file.globbing", a.NewGitFileGlobbingEnabled)
 	setBoolKey(data, "applicationsetcontroller.enable.tokenref.strict.mode", a.TokenRefStrictModeEnabled)
 	setBoolKey(data, "applicationsetcontroller.enable.github.api.metrics", a.GitHubAPIMetricsEnabled)
 	setBoolKey(data, "applicationsetcontroller.dryrun", a.DryRun)
-	setBoolKey(data, "applicationsetcontroller.debug", a.Debug)
 	setBoolKey(data, "applicationsetcontroller.enable.leader.election", a.LeaderElectionEnabled)
 	if a.ReconciliationsParallelismLimit != nil {
 		data["applicationsetcontroller.concurrent.reconciliations.max"] = strconv.Itoa(int(*a.ReconciliationsParallelismLimit))
@@ -481,8 +513,10 @@ func unmapApplicationSetCmdParams(a *argov1alpha1.ApplicationSetConfig, data map
 		data["applicationsetcontroller.status.max.resources.count"] = strconv.Itoa(int(*a.StatusMaxResourcesCount))
 	}
 	setStr(data, "applicationsetcontroller.scm.root.ca.path", a.SCMRootCAPath)
-	setStr(data, "applicationsetcontroller.log.format", a.LogFormat)
-	setStr(data, "applicationsetcontroller.log.level", a.LogLevel)
+	if l := a.Log; l != nil {
+		setStr(data, "applicationsetcontroller.log.format", l.Format)
+		setStr(data, "applicationsetcontroller.log.level", l.Level)
+	}
 	setBoolKey(data, "applicationsetcontroller.profile.enabled", a.ProfileEnabled)
 	setBoolKey(data, "applicationsetcontroller.grpc.enable.txt.service.config", a.GRPCTXTServiceConfigEnabled)
 	unmapK8sClient(a.K8sClient, data, "applicationsetcontroller")
@@ -550,14 +584,14 @@ func mapDexServerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfiguratio
 	changed := false
 	d := &argov1alpha1.DexServerConfig{}
 	if v, ok := kt.get("dexserver.log.format"); ok {
-		d.LogFormat = v
+		ensureLog(&d.Log).Format = v
 		changed = true
 	}
 	if v, ok := kt.get("dexserver.log.level"); ok {
-		d.LogLevel = v
+		ensureLog(&d.Log).Level = v
 		changed = true
 	}
-	if setBoolPtr(kt, "dexserver.disable.tls", &d.TLSDisabled) {
+	if setBoolPtrInverted(kt, "dexserver.disable.tls", &d.TLSEnabled) {
 		changed = true
 	}
 	if setBoolPtr(kt, "dexserver.connector.failure.continue", &d.ConnectorFailureContinue) {
@@ -572,9 +606,11 @@ func unmapDexServerCmdParams(d *argov1alpha1.DexServerConfig, data map[string]st
 	if d == nil {
 		return
 	}
-	setStr(data, "dexserver.log.format", d.LogFormat)
-	setStr(data, "dexserver.log.level", d.LogLevel)
-	setBoolKey(data, "dexserver.disable.tls", d.TLSDisabled)
+	if l := d.Log; l != nil {
+		setStr(data, "dexserver.log.format", l.Format)
+		setStr(data, "dexserver.log.level", l.Level)
+	}
+	setBoolKeyInverted(data, "dexserver.disable.tls", d.TLSEnabled)
 	setBoolKey(data, "dexserver.connector.failure.continue", d.ConnectorFailureContinue)
 }
 
@@ -582,11 +618,11 @@ func mapNotificationsCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigur
 	changed := false
 	n := &argov1alpha1.NotificationsConfig{}
 	if v, ok := kt.get("notificationscontroller.log.format"); ok {
-		n.LogFormat = v
+		ensureLog(&n.Log).Format = v
 		changed = true
 	}
 	if v, ok := kt.get("notificationscontroller.log.level"); ok {
-		n.LogLevel = v
+		ensureLog(&n.Log).Level = v
 		changed = true
 	}
 	if v, ok := kt.get("notificationscontroller.processors.count"); ok {
@@ -599,7 +635,7 @@ func mapNotificationsCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigur
 	if setBoolPtr(kt, "notificationscontroller.selfservice.enabled", &n.SelfServiceEnabled) {
 		changed = true
 	}
-	if setBoolPtr(kt, "notificationscontroller.repo.server.plaintext", &n.TLSDisabled) {
+	if setBoolPtrInverted(kt, "notificationscontroller.repo.server.plaintext", &n.TLSEnabled) {
 		changed = true
 	}
 	if rs := mapMTLSCerts(kt, "notificationscontroller"); rs != nil {
@@ -615,13 +651,15 @@ func unmapNotificationsCmdParams(n *argov1alpha1.NotificationsConfig, data map[s
 	if n == nil {
 		return
 	}
-	setStr(data, "notificationscontroller.log.format", n.LogFormat)
-	setStr(data, "notificationscontroller.log.level", n.LogLevel)
+	if l := n.Log; l != nil {
+		setStr(data, "notificationscontroller.log.format", l.Format)
+		setStr(data, "notificationscontroller.log.level", l.Level)
+	}
 	if n.ProcessorsCount != nil {
 		data["notificationscontroller.processors.count"] = strconv.Itoa(int(*n.ProcessorsCount))
 	}
 	setBoolKey(data, "notificationscontroller.selfservice.enabled", n.SelfServiceEnabled)
-	setBoolKey(data, "notificationscontroller.repo.server.plaintext", n.TLSDisabled)
+	setBoolKeyInverted(data, "notificationscontroller.repo.server.plaintext", n.TLSEnabled)
 	unmapMTLSCerts(n.RepoServer, data, "notificationscontroller")
 }
 
@@ -841,7 +879,7 @@ func setBoolPtr(kt *keyTracker, key string, dest **bool) bool {
 }
 
 // setBoolPtrInverted maps a legacy key whose true means the opposite of the CRD field
-// (e.g. enable.gzip=true → gzipDisabled=false).
+// (e.g. disable.tls=true → tlsEnabled=false, plaintext=true → tlsEnabled=false).
 func setBoolPtrInverted(kt *keyTracker, key string, dest **bool) bool {
 	v, ok := kt.get(key)
 	if !ok {

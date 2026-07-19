@@ -5,4 +5,5 @@ metadata:
   namespace: argocd
 spec:
   server:
-    url: https://argocd.example.com
+    urls:
+    - https://argocd.example.com

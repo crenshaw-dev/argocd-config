@@ -8,10 +8,9 @@ spec:
     allowedSCMProviderURLs:
     - https://git.example.com/
     - https://gitlab.example.com/
-    debug: false
     dryRun: false
     gitHubAPIMetricsEnabled: true
-    gitSubmoduleDisabled: false
+    gitSubmoduleEnabled: true
     globalPreserved:
       annotationKeys:
       - acme.com/annotation1
@@ -30,8 +29,9 @@ spec:
         timeout: 30s
       tlsHandshakeTimeout: 10s
     leaderElectionEnabled: true
-    logFormat: json
-    logLevel: info
+    log:
+      format: json
+      level: info
     namespaceGlobs:
     - argocd
     - argocd-appsets-*
@@ -39,7 +39,8 @@ spec:
     policy: create-update
     policyOverrideEnabled: true
     profileEnabled: true
-    progressiveSyncsEnabled: true
+    progressiveSyncs:
+      enabled: true
     reconciliationsParallelismLimit: 10
     repoServer:
       caCertPath: /app/config/reposerver/tls/ca.crt

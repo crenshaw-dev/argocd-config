@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +18,7 @@ import (
 	argov1alpha1 "github.com/crenshaw-dev/argocd-config/api/v1alpha1"
 	argov1beta1 "github.com/crenshaw-dev/argocd-config/api/v1beta1"
 	"github.com/crenshaw-dev/argocd-config/pkg/convert"
+	"github.com/crenshaw-dev/argocd-config/pkg/kube"
 	"github.com/crenshaw-dev/argocd-config/pkg/mapping"
 	"github.com/crenshaw-dev/argocd-config/pkg/validate"
 )
@@ -78,25 +80,28 @@ func NewRootCommand() *cobra.Command {
 
 func newFromConfigMapsCommand(g *GlobalOpts) *cobra.Command {
 	var (
-		dir       string
-		cmFile    string
-		cmdFile   string
-		rbacFile  string
-		name      string
-		namespace string
-		outFile   string
-		selfCheck bool
+		dir         string
+		cmFile      string
+		cmdFile     string
+		rbacFile    string
+		fromCluster bool
+		kubeconfig  string
+		kubeContext string
+		name        string
+		namespace   string
+		outFile     string
+		selfCheck   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "from-configmaps",
 		Short: "Convert argocd-cm / argocd-cmd-params-cm / argocd-rbac-cm into an ArgoCDConfiguration",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cms, err := loadConfigMaps(dir, cmFile, cmdFile, rbacFile)
+			cms, err := loadConfigMapsInput(cmd.Context(), fromCluster, kubeconfig, kubeContext, namespace, dir, cmFile, cmdFile, rbacFile)
 			if err != nil {
 				return err
 			}
-			if cms.CM == nil && cms.CmdParams == nil && cms.RBAC == nil {
-				return fmt.Errorf("no ConfigMaps provided (use --dir or --cm/--cmd-params/--rbac)")
+			if g.Verbose && fromCluster {
+				fmt.Fprintf(os.Stderr, "loaded ConfigMaps from cluster namespace %q\n", namespace)
 			}
 
 			cfg, diag, err := mapping.FromConfigMaps(cms, name, namespace)
@@ -125,11 +130,41 @@ func newFromConfigMapsCommand(g *GlobalOpts) *cobra.Command {
 	cmd.Flags().StringVar(&cmFile, "cm", "", "Path to argocd-cm YAML")
 	cmd.Flags().StringVar(&cmdFile, "cmd-params", "", "Path to argocd-cmd-params-cm YAML")
 	cmd.Flags().StringVar(&rbacFile, "rbac", "", "Path to argocd-rbac-cm YAML")
+	cmd.Flags().BoolVar(&fromCluster, "from-cluster", false, "Load standard-named ConfigMaps from the cluster instead of disk")
+	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to kubeconfig (default: KUBECONFIG / ~/.kube/config)")
+	cmd.Flags().StringVar(&kubeContext, "context", "", "Kubeconfig context to use with --from-cluster")
 	cmd.Flags().StringVar(&name, "name", mapping.DefaultConfigurationName, "Name of the ArgoCDConfiguration")
-	cmd.Flags().StringVar(&namespace, "namespace", "argocd", "Namespace of the ArgoCDConfiguration")
+	cmd.Flags().StringVar(&namespace, "namespace", "argocd", "Namespace of the ArgoCDConfiguration (and ConfigMaps when --from-cluster)")
 	cmd.Flags().StringVarP(&outFile, "output", "o", "-", "Output file (- for stdout)")
 	cmd.Flags().BoolVar(&selfCheck, "self-check", false, "Round-trip CM->CR->CM and warn on unexpected key diffs")
 	return cmd
+}
+
+// loadConfigMapsInput loads ConfigMaps from the cluster or from disk.
+// --from-cluster is mutually exclusive with --dir / --cm / --cmd-params / --rbac.
+func loadConfigMapsInput(ctx context.Context, fromCluster bool, kubeconfig, kubeContext, namespace, dir, cmFile, cmdFile, rbacFile string) (mapping.ConfigMaps, error) {
+	hasDisk := dir != "" || cmFile != "" || cmdFile != "" || rbacFile != ""
+	if fromCluster && hasDisk {
+		return mapping.ConfigMaps{}, fmt.Errorf("--from-cluster cannot be combined with --dir, --cm, --cmd-params, or --rbac")
+	}
+	if !fromCluster && !hasDisk {
+		return mapping.ConfigMaps{}, fmt.Errorf("no ConfigMaps provided (use --from-cluster, --dir, or --cm/--cmd-params/--rbac)")
+	}
+	if fromCluster {
+		cs, err := kube.NewClientset(kube.ClientOptions{Kubeconfig: kubeconfig, Context: kubeContext})
+		if err != nil {
+			return mapping.ConfigMaps{}, err
+		}
+		return kube.LoadConfigMaps(ctx, kube.ConfigMapsInNamespace(cs, namespace), namespace)
+	}
+	cms, err := loadConfigMaps(dir, cmFile, cmdFile, rbacFile)
+	if err != nil {
+		return cms, err
+	}
+	if cms.CM == nil && cms.CmdParams == nil && cms.RBAC == nil {
+		return cms, fmt.Errorf("no ConfigMaps found (use --dir or --cm/--cmd-params/--rbac)")
+	}
+	return cms, nil
 }
 
 func newToConfigMapsCommand(g *GlobalOpts) *cobra.Command {

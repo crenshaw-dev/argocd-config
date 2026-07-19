@@ -20,7 +20,7 @@ func hubWithURL(url string) *argov1alpha1.ArgoCDConfiguration {
 		},
 		ObjectMeta: metav1.ObjectMeta{Name: mapping.DefaultConfigurationName, Namespace: "argocd"},
 		Spec: argov1alpha1.ArgoCDConfigurationSpec{
-			Server: &argov1alpha1.ServerConfig{URL: url},
+			Server: &argov1alpha1.ServerConfig{URLs: []string{url}},
 		},
 	}
 }
@@ -32,7 +32,7 @@ func TestConvertSameVersionRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := out.(*argov1alpha1.ArgoCDConfiguration)
-	if cfg.Spec.Server == nil || cfg.Spec.Server.URL != "https://argocd.example.com" {
+	if cfg.Spec.Server == nil || len(cfg.Spec.Server.URLs) != 1 || cfg.Spec.Server.URLs[0] != "https://argocd.example.com" {
 		t.Fatalf("got %#v", cfg.Spec.Server)
 	}
 	if cfg == in {
@@ -72,7 +72,7 @@ func TestConvertSpokeToHub(t *testing.T) {
 		t.Fatal(err)
 	}
 	hub := out.(*argov1alpha1.ArgoCDConfiguration)
-	if hub.Spec.Server == nil || hub.Spec.Server.URL != "https://spoke.example.com" {
+	if hub.Spec.Server == nil || len(hub.Spec.Server.URLs) != 1 || hub.Spec.Server.URLs[0] != "https://spoke.example.com" {
 		t.Fatalf("hub server URL = %#v", hub.Spec.Server)
 	}
 }
@@ -88,7 +88,7 @@ func TestConvertHubSpokeRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	hub := hubObj.(*argov1alpha1.ArgoCDConfiguration)
-	if hub.Spec.Server == nil || hub.Spec.Server.URL != "https://roundtrip.example.com" {
+	if hub.Spec.Server == nil || len(hub.Spec.Server.URLs) != 1 || hub.Spec.Server.URLs[0] != "https://roundtrip.example.com" {
 		t.Fatalf("round-trip URL = %#v", hub.Spec.Server)
 	}
 }
@@ -159,8 +159,8 @@ func FuzzConvertRoundTrip(f *testing.F) {
 			t.Fatalf("expected hub, got %T", hubObj)
 		}
 		got := ""
-		if hub.Spec.Server != nil {
-			got = hub.Spec.Server.URL
+		if hub.Spec.Server != nil && len(hub.Spec.Server.URLs) > 0 {
+			got = hub.Spec.Server.URLs[0]
 		}
 		if got != urlStr {
 			t.Fatalf("hub URL = %q, want %q", got, urlStr)

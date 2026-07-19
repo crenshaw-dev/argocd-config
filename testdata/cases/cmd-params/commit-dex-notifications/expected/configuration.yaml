@@ -9,23 +9,26 @@ spec:
     listen:
       address: 0.0.0.0
       metricsAddress: 127.0.0.1
-    logFormat: json
-    logLevel: info
+    log:
+      format: json
+      level: info
   controller: {}
   dexServer:
     connectorFailureContinue: true
-    logFormat: json
-    logLevel: debug
-    tlsDisabled: false
+    log:
+      format: json
+      level: debug
+    tlsEnabled: true
   notifications:
-    logFormat: json
-    logLevel: info
+    log:
+      format: json
+      level: info
     processorsCount: 2
     repoServer:
       caCertPath: /app/config/reposerver/tls/ca.crt
       clientCertKeyPath: /app/config/reposerver/tls/tls.key
       clientCertPath: /app/config/reposerver/tls/tls.crt
     selfServiceEnabled: true
-    tlsDisabled: false
+    tlsEnabled: true
   repoServer: {}
   server: {}

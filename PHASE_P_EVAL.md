@@ -11,7 +11,7 @@ Prototype: `/Users/mcrenshaw/src/argocd-configuration` (`github.com/crenshaw-dev
 - Hub conversion scaffolding (`v1alpha1` is hub)
 - Round-trip tests covering OIDC `$string` / SecretKeySelector, Dex connector envelope, RBAC raw CSV, resource customizations, cmd-params (incl. `;` separator)
 - **Operator-manual key coverage** for `argocd-cm`, `argocd-cmd-params-cm`, and `argocd-rbac-cm` is complete
-- Contributor conventions documented (migration roles, `*Enabled`/`*Disabled`, `*Keys`/`*KeyGlobs`, Quantity `*Size`, TLS polarity, `listType=map`/`atomic`)
+- Contributor conventions documented (migration roles, `*Enabled`, `*Keys`/`*KeyGlobs`, Quantity `*Size`, TLS polarity, `listType=map`/`atomic`)
 
 ```bash
 make generate manifests build test

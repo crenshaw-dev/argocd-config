@@ -151,6 +151,13 @@ func ensureController(spec *argov1alpha1.ArgoCDConfigurationSpec) *argov1alpha1.
 	return spec.Controller
 }
 
+func ensureControllerDiff(c *argov1alpha1.ControllerConfig) *argov1alpha1.ControllerDiffConfig {
+	if c.Diff == nil {
+		c.Diff = &argov1alpha1.ControllerDiffConfig{}
+	}
+	return c.Diff
+}
+
 func ensureRepoServer(spec *argov1alpha1.ArgoCDConfigurationSpec) *argov1alpha1.RepoServerConfig {
 	if spec.RepoServer == nil {
 		spec.RepoServer = &argov1alpha1.RepoServerConfig{}
@@ -186,6 +193,25 @@ func ensureLogging(spec *argov1alpha1.ArgoCDConfigurationSpec) *argov1alpha1.Log
 	return spec.Logging
 }
 
+func ensureLog(l **argov1alpha1.LogConfig) *argov1alpha1.LogConfig {
+	if *l == nil {
+		*l = &argov1alpha1.LogConfig{}
+	}
+	return *l
+}
+
+func unmapLog(l *argov1alpha1.LogConfig, data map[string]string, prefix string) {
+	if l == nil {
+		return
+	}
+	if l.Format != "" {
+		data[prefix+".log.format"] = l.Format
+	}
+	if l.Level != "" {
+		data[prefix+".log.level"] = l.Level
+	}
+}
+
 func ensureRepoServerClient(spec *argov1alpha1.ArgoCDConfigurationSpec) *argov1alpha1.RepoServerClientConfig {
 	rs := ensureRepoServer(spec)
 	if rs.Client == nil {
@@ -194,15 +220,19 @@ func ensureRepoServerClient(spec *argov1alpha1.ArgoCDConfigurationSpec) *argov1a
 	return rs.Client
 }
 func mapCM(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *Diagnostics) error {
-	if v, ok := kt.get("url"); ok {
-		ensureServer(spec).URL = v
+	var urls []string
+	if v, ok := kt.get("url"); ok && v != "" {
+		urls = append(urls, v)
 	}
 	if v, ok := kt.get("additionalUrls"); ok && v != "" {
-		var urls []string
-		if err := yaml.Unmarshal([]byte(v), &urls); err != nil {
+		var extras []string
+		if err := yaml.Unmarshal([]byte(v), &extras); err != nil {
 			return fmt.Errorf("additionalUrls: %w", err)
 		}
-		ensureServer(spec).AdditionalURLs = urls
+		urls = append(urls, extras...)
+	}
+	if len(urls) > 0 {
+		ensureServer(spec).URLs = urls
 	}
 	if v, ok := kt.get("oidc.tls.insecure.skip.verify"); ok {
 		b := strings.EqualFold(v, "true")
@@ -477,8 +507,7 @@ func mapResource(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, dia
 		if b, ok := m["ignoreDifferencesOnResourceUpdates"].(bool); ok {
 			co.IgnoreDifferencesOnResourceUpdates = b
 		}
-		r.CompareOptions = co
-		changed = true
+		ensureControllerDiff(ensureController(spec)).CompareOptions = co
 	}
 	if v, ok := kt.get("resource.respectRBAC"); ok {
 		r.RespectRBAC = v
@@ -486,8 +515,7 @@ func mapResource(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, dia
 	}
 	if v, ok := kt.get("resource.ignoreResourceUpdatesEnabled"); ok {
 		b := strings.EqualFold(v, "true")
-		r.IgnoreResourceUpdatesEnabled = &b
-		changed = true
+		ensureControllerDiff(ensureController(spec)).IgnoreResourceUpdatesEnabled = &b
 	}
 	customs, err := parseResourceCustomizations(kt, diag)
 	if err != nil {
@@ -761,20 +789,23 @@ func mapApplication(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, 
 	}
 	syncChanged := false
 	sync := &argov1alpha1.ApplicationSyncConfig{}
+	var impersonationEnabled, impersonationEnforced *bool
 	if v, ok := kt.get("application.sync.impersonation.enabled"); ok {
 		b := strings.EqualFold(v, "true")
-		if sync.Impersonation == nil {
-			sync.Impersonation = &argov1alpha1.SyncImpersonationConfig{}
-		}
-		sync.Impersonation.Enabled = &b
-		syncChanged = true
+		impersonationEnabled = &b
 	}
 	if v, ok := kt.get("application.sync.impersonation.enforced"); ok {
 		b := !strings.EqualFold(v, "false")
-		if sync.Impersonation == nil {
-			sync.Impersonation = &argov1alpha1.SyncImpersonationConfig{}
+		impersonationEnforced = &b
+	}
+	if impersonationEnabled != nil {
+		mode := "required"
+		if !*impersonationEnabled {
+			mode = "disabled"
+		} else if impersonationEnforced != nil && !*impersonationEnforced {
+			mode = "optional"
 		}
-		sync.Impersonation.Enforced = &b
+		sync.Impersonation = &argov1alpha1.SyncImpersonationConfig{Mode: mode}
 		syncChanged = true
 	}
 	if v, ok := kt.get("application.sync.requireOverridePrivilegeForRevisionSync"); ok {
@@ -862,7 +893,7 @@ func mapUsers(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *
 	}
 	if v, ok := kt.get("server.maxPodLogsToRender"); ok {
 		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
-			ensureServer(spec).MaxPodLogsToRender = &n
+			ensureServer(spec).Logs = &argov1alpha1.ServerLogsConfig{MaxPodsToRender: &n}
 		}
 	}
 }
@@ -927,7 +958,7 @@ func mapAccounts(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, dia
 			a = &argov1alpha1.AccountConfig{Name: name}
 			accounts[name] = a
 		}
-		a.Capabilities = splitCSV(v)
+		a.Capabilities = uniqueStrings(splitCSV(v))
 	}
 	if v, ok := kt.get("admin.enabled"); ok {
 		a := accounts["admin"]
@@ -1321,12 +1352,12 @@ func mapMisc(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *D
 		ensureRepoServer(spec).Jsonnet = &argov1alpha1.JsonnetConfig{Enabled: &b}
 	}
 	if v, ok := kt.get("server.rbac.disableApplicationFineGrainedRBACInheritance"); ok {
-		b := strings.EqualFold(v, "true")
+		b := !strings.EqualFold(v, "true")
 		srv := ensureServer(spec)
 		if srv.RBAC == nil {
 			srv.RBAC = &argov1alpha1.RBACConfig{}
 		}
-		srv.RBAC.ApplicationFineGrainedInheritanceDisabled = &b
+		srv.RBAC.ApplicationFineGrainedInheritanceEnabled = &b
 	}
 }
 
@@ -1355,26 +1386,26 @@ func mapCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, di
 	mapNotificationsCmdParams(kt, spec, diag)
 
 	if v, ok := kt.get("server.insecure"); ok {
-		b := strings.EqualFold(v, "true")
-		ensureServer(spec).TLSDisabled = &b
+		b := !strings.EqualFold(v, "true")
+		ensureServer(spec).TLSEnabled = &b
 	}
 	if v, ok := kt.get("server.log.format"); ok {
-		ensureServer(spec).LogFormat = v
+		ensureLog(&ensureServer(spec).Log).Format = v
 	}
 	if v, ok := kt.get("server.log.level"); ok {
-		ensureServer(spec).LogLevel = v
+		ensureLog(&ensureServer(spec).Log).Level = v
 	}
 	if v, ok := kt.get("reposerver.log.format"); ok {
-		ensureRepoServer(spec).LogFormat = v
+		ensureLog(&ensureRepoServer(spec).Log).Format = v
 	}
 	if v, ok := kt.get("reposerver.log.level"); ok {
-		ensureRepoServer(spec).LogLevel = v
+		ensureLog(&ensureRepoServer(spec).Log).Level = v
 	}
 	if v, ok := kt.get("commitserver.log.format"); ok {
-		ensureCommitServer(spec).LogFormat = v
+		ensureLog(&ensureCommitServer(spec).Log).Format = v
 	}
 	if v, ok := kt.get("commitserver.log.level"); ok {
-		ensureCommitServer(spec).LogLevel = v
+		ensureLog(&ensureCommitServer(spec).Log).Level = v
 	}
 	if v, ok := kt.get("applicationsetcontroller.namespaces"); ok && v != "" {
 		if spec.ApplicationSet == nil {
@@ -1400,13 +1431,16 @@ func mapCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, di
 func mapControllerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *Diagnostics) {
 	c := ensureController(spec)
 	if v, ok := kt.get("controller.sharding.algorithm"); ok {
-		c.ShardingAlgorithm = v
+		if c.Sharding == nil {
+			c.Sharding = &argov1alpha1.ControllerShardingConfig{}
+		}
+		c.Sharding.Algorithm = v
 	}
 	if v, ok := kt.get("controller.log.format"); ok {
-		c.LogFormat = v
+		ensureLog(&c.Log).Format = v
 	}
 	if v, ok := kt.get("controller.log.level"); ok {
-		c.LogLevel = v
+		ensureLog(&c.Log).Level = v
 	}
 	if v, ok := kt.get("controller.status.processors"); ok {
 		if n, err := strconv.Atoi(v); err == nil {
@@ -1459,7 +1493,7 @@ func mapControllerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurati
 	}
 	if v, ok := kt.get("controller.diff.server.side"); ok {
 		b := strings.EqualFold(v, "true")
-		c.DiffServerSide = &b
+		ensureControllerDiff(c).ServerSide = &argov1alpha1.DiffServerSideConfig{Enabled: &b}
 	}
 
 	metricsChanged := false
@@ -1537,7 +1571,10 @@ func mapControllerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurati
 		if sync == nil {
 			sync = &argov1alpha1.ApplicationSyncConfig{}
 		}
-		sync.WaveDelay, _ = secondsDurationPtr(diag, "controller.sync.wave.delay.seconds", v)
+		if sync.Wave == nil {
+			sync.Wave = &argov1alpha1.SyncWaveConfig{}
+		}
+		sync.Wave.Delay, _ = secondsDurationPtr(diag, "controller.sync.wave.delay.seconds", v)
 		c.Sync = sync
 	}
 
@@ -1555,15 +1592,10 @@ func unmapControllerCmdParams(c *argov1alpha1.ControllerConfig, data map[string]
 	if c == nil {
 		return
 	}
-	if c.ShardingAlgorithm != "" {
-		data["controller.sharding.algorithm"] = c.ShardingAlgorithm
+	if s := c.Sharding; s != nil && s.Algorithm != "" {
+		data["controller.sharding.algorithm"] = s.Algorithm
 	}
-	if c.LogFormat != "" {
-		data["controller.log.format"] = c.LogFormat
-	}
-	if c.LogLevel != "" {
-		data["controller.log.level"] = c.LogLevel
-	}
+	unmapLog(c.Log, data, "controller")
 	if p := c.Processors; p != nil {
 		if p.Status != nil {
 			data["controller.status.processors"] = strconv.Itoa(int(*p.Status))
@@ -1589,8 +1621,10 @@ func unmapControllerCmdParams(c *argov1alpha1.ControllerConfig, data map[string]
 	if c.KubectlParallelismLimit != nil {
 		data["controller.kubectl.parallelism.limit"] = strconv.Itoa(int(*c.KubectlParallelismLimit))
 	}
-	if c.DiffServerSide != nil {
-		data["controller.diff.server.side"] = strconv.FormatBool(*c.DiffServerSide)
+	if d := c.Diff; d != nil {
+		if ss := d.ServerSide; ss != nil && ss.Enabled != nil {
+			data["controller.diff.server.side"] = strconv.FormatBool(*ss.Enabled)
+		}
 	}
 	if m := c.Metrics; m != nil {
 		if s := durationString(m.CacheExpiration); s != "" {
@@ -1628,8 +1662,8 @@ func unmapControllerCmdParams(c *argov1alpha1.ControllerConfig, data map[string]
 		if sync.Timeout != nil {
 			data["controller.sync.timeout.seconds"] = strconv.Itoa(int(sync.Timeout.Duration.Seconds()))
 		}
-		if sync.WaveDelay != nil {
-			data["controller.sync.wave.delay.seconds"] = strconv.Itoa(int(sync.WaveDelay.Duration.Seconds()))
+		if w := sync.Wave; w != nil && w.Delay != nil {
+			data["controller.sync.wave.delay.seconds"] = strconv.Itoa(int(w.Delay.Duration.Seconds()))
 		}
 	}
 	if hy := c.SourceHydrator; hy != nil && hy.Enabled != nil {
@@ -1749,8 +1783,8 @@ func mapRepoServerClient(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationS
 		}
 	}
 	if v, ok := get("plaintext"); ok {
-		b := strings.EqualFold(v, "true")
-		c.TLSDisabled = &b
+		b := !strings.EqualFold(v, "true")
+		c.TLSEnabled = &b
 		changed = true
 	}
 	if v, ok := get("strict.tls"); ok {
@@ -1825,28 +1859,28 @@ func mapRBAC(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *D
 	})
 	if changed {
 		srv := ensureServer(spec)
-		var inheritDisabled *bool
+		var inheritEnabled *bool
 		if srv.RBAC != nil {
-			inheritDisabled = srv.RBAC.ApplicationFineGrainedInheritanceDisabled
+			inheritEnabled = srv.RBAC.ApplicationFineGrainedInheritanceEnabled
 		}
 		srv.RBAC = r
-		if inheritDisabled != nil {
-			srv.RBAC.ApplicationFineGrainedInheritanceDisabled = inheritDisabled
+		if inheritEnabled != nil {
+			srv.RBAC.ApplicationFineGrainedInheritanceEnabled = inheritEnabled
 		}
 	}
 	return nil
 }
 func unmapCM(spec *argov1alpha1.ArgoCDConfigurationSpec, data map[string]string, diag *Diagnostics) error {
 	if s := spec.Server; s != nil {
-		if s.URL != "" {
-			data["url"] = s.URL
-		}
-		if len(s.AdditionalURLs) > 0 {
-			b, err := yaml.Marshal(s.AdditionalURLs)
-			if err != nil {
-				return err
+		if len(s.URLs) > 0 {
+			data["url"] = s.URLs[0]
+			if len(s.URLs) > 1 {
+				b, err := yaml.Marshal(s.URLs[1:])
+				if err != nil {
+					return err
+				}
+				data["additionalUrls"] = string(b)
 			}
-			data["additionalUrls"] = string(b)
 		}
 		if s.OIDCInsecureSkipVerify != nil {
 			data["oidc.tls.insecure.skip.verify"] = strconv.FormatBool(*s.OIDCInsecureSkipVerify)
@@ -1882,6 +1916,9 @@ func unmapCM(spec *argov1alpha1.ArgoCDConfigurationSpec, data map[string]string,
 		unmapServerMisc(s, data)
 	}
 	if c := spec.Controller; c != nil {
+		if err := unmapControllerDiff(c.Diff, data); err != nil {
+			return err
+		}
 		if err := unmapResource(c.Resource, data); err != nil {
 			return err
 		}
@@ -2036,6 +2073,33 @@ func marshalOIDC(o *argov1alpha1.OIDCConfig) (string, error) {
 	return string(b), err
 }
 
+func unmapControllerDiff(d *argov1alpha1.ControllerDiffConfig, data map[string]string) error {
+	if d == nil {
+		return nil
+	}
+	if d.CompareOptions != nil {
+		m := map[string]any{}
+		if d.CompareOptions.IgnoreAggregatedRoles {
+			m["ignoreAggregatedRoles"] = true
+		}
+		if d.CompareOptions.IgnoreResourceStatusField != "" {
+			m["ignoreResourceStatusField"] = d.CompareOptions.IgnoreResourceStatusField
+		}
+		if d.CompareOptions.IgnoreDifferencesOnResourceUpdates {
+			m["ignoreDifferencesOnResourceUpdates"] = true
+		}
+		b, err := yaml.Marshal(m)
+		if err != nil {
+			return err
+		}
+		data["resource.compareoptions"] = string(b)
+	}
+	if d.IgnoreResourceUpdatesEnabled != nil {
+		data["resource.ignoreResourceUpdatesEnabled"] = strconv.FormatBool(*d.IgnoreResourceUpdatesEnabled)
+	}
+	return nil
+}
+
 func unmapResource(r *argov1alpha1.ResourceConfig, data map[string]string) error {
 	if r == nil {
 		return nil
@@ -2054,28 +2118,8 @@ func unmapResource(r *argov1alpha1.ResourceConfig, data map[string]string) error
 		}
 		data["resource.inclusions"] = string(b)
 	}
-	if r.CompareOptions != nil {
-		m := map[string]any{}
-		if r.CompareOptions.IgnoreAggregatedRoles {
-			m["ignoreAggregatedRoles"] = true
-		}
-		if r.CompareOptions.IgnoreResourceStatusField != "" {
-			m["ignoreResourceStatusField"] = r.CompareOptions.IgnoreResourceStatusField
-		}
-		if r.CompareOptions.IgnoreDifferencesOnResourceUpdates {
-			m["ignoreDifferencesOnResourceUpdates"] = true
-		}
-		b, err := yaml.Marshal(m)
-		if err != nil {
-			return err
-		}
-		data["resource.compareoptions"] = string(b)
-	}
 	if r.RespectRBAC != "" {
 		data["resource.respectRBAC"] = r.RespectRBAC
-	}
-	if r.IgnoreResourceUpdatesEnabled != nil {
-		data["resource.ignoreResourceUpdatesEnabled"] = strconv.FormatBool(*r.IgnoreResourceUpdatesEnabled)
 	}
 	for _, c := range r.Customizations {
 		gk := c.Group + "/" + c.Kind
@@ -2154,11 +2198,15 @@ func unmapApplication(c *argov1alpha1.ControllerConfig, data map[string]string) 
 	}
 	if c.Sync != nil {
 		if imp := c.Sync.Impersonation; imp != nil {
-			if imp.Enabled != nil {
-				data["application.sync.impersonation.enabled"] = strconv.FormatBool(*imp.Enabled)
-			}
-			if imp.Enforced != nil {
-				data["application.sync.impersonation.enforced"] = strconv.FormatBool(*imp.Enforced)
+			switch strings.ToLower(imp.Mode) {
+			case "disabled":
+				data["application.sync.impersonation.enabled"] = "false"
+			case "optional":
+				data["application.sync.impersonation.enabled"] = "true"
+				data["application.sync.impersonation.enforced"] = "false"
+			case "required":
+				data["application.sync.impersonation.enabled"] = "true"
+				data["application.sync.impersonation.enforced"] = "true"
 			}
 		}
 		if c.Sync.RequireOverridePrivilegeForRevisionSync != nil {
@@ -2390,8 +2438,8 @@ func unmapJsonnet(j *argov1alpha1.JsonnetConfig, data map[string]string) {
 }
 
 func unmapServerMisc(s *argov1alpha1.ServerConfig, data map[string]string) {
-	if s.MaxPodLogsToRender != nil {
-		data["server.maxPodLogsToRender"] = strconv.FormatInt(*s.MaxPodLogsToRender, 10)
+	if l := s.Logs; l != nil && l.MaxPodsToRender != nil {
+		data["server.maxPodLogsToRender"] = strconv.FormatInt(*l.MaxPodsToRender, 10)
 	}
 	if ga := s.GoogleAnalytics; ga != nil {
 		if ga.TrackingID != "" {
@@ -2427,8 +2475,8 @@ func unmapServerMisc(s *argov1alpha1.ServerConfig, data map[string]string) {
 			}
 		}
 	}
-	if s.RBAC != nil && s.RBAC.ApplicationFineGrainedInheritanceDisabled != nil {
-		data["server.rbac.disableApplicationFineGrainedRBACInheritance"] = strconv.FormatBool(*s.RBAC.ApplicationFineGrainedInheritanceDisabled)
+	if s.RBAC != nil && s.RBAC.ApplicationFineGrainedInheritanceEnabled != nil {
+		data["server.rbac.disableApplicationFineGrainedRBACInheritance"] = strconv.FormatBool(!*s.RBAC.ApplicationFineGrainedInheritanceEnabled)
 	}
 }
 
@@ -2481,23 +2529,13 @@ func unmapCmdParams(spec *argov1alpha1.ArgoCDConfigurationSpec, data map[string]
 		if p := r.Plugin; p != nil && len(p.TarExclusionGlobs) > 0 {
 			data["reposerver.plugin.tar.exclusions"] = strings.Join(p.TarExclusionGlobs, ";")
 		}
-		if r.LogFormat != "" {
-			data["reposerver.log.format"] = r.LogFormat
-		}
-		if r.LogLevel != "" {
-			data["reposerver.log.level"] = r.LogLevel
-		}
+		unmapLog(r.Log, data, "reposerver")
 	}
 	if cs := spec.CommitServer; cs != nil {
 		if cs.Address != "" {
 			data["commit.server"] = cs.Address
 		}
-		if cs.LogFormat != "" {
-			data["commitserver.log.format"] = cs.LogFormat
-		}
-		if cs.LogLevel != "" {
-			data["commitserver.log.level"] = cs.LogLevel
-		}
+		unmapLog(cs.Log, data, "commitserver")
 	}
 	if l := spec.Logging; l != nil && l.FormatTimestamp != "" {
 		data["log.format.timestamp"] = l.FormatTimestamp
@@ -2507,15 +2545,10 @@ func unmapCmdParams(spec *argov1alpha1.ArgoCDConfigurationSpec, data map[string]
 
 	unmapControllerCmdParams(spec.Controller, data)
 	if s := spec.Server; s != nil {
-		if s.TLSDisabled != nil {
-			data["server.insecure"] = strconv.FormatBool(*s.TLSDisabled)
+		if s.TLSEnabled != nil {
+			data["server.insecure"] = strconv.FormatBool(!*s.TLSEnabled)
 		}
-		if s.LogFormat != "" {
-			data["server.log.format"] = s.LogFormat
-		}
-		if s.LogLevel != "" {
-			data["server.log.level"] = s.LogLevel
-		}
+		unmapLog(s.Log, data, "server")
 		unmapServerCmdParams(s, data)
 	}
 	unmapRepoServerCmdParams(spec.RepoServer, data)
@@ -2597,8 +2630,8 @@ func unmapRepoServerClient(c *argov1alpha1.RepoServerClientConfig, data map[stri
 	if c.Timeout != nil {
 		set("timeout.seconds", strconv.Itoa(int(c.Timeout.Duration.Seconds())))
 	}
-	if c.TLSDisabled != nil {
-		set("plaintext", strconv.FormatBool(*c.TLSDisabled))
+	if c.TLSEnabled != nil {
+		set("plaintext", strconv.FormatBool(!*c.TLSEnabled))
 	}
 	if c.InsecureSkipVerify != nil {
 		set("strict.tls", strconv.FormatBool(!*c.InsecureSkipVerify))
@@ -2728,6 +2761,23 @@ func asInt(v any) (int, bool) {
 
 func splitCSV(s string) []string {
 	return splitSep(s, ",")
+}
+
+// uniqueStrings returns the first occurrence of each string, preserving order.
+func uniqueStrings(in []string) []string {
+	if len(in) == 0 {
+		return in
+	}
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
 }
 
 func splitSep(s, sep string) []string {

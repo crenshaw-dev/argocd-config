@@ -5,6 +5,8 @@ data:
   application.allowedNodeLabels: topology.kubernetes.io/zone
   application.instanceLabelKey: example.com/app
   application.resourceTrackingMethod: label
+  application.sync.impersonation.enabled: "true"
+  application.sync.impersonation.enforced: "false"
   application.sync.requireOverridePrivilegeForRevisionSync: "true"
   cluster.inClusterEnabled: "true"
   exec.enabled: "true"

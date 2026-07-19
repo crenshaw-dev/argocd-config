@@ -44,7 +44,7 @@ func TestConvertToConvertFromURLRoundTrip(t *testing.T) {
 	if err := spoke.ConvertTo(hub); err != nil {
 		t.Fatalf("ConvertTo: %v", err)
 	}
-	if hub.Spec.Server == nil || hub.Spec.Server.URL != wantURL {
+	if hub.Spec.Server == nil || len(hub.Spec.Server.URLs) != 1 || hub.Spec.Server.URLs[0] != wantURL {
 		t.Fatalf("hub URL = %#v, want %q", hub.Spec.Server, wantURL)
 	}
 

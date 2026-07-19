@@ -24,6 +24,13 @@ make generate manifests build test
 ./bin/argocd-config to-configmaps -f /tmp/argocdconfiguration.yaml -o /tmp/cms
 ```
 
+Or pull the live ConfigMaps from a cluster:
+
+```bash
+./bin/argocd-config from-configmaps --from-cluster --namespace argocd -o /tmp/argocdconfiguration.yaml
+# optional: --kubeconfig /path/to/kubeconfig --context my-context
+```
+
 ## Install (CRD only)
 
 Apply the generated CRD to a cluster:
@@ -63,7 +70,7 @@ Global flags on conversion commands:
 | `--self-check` | (`from-configmaps`) Round-trip CM→CR→CM and warn on key diffs |
 | `--no-validate` | Skip post-conversion validation |
 
-`from-configmaps` also supports `--dir`, individual `--cm` / `--cmd-params` / `--rbac` paths, and `-o` for output.
+`from-configmaps` also supports `--dir`, individual `--cm` / `--cmd-params` / `--rbac` paths, `-o` for output, and `--from-cluster` (with optional `--kubeconfig` / `--context`) to load the standard-named ConfigMaps from a live cluster instead of disk.
 
 ## Coverage and limitations
 
@@ -80,7 +87,7 @@ Round-trip conversion is **best-effort**. Known lossy cases include:
 - **`$string` / secret interpolation** — preserved where possible in opaque structures; not all legacy values round-trip byte-for-byte.
 - **YAML formatting** — re-emitted ConfigMap values may differ in whitespace or key order.
 - **Split keys** — `controller.repo.server.*` vs `server.repo.server.*` collapse to one CR field (warning emitted when both differ).
-- **v1beta1 spoke** — converts only `spec.server.url` ↔ `spec.url`; all other fields are dropped in spoke form (conversion demo only).
+- **v1beta1 spoke** — converts only `spec.server.urls[0]` ↔ `spec.url`; all other fields are dropped in spoke form (conversion demo only).
 - **Offline validate** — checks singleton name and http(s) URLs; full CRD CEL requires cluster admission or envtest.
 
 See [PHASE_P_EVAL.md](PHASE_P_EVAL.md) for deferred scope (trust stores, secrets, notifications-cm content).
@@ -136,7 +143,7 @@ Default to **organizational subgroup** whenever someone might reasonably set one
 
 | Field | Role | Why |
 | --- | --- | --- |
-| `server.dex` / `server.oidc` / `controller.resource.compareOptions` | Composite override | Single legacy document |
+| `server.dex` / `server.oidc` / `controller.diff.compareOptions` | Composite override | Single legacy document |
 | `server.ui`, `server.rbac`, `server.deepLinks`, `server.help`, `server.users`, `controller.resource`, `controller.sync`, `controller.sourceHydrator`, `repoServer.kustomize`, `repoServer.client`, `controller.metrics` | Organizational subgroup | Too broad / independent keys — migrate per child |
 | `server.googleAnalytics`, `server.exec`, `server.statusBadge`, `server.dexServer` (connection), `server.tls` / `repoServer.tls`, `repoServer.helm`, `repoServer.jsonnet`, `commitServer.commit` (+ author), `controller.selfHeal`, `controller.clusterCache` | Settings group | Small cohesive feature |
 | `server.webhook`, `server.cache`, `server.k8sClient`, `controller.k8sClient`, `repoServer.oci` | Organizational subgroup | Mixed sources / independent keys |
@@ -160,23 +167,18 @@ When you add a new nested struct, pick deliberately — don’t default to setti
 | `*Keys` | List of exact label/annotation (or similar) keys | Prefer singular noun + `Keys` (`annotationKeys`, not `annotations` / `annotationsKeys`). Examples: `customLabelKeys`, `sensitiveMaskAnnotationKeys` |
 | `*KeyGlobs` | List of label/annotation key patterns that may contain wildcards | Same idea as `*Keys`, but each entry is a glob — combine with `*Glob` rules (no qualified-name regex). Examples: `eventLabels.includeKeyGlobs` |
 
-Examples: `additionalURLs`, `applicationNamespaceGlobs`, `passwordRegex`, `conditionExpr`, `urlTemplate`, `commitMessageTemplate`, `healthLua`, `discoveryLua`, `actionLua`, `maxPayloadSize`, `streamedManifest.maxTarSize`, `sensitiveMaskAnnotationKeys`, `eventLabels.includeKeyGlobs`.
+Examples: `urls`, `applicationNamespaceGlobs`, `passwordRegex`, `conditionExpr`, `urlTemplate`, `commitMessageTemplate`, `healthLua`, `discoveryLua`, `actionLua`, `maxPayloadSize`, `streamedManifest.maxTarSize`, `sensitiveMaskAnnotationKeys`, `eventLabels.includeKeyGlobs`.
 
 **Retry / exponential backoff:** use the shared `BackoffConfig` shape (`duration`, `factor`, `maxDuration`) — same names as Application `spec.syncPolicy.retry.backoff`. Do **not** invent parallel names like `timeout`/`cap`/`baseBackoff` for the same concepts. Nest under `backoff` (or `retry.backoff`); put attempt limits on a sibling (`retry.max`, Application `retry.limit`).
 
-**Enable / disable booleans:** do not require these words on every bool. When you do use them, use **past-tense suffixes** `*Enabled` / `*Disabled` (e.g. `gzipDisabled`, `tlsDisabled`, `profileEnabled`) — not verb prefixes (`enableGzip`, `disableTLS`). Bare `enabled` is fine as the sole toggle on a small feature settings object (`helm.enabled`, `exec.enabled`).
+**Enable / disable booleans:** do not require these words on every bool. When you do use them, use the **past-tense suffix** `*Enabled` (e.g. `tlsEnabled`, `profileEnabled`) — not verb prefixes (`enableGzip`, `disableTLS`) and not `*Disabled` double-negatives. Bare `enabled` is fine as the sole toggle on a small feature settings object (`helm.enabled`, `exec.enabled`, `progressiveSyncs.enabled`). Prefer an enum when the toggle may grow into multiple algorithms or modes (e.g. `server.compression: gzip|disabled`).
 
-Choose polarity from the **legacy default** (CRD still has no defaults; unset falls through):
-- Legacy default **on** → `*Disabled` (opt-out), e.g. TLS / auth / gzip / git submodules
-- Legacy default **off** → `*Enabled` (opt-in), e.g. profile, progressive syncs, OTLP TLS (`tlsEnabled`; legacy `otlp.insecure` is inverted)
-
-When the legacy key uses the opposite sense (`enable.*`, `*.insecure`), invert in mapping and note that in the `Migration:` line.
+Always use positive polarity in the CR (`*Enabled`). When the legacy key uses the opposite sense (`disable.*`, `*.insecure`, `*.plaintext`), invert in mapping and note that in the `Migration:` line.
 
 **Parallelism limits:** name concurrency caps `parallelismLimit` (or `subjectParallelismLimit` when the parent has several). Do **not** use `concurrent*Max` for the same idea. Nest under the limited concern when practical (`webhook.parallelismLimit`). Worker-pool sizes that are not a parallelism cap stay separate (e.g. `refreshWorkers`).
 
 **TLS flags:**
-- Prefer `tlsDisabled` when TLS is on by default (API server, repo-server, Dex, client dials).
-- Prefer `tlsEnabled` when TLS is off by default (OTLP collector; legacy `otlp.insecure`).
+- Prefer `tlsEnabled` for whether TLS is used (API server, repo-server, Dex, client dials, OTLP). Invert mapping from legacy `*.insecure` / `*.plaintext` / `disable.tls`.
 - `insecureSkipVerify` — keep TLS, but skip certificate verification. Prefer this over inverted `strictTLS`. Legacy `*.strict.tls=true` maps to `insecureSkipVerify=false`.
 - Scope in the field name when needed (`oidcInsecureSkipVerify`).
 
@@ -193,6 +195,7 @@ Fields stay **optional** (`omitempty`, nilable roots) so unset vs empty stays di
 | Absolute URLs (scalar or list) | CEL `isURL` (+ scheme allowlist) | More robust than a URL regex |
 | URL map values | `AbsoluteHTTPURL` (typed string + Pattern) | Maps don’t get list-style CEL as cleanly |
 | Dynamic collections | `[]T` with `+listType=map` + `+listMapKey=…` | Not `map[string]T` for CRD lists you want to SSA-merge by key |
+| Unique scalar lists (sets) | `[]string` / `[]int` with `+listType=set` | e.g. `accounts[].capabilities` — rejects duplicates like `login` twice |
 
 `$string` / partial secret interpolation stays only where the structure is opaque (Dex connector `config`) or partial insertion is intentional (header `prefix-$secret`). It is OK if some legacy CM values cannot convert.
 
@@ -230,11 +233,11 @@ make generate manifests build test
 - [ ] Migration role + `Migration:` comment match pointer/collection shape
 - [ ] Naming suffix applied if URL / Glob / Regex / Expr / Template / Lua / Size / Keys / KeyGlobs
 - [ ] Retry/backoff uses shared `BackoffConfig` (`duration` / `factor` / `maxDuration`), not ad-hoc `timeout`/`cap`/`baseBackoff`
-- [ ] TLS flags use `tlsDisabled` / `insecureSkipVerify` (not `insecure`/`plaintext`/`strictTLS`)
-- [ ] Enable/disable bools use `*Enabled` / `*Disabled` suffixes; `*Disabled` only when legacy default is on; invert mapping when legacy polarity differs
+- [ ] TLS flags use `tlsEnabled` / `insecureSkipVerify` (not `insecure`/`plaintext`/`strictTLS`/`tlsDisabled`)
+- [ ] Enable/disable bools use `*Enabled` (never `*Disabled`); invert mapping when legacy polarity differs
 - [ ] Concurrency caps use `*ParallelismLimit` (not `concurrent*Max`)
 - [ ] Duration / Quantity (`*Size`) / SecretKeySelector / Pattern / isURL chosen appropriately (path-or-URL exceptions documented)
-- [ ] Struct slices use `+listType=map` (+ `listMapKey`) when SSA-mergeable, else `atomic`
+- [ ] Struct slices use `+listType=map` (+ `listMapKey`) when SSA-mergeable; scalar uniqueness uses `+listType=set`; else `atomic`
 - [ ] Prose docs + legacy key + `Migration:` line called out
 - [ ] Mapping + test updated; `make generate manifests build test` green
 

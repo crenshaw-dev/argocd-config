@@ -17,7 +17,7 @@ type ArgoCDConfiguration struct {
 
 // Spec holds the v1beta1 spoke configuration surface.
 type Spec struct {
-	// URL is mirrored from hub spec.server.url for conversion demo.
+	// URL is mirrored from hub spec.server.urls[0] for conversion demo.
 	// +optional
 	URL string `json:"url,omitempty"`
 }

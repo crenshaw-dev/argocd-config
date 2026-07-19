@@ -34,7 +34,7 @@ spec:
     googleAnalytics:
       trackingID: UA-12345-1
     rbac:
-      applicationFineGrainedInheritanceDisabled: true
+      applicationFineGrainedInheritanceEnabled: false
     statusBadge:
       enabled: true
       url: https://cd-status.apps.argoproj.io/

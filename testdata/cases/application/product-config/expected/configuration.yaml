@@ -14,6 +14,5 @@ spec:
     resourceTrackingMethod: annotation
     sync:
       impersonation:
-        enabled: true
-        enforced: true
+        mode: required
       requireOverridePrivilegeForRevisionSync: true

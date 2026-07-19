@@ -5,11 +5,13 @@ metadata:
   namespace: argocd
 spec:
   controller:
-    resource:
+    diff:
       compareOptions:
         ignoreAggregatedRoles: true
         ignoreDifferencesOnResourceUpdates: true
         ignoreResourceStatusField: all
+      ignoreResourceUpdatesEnabled: true
+    resource:
       customLabelKeys:
       - tier
       - app.kubernetes.io/name
@@ -27,7 +29,6 @@ spec:
         - '*.local'
         kinds:
         - Snapshot
-      ignoreResourceUpdatesEnabled: true
       inclusions:
       - apiGroups:
         - apps

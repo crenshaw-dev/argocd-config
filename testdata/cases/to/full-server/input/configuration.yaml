@@ -5,11 +5,12 @@ metadata:
   namespace: argocd
 spec:
   server:
-    url: https://argocd.example.com
-    additionalURLs:
-      - https://argocd-alt.example.com
+    urls:
+    - https://argocd.example.com
+    - https://argocd-alt.example.com
     oidcInsecureSkipVerify: true
-    maxPodLogsToRender: 15
+    logs:
+      maxPodsToRender: 15
     ui:
       cssURL: ./custom/my-styles.css
       bannerContent: Hello there!
@@ -48,15 +49,15 @@ spec:
       matchMode: glob
       policyCSV: |
         p, role:readonly, applications, get, */*, allow
-      applicationFineGrainedInheritanceDisabled: true
+      applicationFineGrainedInheritanceEnabled: false
   controller:
     instanceLabelKey: example.com/app
     resourceTrackingMethod: label
     allowedNodeLabelKeys:
       - topology.kubernetes.io/zone
     sync:
-      impersonationEnabled: true
-      impersonationEnforced: false
+      impersonation:
+        mode: optional
       requireOverridePrivilegeForRevisionSync: true
   cluster:
     inClusterEnabled: true

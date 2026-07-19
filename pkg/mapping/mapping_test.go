@@ -28,7 +28,7 @@ func TestRoundTripSample(t *testing.T) {
 	}
 
 	// Spot-check hard cases
-	if cfg.Spec.Server == nil || cfg.Spec.Server.URL != "https://argocd.example.com" {
+	if cfg.Spec.Server == nil || len(cfg.Spec.Server.URLs) != 1 || cfg.Spec.Server.URLs[0] != "https://argocd.example.com" {
 		t.Fatalf("url: got %#v", cfg.Spec.Server)
 	}
 	if cfg.Spec.Server.OIDC == nil || cfg.Spec.Server.OIDC.ClientSecretRef == nil ||
@@ -75,8 +75,8 @@ func TestRoundTripSample(t *testing.T) {
 	if cfg.Spec.Controller == nil || cfg.Spec.Controller.Processors == nil || cfg.Spec.Controller.Processors.Status == nil || *cfg.Spec.Controller.Processors.Status != 20 {
 		t.Fatalf("controller status processors: %#v", cfg.Spec.Controller)
 	}
-	if cfg.Spec.Controller.Sync == nil || cfg.Spec.Controller.Sync.WaveDelay == nil || cfg.Spec.Controller.Sync.WaveDelay.Duration.Seconds() != 2 {
-		t.Fatalf("sync wave delay: %#v", cfg.Spec.Controller.Sync)
+	if cfg.Spec.Controller.Sync == nil || cfg.Spec.Controller.Sync.Wave == nil || cfg.Spec.Controller.Sync.Wave.Delay == nil || cfg.Spec.Controller.Sync.Wave.Delay.Duration.Seconds() != 2 {
+		t.Fatalf("sync.wave.delay: %#v", cfg.Spec.Controller.Sync)
 	}
 	if cfg.Spec.Controller.SourceHydrator == nil || cfg.Spec.Controller.SourceHydrator.Enabled == nil || *cfg.Spec.Controller.SourceHydrator.Enabled {
 		t.Fatalf("hydrator.enabled: %#v", cfg.Spec.Controller.SourceHydrator)
@@ -87,8 +87,8 @@ func TestRoundTripSample(t *testing.T) {
 	if cfg.Spec.Server.Users == nil || cfg.Spec.Server.Users.PasswordRegex != "^.{8,32}$" {
 		t.Fatalf("passwordRegex: %#v", cfg.Spec.Server.Users)
 	}
-	if cfg.Spec.Controller.Sync == nil || cfg.Spec.Controller.Sync.Impersonation == nil || cfg.Spec.Controller.Sync.Impersonation.Enabled == nil || !*cfg.Spec.Controller.Sync.Impersonation.Enabled {
-		t.Fatalf("impersonation.enabled: %#v", cfg.Spec.Controller.Sync)
+	if cfg.Spec.Controller.Sync == nil || cfg.Spec.Controller.Sync.Impersonation == nil || cfg.Spec.Controller.Sync.Impersonation.Mode != "required" {
+		t.Fatalf("impersonation.mode: %#v", cfg.Spec.Controller.Sync)
 	}
 	if cfg.Spec.InstallationID != "sample-install" {
 		t.Fatalf("installationID: %#v", cfg.Spec.InstallationID)
@@ -99,10 +99,10 @@ func TestRoundTripSample(t *testing.T) {
 	if cfg.Spec.RepoServer.Jsonnet == nil || cfg.Spec.RepoServer.Jsonnet.Enabled == nil || !*cfg.Spec.RepoServer.Jsonnet.Enabled {
 		t.Fatalf("jsonnet.enable: %#v", cfg.Spec.RepoServer.Jsonnet)
 	}
-	if cfg.Spec.Server.BaseHref != "/argo-cd" || cfg.Spec.Server.GzipDisabled == nil || *cfg.Spec.Server.GzipDisabled {
+	if cfg.Spec.Server.BaseHref != "/argo-cd" || cfg.Spec.Server.Compression != "gzip" {
 		t.Fatalf("server cmd-params: %#v", cfg.Spec.Server)
 	}
-	if cfg.Spec.ApplicationSet == nil || cfg.Spec.ApplicationSet.ProgressiveSyncsEnabled == nil || !*cfg.Spec.ApplicationSet.ProgressiveSyncsEnabled {
+	if cfg.Spec.ApplicationSet == nil || cfg.Spec.ApplicationSet.ProgressiveSyncs == nil || cfg.Spec.ApplicationSet.ProgressiveSyncs.Enabled == nil || !*cfg.Spec.ApplicationSet.ProgressiveSyncs.Enabled {
 		t.Fatalf("appsset progressive syncs: %#v", cfg.Spec.ApplicationSet)
 	}
 	if cfg.Spec.ApplicationSet.K8sClient == nil || cfg.Spec.ApplicationSet.K8sClient.QPS != "50" ||
@@ -115,7 +115,7 @@ func TestRoundTripSample(t *testing.T) {
 		cfg.Spec.ApplicationSet.RepoServer.ClientCertKeyPath != "/etc/argocd/appsset/tls.key" {
 		t.Fatalf("appsset repo-server certs: %#v", cfg.Spec.ApplicationSet.RepoServer)
 	}
-	if cfg.Spec.DexServer == nil || cfg.Spec.DexServer.TLSDisabled == nil || !*cfg.Spec.DexServer.TLSDisabled {
+	if cfg.Spec.DexServer == nil || cfg.Spec.DexServer.TLSEnabled == nil || *cfg.Spec.DexServer.TLSEnabled {
 		t.Fatalf("dexserver: %#v", cfg.Spec.DexServer)
 	}
 	if cfg.Spec.Notifications == nil || cfg.Spec.Notifications.ProcessorsCount == nil || *cfg.Spec.Notifications.ProcessorsCount != 5 {
@@ -141,8 +141,8 @@ func TestRoundTripSample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second FromConfigMaps: %v", err)
 	}
-	if cfg2.Spec.Server.URL != cfg.Spec.Server.URL {
-		t.Fatalf("url drift: %q vs %q", cfg2.Spec.Server.URL, cfg.Spec.Server.URL)
+	if len(cfg2.Spec.Server.URLs) != len(cfg.Spec.Server.URLs) || (len(cfg.Spec.Server.URLs) > 0 && cfg2.Spec.Server.URLs[0] != cfg.Spec.Server.URLs[0]) {
+		t.Fatalf("url drift: %#v vs %#v", cfg2.Spec.Server.URLs, cfg.Spec.Server.URLs)
 	}
 	if cfg2.Spec.Server.OIDC.ClientSecretRef == nil || cfg2.Spec.Server.OIDC.ClientSecretRef.Key != "oidc.clientSecret" {
 		t.Fatalf("secret ref lost on round-trip: %#v", cfg2.Spec.Server.OIDC.ClientSecretRef)

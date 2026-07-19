@@ -62,12 +62,12 @@ type ArgoCDConfigurationList struct {
 //   - *Template — Go text/template (or similar); not validated as a plain URL
 //   - *Lua — string whose value is a Lua script (not a YAML/document wrapper)
 //   - *Size — byte/payload size as resource.Quantity (not unit-suffixed ints)
-//   - tlsDisabled — turn TLS off (server or client); not "insecure"/"plaintext"
+//   - tlsEnabled — whether TLS is used (server or client); not "insecure"/"plaintext"
 //   - insecureSkipVerify — skip cert verification; not inverted "strictTLS"
-//   - *Enabled / *Disabled — past-tense suffixes for feature toggles using those words;
-//     not enable*/disable* prefixes. Bare "enabled" OK on a feature settings object.
-//     Use *Disabled only when the legacy default is on (opt-out); use *Enabled when the
-//     legacy default is off (opt-in). Invert mapping when the legacy key uses the opposite polarity.
+//   - *Enabled — past-tense suffix for feature toggles (e.g. tlsEnabled, profileEnabled);
+//     not enable*/disable* prefixes and not *Disabled double-negatives.
+//     Bare "enabled" OK on a feature settings object. Invert mapping when the legacy key
+//     uses the opposite polarity (disable.*, *.insecure, *.plaintext).
 //   - *ParallelismLimit — concurrency caps (bare parallelismLimit when the parent is the
 //     limited component; otherwise subjectParallelismLimit). Not concurrent*Max.
 //
@@ -136,34 +136,25 @@ type ArgoCDConfigurationSpec struct {
 
 // ServerConfig holds API server, UI, and auth-facing settings.
 type ServerConfig struct {
-	// URL is Argo CD's externally facing base URL (argocd-cm: url).
-	// Required for correct SSO redirect URLs.
-	// Migration: if set, takes precedence over argocd-cm url.
+	// URLs are externally facing base URLs for this Argo CD instance
+	// (argocd-cm: url + additionalUrls). The first entry is the primary URL used for
+	// SSO redirects (argocd-cm: url); any further entries are additional SSO-capable
+	// base URLs (argocd-cm: additionalUrls).
+	// Migration: if present, takes precedence over argocd-cm url and additionalUrls as a pair; replaces both.
 	// +optional
-	// +kubebuilder:validation:XValidation:rule="self == '' || (isURL(self) && url(self).getScheme() in ['http', 'https'])",message="must be an absolute http(s) URL"
-	URL string `json:"url,omitempty"`
-
-	// AdditionalURLs are extra externally facing base URLs that should also work
-	// for SSO redirects (argocd-cm: additionalUrls).
-	// Migration: if present, takes precedence over argocd-cm additionalUrls; replaces the whole collection.
-	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:XValidation:rule="self.all(u, isURL(u) && url(u).getScheme() in ['http', 'https'])",message="each entry must be an absolute http(s) URL"
-	AdditionalURLs []string `json:"additionalURLs,omitempty"`
+	URLs []string `json:"urls,omitempty"`
 
-	// TLSDisabled runs the API server without TLS (cmd-params: server.insecure).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm server.insecure.
+	// TLSEnabled controls whether the API server serves TLS (cmd-params: server.insecure —
+	// inverted: insecure=true means tlsEnabled=false). TLS is on by default.
+	// Migration: if set, takes precedence over argocd-cmd-params-cm server.insecure (inverted).
 	// +optional
-	TLSDisabled *bool `json:"tlsDisabled,omitempty"`
-	// LogFormat is the API server log format (cmd-params: server.log.format).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm server.log.format.
+	TLSEnabled *bool `json:"tlsEnabled,omitempty"`
+	// Log holds API server log format and level (cmd-params: server.log.*).
+	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm server.log.* as a group.
 	// +optional
-	// +kubebuilder:validation:Enum=json;text
-	LogFormat string `json:"logFormat,omitempty"`
-	// LogLevel is the API server log level (cmd-params: server.log.level).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm server.log.level.
-	// +optional
-	// +kubebuilder:validation:Enum=debug;info;warn;error
-	LogLevel string `json:"logLevel,omitempty"`
+	Log *LogConfig `json:"log,omitempty"`
 	// BaseHref is the path Argo CD is hosted under with a reverse proxy that
 	// cannot strip prefixes (cmd-params: server.basehref). Example: "/argo-cd".
 	// Migration: if set, takes precedence over argocd-cmd-params-cm server.basehref.
@@ -185,15 +176,18 @@ type ServerConfig struct {
 	// server.metrics.listen.address as a group (children apply from the CR).
 	// +optional
 	Listen *ListenConfig `json:"listen,omitempty"`
-	// AuthDisabled disables API authentication (cmd-params: server.disable.auth).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm server.disable.auth.
+	// AuthEnabled controls API authentication (cmd-params: server.disable.auth —
+	// inverted: disable.auth=true means authEnabled=false). Auth is on by default.
+	// Migration: if set, takes precedence over argocd-cmd-params-cm server.disable.auth (inverted).
 	// +optional
-	AuthDisabled *bool `json:"authDisabled,omitempty"`
-	// GzipDisabled disables gzip compression for API responses (cmd-params: server.enable.gzip —
-	// inverted: enable.gzip=true means gzipDisabled=false). Gzip is on by default.
-	// Migration: if set, takes precedence over argocd-cmd-params-cm server.enable.gzip (inverted).
+	AuthEnabled *bool `json:"authEnabled,omitempty"`
+	// Compression is the HTTP response compression algorithm
+	// (cmd-params: server.enable.gzip): "disabled" or "gzip". Gzip is on by default in Argo CD.
+	// Migration: if set, takes precedence over argocd-cmd-params-cm server.enable.gzip
+	// (true maps to gzip, false to disabled).
 	// +optional
-	GzipDisabled *bool `json:"gzipDisabled,omitempty"`
+	// +kubebuilder:validation:Enum=disabled;gzip
+	Compression string `json:"compression,omitempty"`
 	// ProxyExtensionEnabled enables UI proxy extensions
 	// (cmd-params: server.enable.proxy.extension).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm server.enable.proxy.extension.
@@ -241,12 +235,10 @@ type ServerConfig struct {
 	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
 	K8sClient *K8sClientConfig `json:"k8sClient,omitempty"`
-	// MaxPodLogsToRender is the maximum number of pod log lines the UI renders
-	// before truncation (argocd-cm: server.maxPodLogsToRender).
-	// Migration: if set, takes precedence over argocd-cm server.maxPodLogsToRender.
+	// Logs holds UI pod-log viewing settings (argocd-cm: server.maxPodLogsToRender).
+	// Migration: if non-nil, takes precedence over argocd-cm server.maxPodLogsToRender as a group.
 	// +optional
-	// +kubebuilder:validation:Minimum=0
-	MaxPodLogsToRender *int64 `json:"maxPodLogsToRender,omitempty"`
+	Logs *ServerLogsConfig `json:"logs,omitempty"`
 	// OIDCInsecureSkipVerify skips TLS certificate verification when talking
 	// to the OIDC provider or Dex (argocd-cm: oidc.tls.insecure.skip.verify).
 	// Migration: if set, takes precedence over argocd-cm oidc.tls.insecure.skip.verify.
@@ -511,12 +503,13 @@ type RBACConfig struct {
 	// +listType=map
 	// +listMapKey=name
 	PolicyOverlays []RBACPolicyOverlay `json:"policyOverlays,omitempty"`
-	// ApplicationFineGrainedInheritanceDisabled disables inheriting project roles
+	// ApplicationFineGrainedInheritanceEnabled controls inheriting project roles
 	// for fine-grained application RBAC
-	// (argocd-cm: server.rbac.disableApplicationFineGrainedRBACInheritance).
-	// Migration: if set, takes precedence over argocd-cm server.rbac.disableApplicationFineGrainedRBACInheritance.
+	// (argocd-cm: server.rbac.disableApplicationFineGrainedRBACInheritance —
+	// inverted: disable...=true means enabled=false). Inheritance is on by default.
+	// Migration: if set, takes precedence over argocd-cm server.rbac.disableApplicationFineGrainedRBACInheritance (inverted).
 	// +optional
-	ApplicationFineGrainedInheritanceDisabled *bool `json:"applicationFineGrainedInheritanceDisabled,omitempty"`
+	ApplicationFineGrainedInheritanceEnabled *bool `json:"applicationFineGrainedInheritanceEnabled,omitempty"`
 }
 
 // RBACPolicyOverlay is a named extra policy.csv fragment.
@@ -547,10 +540,6 @@ type ResourceConfig struct {
 	// +optional
 	// +listType=atomic
 	Inclusions []FilteredResource `json:"inclusions,omitempty"`
-	// CompareOptions controls default diff behavior (argocd-cm: resource.compareoptions).
-	// Migration: if non-nil, takes precedence over argocd-cm resource.compareoptions as a whole, including all child fields.
-	// +optional
-	CompareOptions *CompareOptions `json:"compareOptions,omitempty"`
 	// Customizations are per-GVK health, action, and ignore-difference overrides
 	// (argocd-cm: resource.customizations.*).
 	// Migration: if present, takes precedence over argocd-cm resource.customizations.*; replaces the whole collection.
@@ -565,12 +554,6 @@ type ResourceConfig struct {
 	// +optional
 	// +kubebuilder:validation:Enum=;normal;strict
 	RespectRBAC string `json:"respectRBAC,omitempty"`
-	// IgnoreResourceUpdatesEnabled is the master switch for ignoreResourceUpdates
-	// rules that skip reconciles on watched updates
-	// (argocd-cm: resource.ignoreResourceUpdatesEnabled).
-	// Migration: if set, takes precedence over argocd-cm resource.ignoreResourceUpdatesEnabled.
-	// +optional
-	IgnoreResourceUpdatesEnabled *bool `json:"ignoreResourceUpdatesEnabled,omitempty"`
 	// SensitiveMaskAnnotationKeys are Secret annotation keys masked in the UI/CLI
 	// (argocd-cm: resource.sensitive.mask.annotations).
 	// Migration: if present, takes precedence over argocd-cm resource.sensitive.mask.annotations; replaces the whole collection.
@@ -829,25 +812,32 @@ type ApplicationSyncConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.sync.timeout.seconds.
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
-	// WaveDelay is the pause between sync waves so other controllers can react
+	// Wave holds sync-wave settings (cmd-params: controller.sync.wave.*).
+	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm controller.sync.wave.* as a group.
+	// +optional
+	Wave *SyncWaveConfig `json:"wave,omitempty"`
+}
+
+// SyncWaveConfig holds sync-wave timing and related settings.
+type SyncWaveConfig struct {
+	// Delay is the pause between sync waves so other controllers can react
 	// (cmd-params: controller.sync.wave.delay.seconds).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.sync.wave.delay.seconds.
 	// +optional
-	WaveDelay *metav1.Duration `json:"waveDelay,omitempty"`
+	Delay *metav1.Duration `json:"delay,omitempty"`
 }
 
-// SyncImpersonationConfig holds sync impersonation enablement and enforcement.
+// SyncImpersonationConfig holds sync impersonation policy.
 type SyncImpersonationConfig struct {
-	// Enabled enables syncing via service-account impersonation
-	// (argocd-cm: application.sync.impersonation.enabled).
-	// Migration: if set, takes precedence over argocd-cm application.sync.impersonation.enabled.
+	// Mode controls sync service-account impersonation
+	// (argocd-cm: application.sync.impersonation.enabled / .enforced):
+	// disabled — impersonation off;
+	// optional — use a project destination SA when configured, otherwise fall back to the controller SA;
+	// required — destination SA required or the sync fails.
+	// Migration: if set, takes precedence over argocd-cm application.sync.impersonation.enabled and .enforced as a pair.
 	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
-	// Enforced requires AppProject destination service accounts when impersonation is enabled
-	// (argocd-cm: application.sync.impersonation.enforced).
-	// Migration: if set, takes precedence over argocd-cm application.sync.impersonation.enforced.
-	// +optional
-	Enforced *bool `json:"enforced,omitempty"`
+	// +kubebuilder:validation:Enum=disabled;optional;required
+	Mode string `json:"mode,omitempty"`
 }
 
 // --- Controller ---
@@ -859,26 +849,19 @@ type ControllerConfig struct {
 	// Migration: if non-nil, takes precedence over argocd-cm timeout.reconciliation* as a group.
 	// +optional
 	Reconciliation *ReconciliationConfig `json:"reconciliation,omitempty"`
-	// ShardingAlgorithm selects how clusters are balanced across controller shards
-	// (cmd-params: controller.sharding.algorithm).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.sharding.algorithm.
+	// Sharding holds controller shard balancing settings
+	// (cmd-params: controller.sharding.*).
+	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm controller.sharding.* as a group.
 	// +optional
-	// +kubebuilder:validation:Enum=legacy;round-robin;consistent-hashing
-	ShardingAlgorithm string `json:"shardingAlgorithm,omitempty"`
+	Sharding *ControllerShardingConfig `json:"sharding,omitempty"`
 	// Processors holds parallel worker counts for status, operations, and hydration.
 	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm controller.*.processors as a group.
 	// +optional
 	Processors *ControllerProcessorsConfig `json:"processors,omitempty"`
-	// LogFormat is the controller log format (cmd-params: controller.log.format).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.log.format.
+	// Log holds controller log format and level (cmd-params: controller.log.*).
+	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm controller.log.* as a group.
 	// +optional
-	// +kubebuilder:validation:Enum=json;text
-	LogFormat string `json:"logFormat,omitempty"`
-	// LogLevel is the controller log level (cmd-params: controller.log.level).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.log.level.
-	// +optional
-	// +kubebuilder:validation:Enum=debug;info;warn;error
-	LogLevel string `json:"logLevel,omitempty"`
+	Log *LogConfig `json:"log,omitempty"`
 	// Metrics configures which labels/conditions are exported as Prometheus metrics.
 	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
@@ -902,11 +885,10 @@ type ControllerConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.kubectl.parallelism.limit.
 	// +optional
 	KubectlParallelismLimit *int32 `json:"kubectlParallelismLimit,omitempty"`
-	// DiffServerSide enables server-side diff via server-side apply dry-run when
-	// the diff cache is unavailable (cmd-params: controller.diff.server.side).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.diff.server.side.
+	// Diff holds server-side diff and global ignore-differences settings.
+	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
-	DiffServerSide *bool `json:"diffServerSide,omitempty"`
+	Diff *ControllerDiffConfig `json:"diff,omitempty"`
 	// ProfileEnabled enables pprof profiling endpoints
 	// (cmd-params: controller.profile.enabled).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.profile.enabled.
@@ -972,6 +954,33 @@ type ControllerConfig struct {
 	SourceHydrator *SourceHydratorConfig `json:"sourceHydrator,omitempty"`
 }
 
+// ControllerDiffConfig holds server-side diff and global ignore-differences settings.
+type ControllerDiffConfig struct {
+	// ServerSide holds server-side diff via server-side apply dry-run when the
+	// diff cache is unavailable (cmd-params: controller.diff.server.side).
+	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm controller.diff.server.side as a group.
+	// +optional
+	ServerSide *DiffServerSideConfig `json:"serverSide,omitempty"`
+	// CompareOptions controls default diff behavior (argocd-cm: resource.compareoptions).
+	// Migration: if non-nil, takes precedence over argocd-cm resource.compareoptions as a whole, including all child fields.
+	// +optional
+	CompareOptions *CompareOptions `json:"compareOptions,omitempty"`
+	// IgnoreResourceUpdatesEnabled is the master switch for ignoreResourceUpdates
+	// rules that skip reconciles on watched updates
+	// (argocd-cm: resource.ignoreResourceUpdatesEnabled).
+	// Migration: if set, takes precedence over argocd-cm resource.ignoreResourceUpdatesEnabled.
+	// +optional
+	IgnoreResourceUpdatesEnabled *bool `json:"ignoreResourceUpdatesEnabled,omitempty"`
+}
+
+// DiffServerSideConfig holds server-side diff enablement.
+type DiffServerSideConfig struct {
+	// Enabled enables server-side diff (cmd-params: controller.diff.server.side).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.diff.server.side.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
 // ReconciliationConfig holds controller reconciliation timing.
 type ReconciliationConfig struct {
 	// Timeout is the periodic app reconciliation / git poll interval
@@ -984,6 +993,16 @@ type ReconciliationConfig struct {
 	// Migration: if set, takes precedence over argocd-cm timeout.reconciliation.jitter.
 	// +optional
 	Jitter *metav1.Duration `json:"jitter,omitempty"`
+}
+
+// ControllerShardingConfig holds how clusters are balanced across controller shards.
+type ControllerShardingConfig struct {
+	// Algorithm selects how clusters are balanced across controller shards
+	// (cmd-params: controller.sharding.algorithm).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.sharding.algorithm.
+	// +optional
+	// +kubebuilder:validation:Enum=legacy;round-robin;consistent-hashing
+	Algorithm string `json:"algorithm,omitempty"`
 }
 
 // ControllerProcessorsConfig holds parallel worker counts for the application controller.
@@ -1046,10 +1065,11 @@ type RepoServerConfig struct {
 	// reposerver.metrics.listen.address as a group.
 	// +optional
 	Listen *ListenConfig `json:"listen,omitempty"`
-	// TLSDisabled disables TLS on the repo-server (cmd-params: reposerver.disable.tls).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.disable.tls.
+	// TLSEnabled controls whether the repo-server serves TLS (cmd-params: reposerver.disable.tls —
+	// inverted: disable.tls=true means tlsEnabled=false). TLS is on by default.
+	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.disable.tls (inverted).
 	// +optional
-	TLSDisabled *bool `json:"tlsDisabled,omitempty"`
+	TLSEnabled *bool `json:"tlsEnabled,omitempty"`
 	// Git holds git submodule, timeout, and built-in config settings.
 	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm reposerver.enable.git.submodule /
 	// reposerver.git.* / reposerver.enable.builtin.git.config as a group.
@@ -1111,16 +1131,10 @@ type RepoServerConfig struct {
 	// Migration: if non-nil, takes precedence over argocd-cm jsonnet.* as a group (children apply from the CR; no merge with legacy siblings under that family).
 	// +optional
 	Jsonnet *JsonnetConfig `json:"jsonnet,omitempty"`
-	// LogFormat is the repo-server log format (cmd-params: reposerver.log.format).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.log.format.
+	// Log holds repo-server log format and level (cmd-params: reposerver.log.*).
+	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm reposerver.log.* as a group.
 	// +optional
-	// +kubebuilder:validation:Enum=json;text
-	LogFormat string `json:"logFormat,omitempty"`
-	// LogLevel is the repo-server log level (cmd-params: reposerver.log.level).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.log.level.
-	// +optional
-	// +kubebuilder:validation:Enum=debug;info;warn;error
-	LogLevel string `json:"logLevel,omitempty"`
+	Log *LogConfig `json:"log,omitempty"`
 	// Kustomize holds Kustomize enablement, build options, and version binaries.
 	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
@@ -1133,11 +1147,11 @@ type RepoServerConfig struct {
 
 // RepoServerGitConfig holds repo-server git tool settings.
 type RepoServerGitConfig struct {
-	// SubmoduleDisabled disables git submodule support
-	// (cmd-params: reposerver.enable.git.submodule — inverted; submodules on by default).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.enable.git.submodule (inverted).
+	// SubmoduleEnabled controls git submodule support
+	// (cmd-params: reposerver.enable.git.submodule). Submodules are on by default.
+	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.enable.git.submodule.
 	// +optional
-	SubmoduleDisabled *bool `json:"submoduleDisabled,omitempty"`
+	SubmoduleEnabled *bool `json:"submoduleEnabled,omitempty"`
 	// RequestTimeout is the timeout for git network operations
 	// (cmd-params: reposerver.git.request.timeout).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.git.request.timeout.
@@ -1149,11 +1163,11 @@ type RepoServerGitConfig struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	LSRemoteParallelismLimit *int32 `json:"lsRemoteParallelismLimit,omitempty"`
-	// BuiltinConfigDisabled disables Argo CD's built-in git config
-	// (cmd-params: reposerver.enable.builtin.git.config — inverted; on by default).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.enable.builtin.git.config (inverted).
+	// BuiltinConfigEnabled controls Argo CD's built-in git config
+	// (cmd-params: reposerver.enable.builtin.git.config). On by default.
+	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.enable.builtin.git.config.
 	// +optional
-	BuiltinConfigDisabled *bool `json:"builtinConfigDisabled,omitempty"`
+	BuiltinConfigEnabled *bool `json:"builtinConfigEnabled,omitempty"`
 }
 
 // RepoServerCacheConfig holds repo-server Redis cache TTLs.
@@ -1205,11 +1219,11 @@ type RepoServerClientConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm *.repo.server.timeout.seconds.
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
-	// TLSDisabled disables TLS when connecting to the repo-server
-	// (cmd-params: *.repo.server.plaintext).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm *.repo.server.plaintext.
+	// TLSEnabled controls TLS when connecting to the repo-server
+	// (cmd-params: *.repo.server.plaintext — inverted: plaintext=true means tlsEnabled=false).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm *.repo.server.plaintext (inverted).
 	// +optional
-	TLSDisabled *bool `json:"tlsDisabled,omitempty"`
+	TLSEnabled *bool `json:"tlsEnabled,omitempty"`
 	// InsecureSkipVerify skips verification of the repo-server TLS certificate
 	// (cmd-params: *.repo.server.strict.tls — inverted: strict.tls=true means skip=false).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm *.repo.server.strict.tls (inverted).
@@ -1261,16 +1275,10 @@ type CommitServerConfig struct {
 	// Migration: if non-nil, takes precedence over argocd-cm commit.author.* as a group (children apply from the CR; no merge with legacy siblings under that family).
 	// +optional
 	Commit *CommitConfig `json:"commit,omitempty"`
-	// LogFormat is the commit-server log format (cmd-params: commitserver.log.format).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm commitserver.log.format.
+	// Log holds commit-server log format and level (cmd-params: commitserver.log.*).
+	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm commitserver.log.* as a group.
 	// +optional
-	// +kubebuilder:validation:Enum=json;text
-	LogFormat string `json:"logFormat,omitempty"`
-	// LogLevel is the commit-server log level (cmd-params: commitserver.log.level).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm commitserver.log.level.
-	// +optional
-	// +kubebuilder:validation:Enum=debug;info;warn;error
-	LogLevel string `json:"logLevel,omitempty"`
+	Log *LogConfig `json:"log,omitempty"`
 }
 
 // ApplicationSetConfig holds ApplicationSet controller settings.
@@ -1307,16 +1315,16 @@ type ApplicationSetConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.policy.override.
 	// +optional
 	PolicyOverrideEnabled *bool `json:"policyOverrideEnabled,omitempty"`
-	// ProgressiveSyncsEnabled enables progressive syncs
+	// ProgressiveSyncs holds progressive syncs settings
 	// (cmd-params: applicationsetcontroller.enable.progressive.syncs).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.progressive.syncs.
+	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.progressive.syncs as a group.
 	// +optional
-	ProgressiveSyncsEnabled *bool `json:"progressiveSyncsEnabled,omitempty"`
-	// GitSubmoduleDisabled disables git submodule support
-	// (cmd-params: applicationsetcontroller.enable.git.submodule — inverted; on by default).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.git.submodule (inverted).
+	ProgressiveSyncs *ProgressiveSyncsConfig `json:"progressiveSyncs,omitempty"`
+	// GitSubmoduleEnabled controls git submodule support
+	// (cmd-params: applicationsetcontroller.enable.git.submodule). On by default.
+	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.git.submodule.
 	// +optional
-	GitSubmoduleDisabled *bool `json:"gitSubmoduleDisabled,omitempty"`
+	GitSubmoduleEnabled *bool `json:"gitSubmoduleEnabled,omitempty"`
 	// NewGitFileGlobbingEnabled enables the new git file globbing behavior
 	// (cmd-params: applicationsetcontroller.enable.new.git.file.globbing).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.new.git.file.globbing.
@@ -1337,10 +1345,6 @@ type ApplicationSetConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.dryrun.
 	// +optional
 	DryRun *bool `json:"dryRun,omitempty"`
-	// Debug enables debug mode (cmd-params: applicationsetcontroller.debug).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.debug.
-	// +optional
-	Debug *bool `json:"debug,omitempty"`
 	// LeaderElectionEnabled enables leader election
 	// (cmd-params: applicationsetcontroller.enable.leader.election).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.leader.election.
@@ -1374,18 +1378,11 @@ type ApplicationSetConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.scm.root.ca.path.
 	// +optional
 	SCMRootCAPath string `json:"scmRootCAPath,omitempty"`
-	// LogFormat is the ApplicationSet controller log format
-	// (cmd-params: applicationsetcontroller.log.format).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.log.format.
+	// Log holds ApplicationSet controller log format and level
+	// (cmd-params: applicationsetcontroller.log.*).
+	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm applicationsetcontroller.log.* as a group.
 	// +optional
-	// +kubebuilder:validation:Enum=json;text
-	LogFormat string `json:"logFormat,omitempty"`
-	// LogLevel is the ApplicationSet controller log level
-	// (cmd-params: applicationsetcontroller.log.level).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.log.level.
-	// +optional
-	// +kubebuilder:validation:Enum=debug;info;warn;error
-	LogLevel string `json:"logLevel,omitempty"`
+	Log *LogConfig `json:"log,omitempty"`
 	// ProfileEnabled enables pprof profiling endpoints
 	// (cmd-params: applicationsetcontroller.profile.enabled).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.profile.enabled.
@@ -1406,6 +1403,15 @@ type ApplicationSetConfig struct {
 	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
 	RepoServer *MTLSCertConfig `json:"repoServer,omitempty"`
+}
+
+// ProgressiveSyncsConfig holds ApplicationSet progressive syncs settings.
+type ProgressiveSyncsConfig struct {
+	// Enabled enables progressive syncs
+	// (cmd-params: applicationsetcontroller.enable.progressive.syncs).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.progressive.syncs.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // GlobalPreservedKeysConfig holds keys preserved on ApplicationSet-generated Applications.
@@ -1494,6 +1500,20 @@ type LoggingConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm log.format.timestamp.
 	// +optional
 	FormatTimestamp string `json:"formatTimestamp,omitempty"`
+}
+
+// LogConfig holds per-component log format and level (cmd-params: *.log.format / *.log.level).
+type LogConfig struct {
+	// Format is the log format (cmd-params: *.log.format).
+	// Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.format key.
+	// +optional
+	// +kubebuilder:validation:Enum=json;text
+	Format string `json:"format,omitempty"`
+	// Level is the log level (cmd-params: *.log.level).
+	// Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.level key.
+	// +optional
+	// +kubebuilder:validation:Enum=debug;info;warn;error
+	Level string `json:"level,omitempty"`
 }
 
 // KustomizeConfig holds Kustomize tool settings (argocd-cm: kustomize.*).
@@ -1593,10 +1613,11 @@ type AccountConfig struct {
 	// Migration: if set, takes precedence over argocd-cm accounts.
 	// +optional
 	Enabled bool `json:"enabled,omitempty"`
-	// Capabilities lists what the account may do: "login" and/or "apiKey"
-	// (argocd-cm: accounts.<name>).
+	// Capabilities is the set of actions the account may perform: "login" and/or "apiKey"
+	// (argocd-cm: accounts.<name>). Entries must be unique.
 	// Migration: if present, takes precedence over argocd-cm accounts.<name> capabilities; replaces the whole collection.
 	// +optional
+	// +listType=set
 	// +kubebuilder:validation:items:Enum=login;apiKey
 	Capabilities []string `json:"capabilities,omitempty"`
 }
@@ -1895,6 +1916,16 @@ type ExecConfig struct {
 	Shells []string `json:"shells,omitempty"`
 }
 
+// ServerLogsConfig holds UI pod-log viewing settings.
+type ServerLogsConfig struct {
+	// MaxPodsToRender is the maximum number of pod log lines the UI renders
+	// before truncation (argocd-cm: server.maxPodLogsToRender).
+	// Migration: if set, takes precedence over argocd-cm server.maxPodLogsToRender.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	MaxPodsToRender *int64 `json:"maxPodsToRender,omitempty"`
+}
+
 // StatusBadgeConfig configures application/project status badges.
 type StatusBadgeConfig struct {
 	// Enabled turns on status badge endpoints (argocd-cm: statusbadge.enabled).
@@ -1919,10 +1950,11 @@ type ServerDexConnectionConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm server.dex.server.
 	// +optional
 	Address string `json:"address,omitempty"`
-	// TLSDisabled disables TLS when connecting to Dex (cmd-params: server.dex.server.plaintext).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm server.dex.server.plaintext.
+	// TLSEnabled controls TLS when connecting to Dex (cmd-params: server.dex.server.plaintext —
+	// inverted: plaintext=true means tlsEnabled=false).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm server.dex.server.plaintext (inverted).
 	// +optional
-	TLSDisabled *bool `json:"tlsDisabled,omitempty"`
+	TLSEnabled *bool `json:"tlsEnabled,omitempty"`
 	// InsecureSkipVerify skips verification of the Dex TLS certificate
 	// (cmd-params: server.dex.server.strict.tls — inverted: strict.tls=true means skip=false).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm server.dex.server.strict.tls (inverted).
@@ -2083,11 +2115,12 @@ type OCIManifestConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.oci.manifest.max.extracted.size.
 	// +optional
 	MaxExtractedSize *resource.Quantity `json:"maxExtractedSize,omitempty"`
-	// MaxExtractedSizeDisabled disables the extracted size limit
-	// (cmd-params: reposerver.disable.oci.manifest.max.extracted.size).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.disable.oci.manifest.max.extracted.size.
+	// MaxExtractedSizeEnabled controls the extracted size limit
+	// (cmd-params: reposerver.disable.oci.manifest.max.extracted.size —
+	// inverted: disable...=true means enabled=false). Limit is on by default.
+	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.disable.oci.manifest.max.extracted.size (inverted).
 	// +optional
-	MaxExtractedSizeDisabled *bool `json:"maxExtractedSizeDisabled,omitempty"`
+	MaxExtractedSizeEnabled *bool `json:"maxExtractedSizeEnabled,omitempty"`
 }
 
 // JsonnetConfig holds Jsonnet tool settings (argocd-cm: jsonnet.*).
@@ -2100,20 +2133,15 @@ type JsonnetConfig struct {
 
 // DexServerConfig holds Dex server process runtime settings (cmd-params: dexserver.*).
 type DexServerConfig struct {
-	// LogFormat is the Dex server log format (cmd-params: dexserver.log.format).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm dexserver.log.format.
+	// Log holds Dex server log format and level (cmd-params: dexserver.log.*).
+	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm dexserver.log.* as a group.
 	// +optional
-	// +kubebuilder:validation:Enum=json;text
-	LogFormat string `json:"logFormat,omitempty"`
-	// LogLevel is the Dex server log level (cmd-params: dexserver.log.level).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm dexserver.log.level.
+	Log *LogConfig `json:"log,omitempty"`
+	// TLSEnabled controls whether the Dex server serves TLS (cmd-params: dexserver.disable.tls —
+	// inverted: disable.tls=true means tlsEnabled=false). TLS is on by default.
+	// Migration: if set, takes precedence over argocd-cmd-params-cm dexserver.disable.tls (inverted).
 	// +optional
-	// +kubebuilder:validation:Enum=debug;info;warn;error
-	LogLevel string `json:"logLevel,omitempty"`
-	// TLSDisabled disables TLS on the Dex server (cmd-params: dexserver.disable.tls).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm dexserver.disable.tls.
-	// +optional
-	TLSDisabled *bool `json:"tlsDisabled,omitempty"`
+	TLSEnabled *bool `json:"tlsEnabled,omitempty"`
 	// ConnectorFailureContinue continues serving when a connector fails to initialize
 	// (cmd-params: dexserver.connector.failure.continue).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm dexserver.connector.failure.continue.
@@ -2123,18 +2151,11 @@ type DexServerConfig struct {
 
 // NotificationsConfig holds notifications-controller settings.
 type NotificationsConfig struct {
-	// LogFormat is the notifications-controller log format
-	// (cmd-params: notificationscontroller.log.format).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm notificationscontroller.log.format.
+	// Log holds notifications-controller log format and level
+	// (cmd-params: notificationscontroller.log.*).
+	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm notificationscontroller.log.* as a group.
 	// +optional
-	// +kubebuilder:validation:Enum=json;text
-	LogFormat string `json:"logFormat,omitempty"`
-	// LogLevel is the notifications-controller log level
-	// (cmd-params: notificationscontroller.log.level).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm notificationscontroller.log.level.
-	// +optional
-	// +kubebuilder:validation:Enum=debug;info;warn;error
-	LogLevel string `json:"logLevel,omitempty"`
+	Log *LogConfig `json:"log,omitempty"`
 	// ProcessorsCount is the number of notification processors
 	// (cmd-params: notificationscontroller.processors.count).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm notificationscontroller.processors.count.
@@ -2146,11 +2167,12 @@ type NotificationsConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm notificationscontroller.selfservice.enabled.
 	// +optional
 	SelfServiceEnabled *bool `json:"selfServiceEnabled,omitempty"`
-	// TLSDisabled disables TLS when connecting to the repo-server
-	// (cmd-params: notificationscontroller.repo.server.plaintext).
-	// Migration: if set, takes precedence over argocd-cmd-params-cm notificationscontroller.repo.server.plaintext.
+	// TLSEnabled controls TLS when connecting to the repo-server
+	// (cmd-params: notificationscontroller.repo.server.plaintext —
+	// inverted: plaintext=true means tlsEnabled=false).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm notificationscontroller.repo.server.plaintext (inverted).
 	// +optional
-	TLSDisabled *bool `json:"tlsDisabled,omitempty"`
+	TLSEnabled *bool `json:"tlsEnabled,omitempty"`
 	// RepoServer holds mTLS cert paths when connecting to the repo-server
 	// (cmd-params: notificationscontroller.repo.server.*).
 	// Migration: organizational subgroup; no legacy key — see child fields.

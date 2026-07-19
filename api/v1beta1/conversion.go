@@ -19,7 +19,7 @@ func (src *ArgoCDConfiguration) ConvertTo(dstRaw conversion.Hub) error {
 	dst.ObjectMeta = *src.ObjectMeta.DeepCopy()
 	dst.Spec = argov1alpha1.ArgoCDConfigurationSpec{}
 	if src.Spec.URL != "" {
-		dst.Spec.Server = &argov1alpha1.ServerConfig{URL: src.Spec.URL}
+		dst.Spec.Server = &argov1alpha1.ServerConfig{URLs: []string{src.Spec.URL}}
 	}
 	return nil
 }
@@ -32,8 +32,8 @@ func (dst *ArgoCDConfiguration) ConvertFrom(srcRaw conversion.Hub) error {
 	}
 	dst.ObjectMeta = *src.ObjectMeta.DeepCopy()
 	dst.Spec = Spec{}
-	if src.Spec.Server != nil {
-		dst.Spec.URL = src.Spec.Server.URL
+	if src.Spec.Server != nil && len(src.Spec.Server.URLs) > 0 {
+		dst.Spec.URL = src.Spec.Server.URLs[0]
 	}
 	return nil
 }

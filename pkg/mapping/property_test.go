@@ -38,8 +38,13 @@ func assertSemanticEqual(t *testing.T, a, b *argov1alpha1.ArgoCDConfiguration) {
 	if a.Spec.Server == nil || b.Spec.Server == nil {
 		t.Fatal("server missing")
 	}
-	if a.Spec.Server.URL != b.Spec.Server.URL {
-		t.Fatalf("url: %q vs %q", a.Spec.Server.URL, b.Spec.Server.URL)
+	if len(a.Spec.Server.URLs) != len(b.Spec.Server.URLs) {
+		t.Fatalf("urls len: %d vs %d", len(a.Spec.Server.URLs), len(b.Spec.Server.URLs))
+	}
+	for i := range a.Spec.Server.URLs {
+		if a.Spec.Server.URLs[i] != b.Spec.Server.URLs[i] {
+			t.Fatalf("urls[%d]: %q vs %q", i, a.Spec.Server.URLs[i], b.Spec.Server.URLs[i])
+		}
 	}
 	if a.Spec.Server.OIDC == nil || b.Spec.Server.OIDC == nil ||
 		a.Spec.Server.OIDC.ClientSecretRef == nil || b.Spec.Server.OIDC.ClientSecretRef == nil ||

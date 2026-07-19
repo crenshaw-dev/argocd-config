@@ -3,6 +3,7 @@ package validate_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,34 @@ func moduleRoot(t *testing.T) string {
 	}
 }
 
+func TestValidateAccountCapabilitiesUnique(t *testing.T) {
+	cfg := &argov1alpha1.ArgoCDConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: mapping.DefaultConfigurationName},
+		Spec: argov1alpha1.ArgoCDConfigurationSpec{
+			Server: &argov1alpha1.ServerConfig{
+				Accounts: []argov1alpha1.AccountConfig{{
+					Name:         "alice",
+					Capabilities: []string{"login", "apiKey", "login"},
+				}},
+			},
+		},
+	}
+	diag := validate.Validate(cfg)
+	if !diag.HasErrors() {
+		t.Fatal("expected duplicate capability error")
+	}
+	found := false
+	for _, d := range diag.Items() {
+		if strings.Contains(d.Key, "capabilities") && strings.Contains(d.Message, "duplicate") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected capabilities duplicate diagnostic, got %#v", diag.Items())
+	}
+}
+
 func TestValidateName(t *testing.T) {
 	cfg := &argov1alpha1.ArgoCDConfiguration{
 		ObjectMeta: metav1.ObjectMeta{Name: "wrong-name"},
@@ -44,7 +73,7 @@ func TestValidateURL(t *testing.T) {
 	cfg := &argov1alpha1.ArgoCDConfiguration{
 		ObjectMeta: metav1.ObjectMeta{Name: mapping.DefaultConfigurationName},
 		Spec: argov1alpha1.ArgoCDConfigurationSpec{
-			Server: &argov1alpha1.ServerConfig{URL: "ftp://bad.example.com"},
+			Server: &argov1alpha1.ServerConfig{URLs: []string{"ftp://bad.example.com"}},
 		},
 	}
 	diag := validate.Validate(cfg)
@@ -57,7 +86,7 @@ func TestValidateGoodURL(t *testing.T) {
 	cfg := &argov1alpha1.ArgoCDConfiguration{
 		ObjectMeta: metav1.ObjectMeta{Name: mapping.DefaultConfigurationName},
 		Spec: argov1alpha1.ArgoCDConfigurationSpec{
-			Server: &argov1alpha1.ServerConfig{URL: "https://argocd.example.com"},
+			Server: &argov1alpha1.ServerConfig{URLs: []string{"https://argocd.example.com"}},
 		},
 	}
 	diag := validate.Validate(cfg)
@@ -98,19 +127,18 @@ func TestValidateUnexpectedAPIVersionWarns(t *testing.T) {
 	}
 }
 
-func TestValidateAdditionalURLs(t *testing.T) {
+func TestValidateURLs(t *testing.T) {
 	cfg := &argov1alpha1.ArgoCDConfiguration{
 		ObjectMeta: metav1.ObjectMeta{Name: mapping.DefaultConfigurationName},
 		Spec: argov1alpha1.ArgoCDConfigurationSpec{
 			Server: &argov1alpha1.ServerConfig{
-				URL:            "https://argocd.example.com",
-				AdditionalURLs: []string{"ftp://bad.example.com", "https://extra.example.com"},
+				URLs: []string{"https://argocd.example.com", "ftp://bad.example.com", "https://extra.example.com"},
 			},
 		},
 	}
 	diag := validate.Validate(cfg)
 	if !diag.HasErrors() {
-		t.Fatal("expected additionalURLs scheme error")
+		t.Fatal("expected urls scheme error")
 	}
 }
 
@@ -118,7 +146,7 @@ func TestValidateURLMissingHost(t *testing.T) {
 	cfg := &argov1alpha1.ArgoCDConfiguration{
 		ObjectMeta: metav1.ObjectMeta{Name: mapping.DefaultConfigurationName},
 		Spec: argov1alpha1.ArgoCDConfigurationSpec{
-			Server: &argov1alpha1.ServerConfig{URL: "https://"},
+			Server: &argov1alpha1.ServerConfig{URLs: []string{"https://"}},
 		},
 	}
 	diag := validate.Validate(cfg)

@@ -43,13 +43,26 @@ func Validate(cfg *argov1alpha1.ArgoCDConfiguration) *mapping.Diagnostics {
 	}
 
 	if s := cfg.Spec.Server; s != nil {
-		validateHTTPURL(diag, "spec.server.url", s.URL)
-		for i, u := range s.AdditionalURLs {
-			validateHTTPURL(diag, fmt.Sprintf("spec.server.additionalURLs[%d]", i), string(u))
+		for i, u := range s.URLs {
+			validateHTTPURL(diag, fmt.Sprintf("spec.server.urls[%d]", i), u)
+		}
+		for i, a := range s.Accounts {
+			validateUniqueStrings(diag, fmt.Sprintf("spec.server.accounts[%d].capabilities", i), a.Capabilities)
 		}
 	}
 
 	return diag
+}
+
+func validateUniqueStrings(diag *mapping.Diagnostics, path string, values []string) {
+	seen := make(map[string]struct{}, len(values))
+	for _, v := range values {
+		if _, ok := seen[v]; ok {
+			diag.Error("", path, fmt.Sprintf("duplicate value %q (must be a set)", v))
+			continue
+		}
+		seen[v] = struct{}{}
+	}
 }
 
 // ValidateAgainstCRD verifies the CRD manifest is present and readable.

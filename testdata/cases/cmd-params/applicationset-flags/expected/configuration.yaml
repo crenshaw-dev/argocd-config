@@ -10,7 +10,8 @@ spec:
     - sandbox
     policy: sync
     policyOverrideEnabled: true
-    progressiveSyncsEnabled: true
+    progressiveSyncs:
+      enabled: true
     reconciliationsParallelismLimit: 10
     requeueAfter: 3m0s
     scmProvidersEnabled: true

@@ -75,7 +75,7 @@ func TestCompareOptionsOffToNoneEmitsWarn(t *testing.T) {
 	if !hasDiagnostic(diag.Items(), mapping.SeverityWarn, "resource.compareoptions", "normalized") {
 		t.Fatalf("expected normalization warning, got %#v", diag.Items())
 	}
-	co := cfg.Spec.Controller.Resource.CompareOptions
+	co := cfg.Spec.Controller.Diff.CompareOptions
 	if co == nil || co.IgnoreResourceStatusField != "none" {
 		t.Fatalf("expected ignoreResourceStatusField=none, got %#v", co)
 	}

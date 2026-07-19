@@ -12,7 +12,8 @@ spec:
       burst: 100
       qps: "50"
     policy: sync
-    progressiveSyncsEnabled: true
+    progressiveSyncs:
+      enabled: true
     repoServer:
       caCertPath: /etc/argocd/appsset/ca.crt
       clientCertKeyPath: /etc/argocd/appsset/tls.key
@@ -21,6 +22,10 @@ spec:
     inClusterEnabled: true
   commitServer: {}
   controller:
+    diff:
+      compareOptions:
+        ignoreDifferencesOnResourceUpdates: true
+        ignoreResourceStatusField: all
     processors:
       operation: 10
       status: 20
@@ -29,9 +34,6 @@ spec:
       jitter: 1m0s
       timeout: 3m0s
     resource:
-      compareOptions:
-        ignoreDifferencesOnResourceUpdates: true
-        ignoreResourceStatusField: all
       customizations:
       - actions:
           definitions:
@@ -58,15 +60,17 @@ spec:
     resourceTrackingMethod: annotation
     selfHeal:
       timeout: 5s
-    shardingAlgorithm: legacy
+    sharding:
+      algorithm: legacy
     sourceHydrator:
       enabled: false
     sync:
       impersonation:
-        enabled: true
-      waveDelay: 2s
+        mode: required
+      wave:
+        delay: 2s
   dexServer:
-    tlsDisabled: true
+    tlsEnabled: false
   installationID: sample-install
   notifications:
     processorsCount: 5
@@ -87,8 +91,9 @@ spec:
       - '*.git'
       - '*.tmp'
   server:
-    authDisabled: false
+    authEnabled: true
     baseHref: /argo-cd
+    compression: gzip
     dex:
       connectors:
       - config:
@@ -99,7 +104,6 @@ spec:
         id: github
         name: GitHub
         type: github
-    gzipDisabled: false
     oidc:
       clientID: argocd
       clientSecretRef:
@@ -113,7 +117,7 @@ spec:
       - email
       - groups
     rbac:
-      applicationFineGrainedInheritanceDisabled: false
+      applicationFineGrainedInheritanceEnabled: true
       default: role:readonly
       matchMode: glob
       policyCSV: |
@@ -127,11 +131,12 @@ spec:
       scopes:
       - groups
     rootPath: /argo-cd
-    tlsDisabled: false
+    tlsEnabled: true
     ui:
       banner:
         content: Welcome
-    url: https://argocd.example.com
+    urls:
+    - https://argocd.example.com
     users:
       anonymousEnabled: false
       passwordRegex: ^.{8,32}$

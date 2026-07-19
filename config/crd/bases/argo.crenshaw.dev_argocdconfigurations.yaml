@@ -76,11 +76,6 @@ spec:
                     - message: each entry must be an absolute http(s) URL
                       rule: self.all(u, isURL(u) && url(u).getScheme() in ['http',
                         'https'])
-                  debug:
-                    description: |-
-                      Debug enables debug mode (cmd-params: applicationsetcontroller.debug).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.debug.
-                    type: boolean
                   dryRun:
                     description: |-
                       DryRun runs ApplicationSet reconciliation without writing Applications
@@ -93,11 +88,11 @@ spec:
                       (cmd-params: applicationsetcontroller.enable.github.api.metrics).
                       Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.github.api.metrics.
                     type: boolean
-                  gitSubmoduleDisabled:
+                  gitSubmoduleEnabled:
                     description: |-
-                      GitSubmoduleDisabled disables git submodule support
-                      (cmd-params: applicationsetcontroller.enable.git.submodule — inverted; on by default).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.git.submodule (inverted).
+                      GitSubmoduleEnabled controls git submodule support
+                      (cmd-params: applicationsetcontroller.enable.git.submodule). On by default.
+                      Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.git.submodule.
                     type: boolean
                   globalPreserved:
                     description: |-
@@ -228,26 +223,31 @@ spec:
                       (cmd-params: applicationsetcontroller.enable.leader.election).
                       Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.leader.election.
                     type: boolean
-                  logFormat:
+                  log:
                     description: |-
-                      LogFormat is the ApplicationSet controller log format
-                      (cmd-params: applicationsetcontroller.log.format).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.log.format.
-                    enum:
-                    - json
-                    - text
-                    type: string
-                  logLevel:
-                    description: |-
-                      LogLevel is the ApplicationSet controller log level
-                      (cmd-params: applicationsetcontroller.log.level).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.log.level.
-                    enum:
-                    - debug
-                    - info
-                    - warn
-                    - error
-                    type: string
+                      Log holds ApplicationSet controller log format and level
+                      (cmd-params: applicationsetcontroller.log.*).
+                      Migration: if non-nil, takes precedence over argocd-cmd-params-cm applicationsetcontroller.log.* as a group.
+                    properties:
+                      format:
+                        description: |-
+                          Format is the log format (cmd-params: *.log.format).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.format key.
+                        enum:
+                        - json
+                        - text
+                        type: string
+                      level:
+                        description: |-
+                          Level is the log level (cmd-params: *.log.level).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.level key.
+                        enum:
+                        - debug
+                        - info
+                        - warn
+                        - error
+                        type: string
+                    type: object
                   namespaceGlobs:
                     description: |-
                       NamespaceGlobs are additional namespaces where ApplicationSets may live
@@ -286,12 +286,19 @@ spec:
                       (cmd-params: applicationsetcontroller.profile.enabled).
                       Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.profile.enabled.
                     type: boolean
-                  progressiveSyncsEnabled:
+                  progressiveSyncs:
                     description: |-
-                      ProgressiveSyncsEnabled enables progressive syncs
+                      ProgressiveSyncs holds progressive syncs settings
                       (cmd-params: applicationsetcontroller.enable.progressive.syncs).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.progressive.syncs.
-                    type: boolean
+                      Migration: if non-nil, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.progressive.syncs as a group.
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled enables progressive syncs
+                          (cmd-params: applicationsetcontroller.enable.progressive.syncs).
+                          Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.progressive.syncs.
+                        type: boolean
+                    type: object
                   reconciliationsParallelismLimit:
                     description: |-
                       ReconciliationsParallelismLimit caps concurrent ApplicationSet reconciles
@@ -435,24 +442,30 @@ spec:
                           Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.metrics.listen.address key.
                         type: string
                     type: object
-                  logFormat:
+                  log:
                     description: |-
-                      LogFormat is the commit-server log format (cmd-params: commitserver.log.format).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm commitserver.log.format.
-                    enum:
-                    - json
-                    - text
-                    type: string
-                  logLevel:
-                    description: |-
-                      LogLevel is the commit-server log level (cmd-params: commitserver.log.level).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm commitserver.log.level.
-                    enum:
-                    - debug
-                    - info
-                    - warn
-                    - error
-                    type: string
+                      Log holds commit-server log format and level (cmd-params: commitserver.log.*).
+                      Migration: if non-nil, takes precedence over argocd-cmd-params-cm commitserver.log.* as a group.
+                    properties:
+                      format:
+                        description: |-
+                          Format is the log format (cmd-params: *.log.format).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.format key.
+                        enum:
+                        - json
+                        - text
+                        type: string
+                      level:
+                        description: |-
+                          Level is the log level (cmd-params: *.log.level).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.level key.
+                        enum:
+                        - debug
+                        - info
+                        - warn
+                        - error
+                        type: string
+                    type: object
                 type: object
               controller:
                 description: |-
@@ -507,12 +520,55 @@ spec:
                           Migration: if set, takes precedence over argocd-cmd-params-cm controller.cluster.cache.events.processing.interval.
                         type: string
                     type: object
-                  diffServerSide:
+                  diff:
                     description: |-
-                      DiffServerSide enables server-side diff via server-side apply dry-run when
-                      the diff cache is unavailable (cmd-params: controller.diff.server.side).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm controller.diff.server.side.
-                    type: boolean
+                      Diff holds server-side diff and global ignore-differences settings.
+                      Migration: organizational subgroup; no legacy key — see child fields.
+                    properties:
+                      compareOptions:
+                        description: |-
+                          CompareOptions controls default diff behavior (argocd-cm: resource.compareoptions).
+                          Migration: if non-nil, takes precedence over argocd-cm resource.compareoptions as a whole, including all child fields.
+                        properties:
+                          ignoreAggregatedRoles:
+                            description: IgnoreAggregatedRoles ignores differences
+                              in aggregated ClusterRoles.
+                            type: boolean
+                          ignoreDifferencesOnResourceUpdates:
+                            description: |-
+                              IgnoreDifferencesOnResourceUpdates applies ignoreDifferences rules when
+                              deciding whether a watched resource update should trigger reconcile.
+                            type: boolean
+                          ignoreResourceStatusField:
+                            description: |-
+                              IgnoreResourceStatusField controls ignoring .status during diff:
+                              "crd" (default), "all", or "none".
+                            enum:
+                            - all
+                            - crd
+                            - none
+                            type: string
+                        type: object
+                      ignoreResourceUpdatesEnabled:
+                        description: |-
+                          IgnoreResourceUpdatesEnabled is the master switch for ignoreResourceUpdates
+                          rules that skip reconciles on watched updates
+                          (argocd-cm: resource.ignoreResourceUpdatesEnabled).
+                          Migration: if set, takes precedence over argocd-cm resource.ignoreResourceUpdatesEnabled.
+                        type: boolean
+                      serverSide:
+                        description: |-
+                          ServerSide holds server-side diff via server-side apply dry-run when the
+                          diff cache is unavailable (cmd-params: controller.diff.server.side).
+                          Migration: if non-nil, takes precedence over argocd-cmd-params-cm controller.diff.server.side as a group.
+                        properties:
+                          enabled:
+                            description: |-
+                              Enabled enables server-side diff (cmd-params: controller.diff.server.side).
+                              Migration: if set, takes precedence over argocd-cmd-params-cm controller.diff.server.side.
+                            type: boolean
+                        type: object
+                    type: object
                   globalProjects:
                     description: |-
                       GlobalProjects defines global AppProjects applied to matching projects by
@@ -692,24 +748,30 @@ spec:
                       Migration: if set, takes precedence over argocd-cmd-params-cm controller.kubectl.parallelism.limit.
                     format: int32
                     type: integer
-                  logFormat:
+                  log:
                     description: |-
-                      LogFormat is the controller log format (cmd-params: controller.log.format).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm controller.log.format.
-                    enum:
-                    - json
-                    - text
-                    type: string
-                  logLevel:
-                    description: |-
-                      LogLevel is the controller log level (cmd-params: controller.log.level).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm controller.log.level.
-                    enum:
-                    - debug
-                    - info
-                    - warn
-                    - error
-                    type: string
+                      Log holds controller log format and level (cmd-params: controller.log.*).
+                      Migration: if non-nil, takes precedence over argocd-cmd-params-cm controller.log.* as a group.
+                    properties:
+                      format:
+                        description: |-
+                          Format is the log format (cmd-params: *.log.format).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.format key.
+                        enum:
+                        - json
+                        - text
+                        type: string
+                      level:
+                        description: |-
+                          Level is the log level (cmd-params: *.log.level).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.level key.
+                        enum:
+                        - debug
+                        - info
+                        - warn
+                        - error
+                        type: string
+                    type: object
                   metrics:
                     description: |-
                       Metrics configures which labels/conditions are exported as Prometheus metrics.
@@ -827,30 +889,6 @@ spec:
                       Resource holds watch filters and per-GVK customizations.
                       Migration: organizational subgroup; no legacy key — see child fields.
                     properties:
-                      compareOptions:
-                        description: |-
-                          CompareOptions controls default diff behavior (argocd-cm: resource.compareoptions).
-                          Migration: if non-nil, takes precedence over argocd-cm resource.compareoptions as a whole, including all child fields.
-                        properties:
-                          ignoreAggregatedRoles:
-                            description: IgnoreAggregatedRoles ignores differences
-                              in aggregated ClusterRoles.
-                            type: boolean
-                          ignoreDifferencesOnResourceUpdates:
-                            description: |-
-                              IgnoreDifferencesOnResourceUpdates applies ignoreDifferences rules when
-                              deciding whether a watched resource update should trigger reconcile.
-                            type: boolean
-                          ignoreResourceStatusField:
-                            description: |-
-                              IgnoreResourceStatusField controls ignoring .status during diff:
-                              "crd" (default), "all", or "none".
-                            enum:
-                            - all
-                            - crd
-                            - none
-                            type: string
-                        type: object
                       customLabelKeys:
                         description: |-
                           CustomLabelKeys are resource label keys shown in the resource node info panel
@@ -1060,13 +1098,6 @@ spec:
                           type: object
                         type: array
                         x-kubernetes-list-type: atomic
-                      ignoreResourceUpdatesEnabled:
-                        description: |-
-                          IgnoreResourceUpdatesEnabled is the master switch for ignoreResourceUpdates
-                          rules that skip reconciles on watched updates
-                          (argocd-cm: resource.ignoreResourceUpdatesEnabled).
-                          Migration: if set, takes precedence over argocd-cm resource.ignoreResourceUpdatesEnabled.
-                        type: boolean
                       inclusions:
                         description: |-
                           Inclusions, when set, limits the watch cache to only these group/kind/cluster
@@ -1171,16 +1202,23 @@ spec:
                           Migration: if set, takes precedence over argocd-cmd-params-cm controller.self.heal.timeout.seconds.
                         type: string
                     type: object
-                  shardingAlgorithm:
+                  sharding:
                     description: |-
-                      ShardingAlgorithm selects how clusters are balanced across controller shards
-                      (cmd-params: controller.sharding.algorithm).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm controller.sharding.algorithm.
-                    enum:
-                    - legacy
-                    - round-robin
-                    - consistent-hashing
-                    type: string
+                      Sharding holds controller shard balancing settings
+                      (cmd-params: controller.sharding.*).
+                      Migration: if non-nil, takes precedence over argocd-cmd-params-cm controller.sharding.* as a group.
+                    properties:
+                      algorithm:
+                        description: |-
+                          Algorithm selects how clusters are balanced across controller shards
+                          (cmd-params: controller.sharding.algorithm).
+                          Migration: if set, takes precedence over argocd-cmd-params-cm controller.sharding.algorithm.
+                        enum:
+                        - legacy
+                        - round-robin
+                        - consistent-hashing
+                        type: string
+                    type: object
                   sourceHydrator:
                     description: |-
                       SourceHydrator configures the beta manifest source hydrator.
@@ -1214,18 +1252,19 @@ spec:
                           Impersonation holds service-account impersonation policy during sync.
                           Migration: if non-nil, takes precedence over argocd-cm application.sync.impersonation.* as a group.
                         properties:
-                          enabled:
+                          mode:
                             description: |-
-                              Enabled enables syncing via service-account impersonation
-                              (argocd-cm: application.sync.impersonation.enabled).
-                              Migration: if set, takes precedence over argocd-cm application.sync.impersonation.enabled.
-                            type: boolean
-                          enforced:
-                            description: |-
-                              Enforced requires AppProject destination service accounts when impersonation is enabled
-                              (argocd-cm: application.sync.impersonation.enforced).
-                              Migration: if set, takes precedence over argocd-cm application.sync.impersonation.enforced.
-                            type: boolean
+                              Mode controls sync service-account impersonation
+                              (argocd-cm: application.sync.impersonation.enabled / .enforced):
+                              disabled — impersonation off;
+                              optional — use a project destination SA when configured, otherwise fall back to the controller SA;
+                              required — destination SA required or the sync fails.
+                              Migration: if set, takes precedence over argocd-cm application.sync.impersonation.enabled and .enforced as a pair.
+                            enum:
+                            - disabled
+                            - optional
+                            - required
+                            type: string
                         type: object
                       requireOverridePrivilegeForRevisionSync:
                         description: |-
@@ -1240,12 +1279,18 @@ spec:
                           (cmd-params: controller.sync.timeout.seconds). Zero means no timeout.
                           Migration: if set, takes precedence over argocd-cmd-params-cm controller.sync.timeout.seconds.
                         type: string
-                      waveDelay:
+                      wave:
                         description: |-
-                          WaveDelay is the pause between sync waves so other controllers can react
-                          (cmd-params: controller.sync.wave.delay.seconds).
-                          Migration: if set, takes precedence over argocd-cmd-params-cm controller.sync.wave.delay.seconds.
-                        type: string
+                          Wave holds sync-wave settings (cmd-params: controller.sync.wave.*).
+                          Migration: if non-nil, takes precedence over argocd-cmd-params-cm controller.sync.wave.* as a group.
+                        properties:
+                          delay:
+                            description: |-
+                              Delay is the pause between sync waves so other controllers can react
+                              (cmd-params: controller.sync.wave.delay.seconds).
+                              Migration: if set, takes precedence over argocd-cmd-params-cm controller.sync.wave.delay.seconds.
+                            type: string
+                        type: object
                     type: object
                 type: object
               dexServer:
@@ -1259,28 +1304,35 @@ spec:
                       (cmd-params: dexserver.connector.failure.continue).
                       Migration: if set, takes precedence over argocd-cmd-params-cm dexserver.connector.failure.continue.
                     type: boolean
-                  logFormat:
+                  log:
                     description: |-
-                      LogFormat is the Dex server log format (cmd-params: dexserver.log.format).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm dexserver.log.format.
-                    enum:
-                    - json
-                    - text
-                    type: string
-                  logLevel:
+                      Log holds Dex server log format and level (cmd-params: dexserver.log.*).
+                      Migration: if non-nil, takes precedence over argocd-cmd-params-cm dexserver.log.* as a group.
+                    properties:
+                      format:
+                        description: |-
+                          Format is the log format (cmd-params: *.log.format).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.format key.
+                        enum:
+                        - json
+                        - text
+                        type: string
+                      level:
+                        description: |-
+                          Level is the log level (cmd-params: *.log.level).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.level key.
+                        enum:
+                        - debug
+                        - info
+                        - warn
+                        - error
+                        type: string
+                    type: object
+                  tlsEnabled:
                     description: |-
-                      LogLevel is the Dex server log level (cmd-params: dexserver.log.level).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm dexserver.log.level.
-                    enum:
-                    - debug
-                    - info
-                    - warn
-                    - error
-                    type: string
-                  tlsDisabled:
-                    description: |-
-                      TLSDisabled disables TLS on the Dex server (cmd-params: dexserver.disable.tls).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm dexserver.disable.tls.
+                      TLSEnabled controls whether the Dex server serves TLS (cmd-params: dexserver.disable.tls —
+                      inverted: disable.tls=true means tlsEnabled=false). TLS is on by default.
+                      Migration: if set, takes precedence over argocd-cmd-params-cm dexserver.disable.tls (inverted).
                     type: boolean
                 type: object
               installationID:
@@ -1308,26 +1360,31 @@ spec:
                   (cmd-params: notificationscontroller.*).
                   Migration: component group; no legacy key — see child fields.
                 properties:
-                  logFormat:
+                  log:
                     description: |-
-                      LogFormat is the notifications-controller log format
-                      (cmd-params: notificationscontroller.log.format).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm notificationscontroller.log.format.
-                    enum:
-                    - json
-                    - text
-                    type: string
-                  logLevel:
-                    description: |-
-                      LogLevel is the notifications-controller log level
-                      (cmd-params: notificationscontroller.log.level).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm notificationscontroller.log.level.
-                    enum:
-                    - debug
-                    - info
-                    - warn
-                    - error
-                    type: string
+                      Log holds notifications-controller log format and level
+                      (cmd-params: notificationscontroller.log.*).
+                      Migration: if non-nil, takes precedence over argocd-cmd-params-cm notificationscontroller.log.* as a group.
+                    properties:
+                      format:
+                        description: |-
+                          Format is the log format (cmd-params: *.log.format).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.format key.
+                        enum:
+                        - json
+                        - text
+                        type: string
+                      level:
+                        description: |-
+                          Level is the log level (cmd-params: *.log.level).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.level key.
+                        enum:
+                        - debug
+                        - info
+                        - warn
+                        - error
+                        type: string
+                    type: object
                   processorsCount:
                     description: |-
                       ProcessorsCount is the number of notification processors
@@ -1367,11 +1424,12 @@ spec:
                       (cmd-params: notificationscontroller.selfservice.enabled).
                       Migration: if set, takes precedence over argocd-cmd-params-cm notificationscontroller.selfservice.enabled.
                     type: boolean
-                  tlsDisabled:
+                  tlsEnabled:
                     description: |-
-                      TLSDisabled disables TLS when connecting to the repo-server
-                      (cmd-params: notificationscontroller.repo.server.plaintext).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm notificationscontroller.repo.server.plaintext.
+                      TLSEnabled controls TLS when connecting to the repo-server
+                      (cmd-params: notificationscontroller.repo.server.plaintext —
+                      inverted: plaintext=true means tlsEnabled=false).
+                      Migration: if set, takes precedence over argocd-cmd-params-cm notificationscontroller.repo.server.plaintext (inverted).
                     type: boolean
                 type: object
               otlp:
@@ -1534,11 +1592,11 @@ spec:
                           (cmd-params: *.repo.server.timeout.seconds).
                           Migration: if set, takes precedence over argocd-cmd-params-cm *.repo.server.timeout.seconds.
                         type: string
-                      tlsDisabled:
+                      tlsEnabled:
                         description: |-
-                          TLSDisabled disables TLS when connecting to the repo-server
-                          (cmd-params: *.repo.server.plaintext).
-                          Migration: if set, takes precedence over argocd-cmd-params-cm *.repo.server.plaintext.
+                          TLSEnabled controls TLS when connecting to the repo-server
+                          (cmd-params: *.repo.server.plaintext — inverted: plaintext=true means tlsEnabled=false).
+                          Migration: if set, takes precedence over argocd-cmd-params-cm *.repo.server.plaintext (inverted).
                         type: boolean
                     type: object
                   clientCAPath:
@@ -1553,11 +1611,11 @@ spec:
                       Migration: if non-nil, takes precedence over argocd-cmd-params-cm reposerver.enable.git.submodule /
                       reposerver.git.* / reposerver.enable.builtin.git.config as a group.
                     properties:
-                      builtinConfigDisabled:
+                      builtinConfigEnabled:
                         description: |-
-                          BuiltinConfigDisabled disables Argo CD's built-in git config
-                          (cmd-params: reposerver.enable.builtin.git.config — inverted; on by default).
-                          Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.enable.builtin.git.config (inverted).
+                          BuiltinConfigEnabled controls Argo CD's built-in git config
+                          (cmd-params: reposerver.enable.builtin.git.config). On by default.
+                          Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.enable.builtin.git.config.
                         type: boolean
                       lsRemoteParallelismLimit:
                         description: |-
@@ -1573,11 +1631,11 @@ spec:
                           (cmd-params: reposerver.git.request.timeout).
                           Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.git.request.timeout.
                         type: string
-                      submoduleDisabled:
+                      submoduleEnabled:
                         description: |-
-                          SubmoduleDisabled disables git submodule support
-                          (cmd-params: reposerver.enable.git.submodule — inverted; submodules on by default).
-                          Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.enable.git.submodule (inverted).
+                          SubmoduleEnabled controls git submodule support
+                          (cmd-params: reposerver.enable.git.submodule). Submodules are on by default.
+                          Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.enable.git.submodule.
                         type: boolean
                     type: object
                   grpcTXTServiceConfigEnabled:
@@ -1684,24 +1742,30 @@ spec:
                           Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.metrics.listen.address key.
                         type: string
                     type: object
-                  logFormat:
+                  log:
                     description: |-
-                      LogFormat is the repo-server log format (cmd-params: reposerver.log.format).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.log.format.
-                    enum:
-                    - json
-                    - text
-                    type: string
-                  logLevel:
-                    description: |-
-                      LogLevel is the repo-server log level (cmd-params: reposerver.log.level).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.log.level.
-                    enum:
-                    - debug
-                    - info
-                    - warn
-                    - error
-                    type: string
+                      Log holds repo-server log format and level (cmd-params: reposerver.log.*).
+                      Migration: if non-nil, takes precedence over argocd-cmd-params-cm reposerver.log.* as a group.
+                    properties:
+                      format:
+                        description: |-
+                          Format is the log format (cmd-params: *.log.format).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.format key.
+                        enum:
+                        - json
+                        - text
+                        type: string
+                      level:
+                        description: |-
+                          Level is the log level (cmd-params: *.log.level).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.level key.
+                        enum:
+                        - debug
+                        - info
+                        - warn
+                        - error
+                        type: string
+                    type: object
                   maxCombinedDirectoryManifestsSize:
                     anyOf:
                     - type: integer
@@ -1740,11 +1804,12 @@ spec:
                               Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.oci.manifest.max.extracted.size.
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
-                          maxExtractedSizeDisabled:
+                          maxExtractedSizeEnabled:
                             description: |-
-                              MaxExtractedSizeDisabled disables the extracted size limit
-                              (cmd-params: reposerver.disable.oci.manifest.max.extracted.size).
-                              Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.disable.oci.manifest.max.extracted.size.
+                              MaxExtractedSizeEnabled controls the extracted size limit
+                              (cmd-params: reposerver.disable.oci.manifest.max.extracted.size —
+                              inverted: disable...=true means enabled=false). Limit is on by default.
+                              Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.disable.oci.manifest.max.extracted.size (inverted).
                             type: boolean
                         type: object
                     type: object
@@ -1828,10 +1893,11 @@ spec:
                           (e.g. "1.2").
                         type: string
                     type: object
-                  tlsDisabled:
+                  tlsEnabled:
                     description: |-
-                      TLSDisabled disables TLS on the repo-server (cmd-params: reposerver.disable.tls).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.disable.tls.
+                      TLSEnabled controls whether the repo-server serves TLS (cmd-params: reposerver.disable.tls —
+                      inverted: disable.tls=true means tlsEnabled=false). TLS is on by default.
+                      Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.disable.tls (inverted).
                     type: boolean
                 type: object
               server:
@@ -1849,8 +1915,8 @@ spec:
                       properties:
                         capabilities:
                           description: |-
-                            Capabilities lists what the account may do: "login" and/or "apiKey"
-                            (argocd-cm: accounts.<name>).
+                            Capabilities is the set of actions the account may perform: "login" and/or "apiKey"
+                            (argocd-cm: accounts.<name>). Entries must be unique.
                             Migration: if present, takes precedence over argocd-cm accounts.<name> capabilities; replaces the whole collection.
                           items:
                             enum:
@@ -1858,6 +1924,7 @@ spec:
                             - apiKey
                             type: string
                           type: array
+                          x-kubernetes-list-type: set
                         enabled:
                           description: |-
                             Enabled enables or disables the account (argocd-cm: accounts.<name>.enabled
@@ -1876,18 +1943,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                  additionalURLs:
-                    description: |-
-                      AdditionalURLs are extra externally facing base URLs that should also work
-                      for SSO redirects (argocd-cm: additionalUrls).
-                      Migration: if present, takes precedence over argocd-cm additionalUrls; replaces the whole collection.
-                    items:
-                      type: string
-                    type: array
-                    x-kubernetes-validations:
-                    - message: each entry must be an absolute http(s) URL
-                      rule: self.all(u, isURL(u) && url(u).getScheme() in ['http',
-                        'https'])
                   apiContentTypes:
                     description: |-
                       APIContentTypes is the Content-Type allowlist for API requests
@@ -1896,10 +1951,11 @@ spec:
                     items:
                       type: string
                     type: array
-                  authDisabled:
+                  authEnabled:
                     description: |-
-                      AuthDisabled disables API authentication (cmd-params: server.disable.auth).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm server.disable.auth.
+                      AuthEnabled controls API authentication (cmd-params: server.disable.auth —
+                      inverted: disable.auth=true means authEnabled=false). Auth is on by default.
+                      Migration: if set, takes precedence over argocd-cmd-params-cm server.disable.auth (inverted).
                     type: boolean
                   baseHref:
                     description: |-
@@ -1941,6 +1997,16 @@ spec:
                           Migration: if set, takes precedence over argocd-cmd-params-cm server.oidc.cache.expiration.
                         type: string
                     type: object
+                  compression:
+                    description: |-
+                      Compression is the HTTP response compression algorithm
+                      (cmd-params: server.enable.gzip): "disabled" or "gzip". Gzip is on by default in Argo CD.
+                      Migration: if set, takes precedence over argocd-cmd-params-cm server.enable.gzip
+                      (true maps to gzip, false to disabled).
+                    enum:
+                    - disabled
+                    - gzip
+                    type: string
                   deepLinks:
                     description: |-
                       DeepLinks configures custom deep links shown in application, project, and
@@ -2141,10 +2207,11 @@ spec:
                           (cmd-params: server.dex.server.strict.tls — inverted: strict.tls=true means skip=false).
                           Migration: if set, takes precedence over argocd-cmd-params-cm server.dex.server.strict.tls (inverted).
                         type: boolean
-                      tlsDisabled:
+                      tlsEnabled:
                         description: |-
-                          TLSDisabled disables TLS when connecting to Dex (cmd-params: server.dex.server.plaintext).
-                          Migration: if set, takes precedence over argocd-cmd-params-cm server.dex.server.plaintext.
+                          TLSEnabled controls TLS when connecting to Dex (cmd-params: server.dex.server.plaintext —
+                          inverted: plaintext=true means tlsEnabled=false).
+                          Migration: if set, takes precedence over argocd-cmd-params-cm server.dex.server.plaintext (inverted).
                         type: boolean
                     type: object
                   exec:
@@ -2300,12 +2367,6 @@ spec:
                       (cmd-params: server.grpc.enable.txt.service.config).
                       Migration: if set, takes precedence over argocd-cmd-params-cm server.grpc.enable.txt.service.config.
                     type: boolean
-                  gzipDisabled:
-                    description: |-
-                      GzipDisabled disables gzip compression for API responses (cmd-params: server.enable.gzip —
-                      inverted: enable.gzip=true means gzipDisabled=false). Gzip is on by default.
-                      Migration: if set, takes precedence over argocd-cmd-params-cm server.enable.gzip (inverted).
-                    type: boolean
                   help:
                     description: |-
                       Help configures the UI help/chat panel and CLI download links.
@@ -2452,32 +2513,44 @@ spec:
                           Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.metrics.listen.address key.
                         type: string
                     type: object
-                  logFormat:
+                  log:
                     description: |-
-                      LogFormat is the API server log format (cmd-params: server.log.format).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm server.log.format.
-                    enum:
-                    - json
-                    - text
-                    type: string
-                  logLevel:
+                      Log holds API server log format and level (cmd-params: server.log.*).
+                      Migration: if non-nil, takes precedence over argocd-cmd-params-cm server.log.* as a group.
+                    properties:
+                      format:
+                        description: |-
+                          Format is the log format (cmd-params: *.log.format).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.format key.
+                        enum:
+                        - json
+                        - text
+                        type: string
+                      level:
+                        description: |-
+                          Level is the log level (cmd-params: *.log.level).
+                          Migration: if set, takes precedence over the corresponding argocd-cmd-params-cm *.log.level key.
+                        enum:
+                        - debug
+                        - info
+                        - warn
+                        - error
+                        type: string
+                    type: object
+                  logs:
                     description: |-
-                      LogLevel is the API server log level (cmd-params: server.log.level).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm server.log.level.
-                    enum:
-                    - debug
-                    - info
-                    - warn
-                    - error
-                    type: string
-                  maxPodLogsToRender:
-                    description: |-
-                      MaxPodLogsToRender is the maximum number of pod log lines the UI renders
-                      before truncation (argocd-cm: server.maxPodLogsToRender).
-                      Migration: if set, takes precedence over argocd-cm server.maxPodLogsToRender.
-                    format: int64
-                    minimum: 0
-                    type: integer
+                      Logs holds UI pod-log viewing settings (argocd-cm: server.maxPodLogsToRender).
+                      Migration: if non-nil, takes precedence over argocd-cm server.maxPodLogsToRender as a group.
+                    properties:
+                      maxPodsToRender:
+                        description: |-
+                          MaxPodsToRender is the maximum number of pod log lines the UI renders
+                          before truncation (argocd-cm: server.maxPodLogsToRender).
+                          Migration: if set, takes precedence over argocd-cm server.maxPodLogsToRender.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                    type: object
                   oidc:
                     description: |-
                       OIDC replaces oidc.config wholesale when non-nil (direct OIDC, alternative to Dex).
@@ -2681,12 +2754,13 @@ spec:
                       RBAC holds authorization policy from argocd-rbac-cm.
                       Migration: organizational subgroup; no legacy key — see child fields.
                     properties:
-                      applicationFineGrainedInheritanceDisabled:
+                      applicationFineGrainedInheritanceEnabled:
                         description: |-
-                          ApplicationFineGrainedInheritanceDisabled disables inheriting project roles
+                          ApplicationFineGrainedInheritanceEnabled controls inheriting project roles
                           for fine-grained application RBAC
-                          (argocd-cm: server.rbac.disableApplicationFineGrainedRBACInheritance).
-                          Migration: if set, takes precedence over argocd-cm server.rbac.disableApplicationFineGrainedRBACInheritance.
+                          (argocd-cm: server.rbac.disableApplicationFineGrainedRBACInheritance —
+                          inverted: disable...=true means enabled=false). Inheritance is on by default.
+                          Migration: if set, takes precedence over argocd-cm server.rbac.disableApplicationFineGrainedRBACInheritance (inverted).
                         type: boolean
                       default:
                         description: |-
@@ -2801,10 +2875,11 @@ spec:
                           (e.g. "1.2").
                         type: string
                     type: object
-                  tlsDisabled:
+                  tlsEnabled:
                     description: |-
-                      TLSDisabled runs the API server without TLS (cmd-params: server.insecure).
-                      Migration: if set, takes precedence over argocd-cmd-params-cm server.insecure.
+                      TLSEnabled controls whether the API server serves TLS (cmd-params: server.insecure —
+                      inverted: insecure=true means tlsEnabled=false). TLS is on by default.
+                      Migration: if set, takes precedence over argocd-cmd-params-cm server.insecure (inverted).
                     type: boolean
                   ui:
                     description: |-
@@ -2858,16 +2933,21 @@ spec:
                           Migration: if set, takes precedence over argocd-cm ui.loginButtonText.
                         type: string
                     type: object
-                  url:
+                  urls:
                     description: |-
-                      URL is Argo CD's externally facing base URL (argocd-cm: url).
-                      Required for correct SSO redirect URLs.
-                      Migration: if set, takes precedence over argocd-cm url.
-                    type: string
+                      URLs are externally facing base URLs for this Argo CD instance
+                      (argocd-cm: url + additionalUrls). The first entry is the primary URL used for
+                      SSO redirects (argocd-cm: url); any further entries are additional SSO-capable
+                      base URLs (argocd-cm: additionalUrls).
+                      Migration: if present, takes precedence over argocd-cm url and additionalUrls as a pair; replaces both.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
                     x-kubernetes-validations:
-                    - message: must be an absolute http(s) URL
-                      rule: self == '' || (isURL(self) && url(self).getScheme() in
-                        ['http', 'https'])
+                    - message: each entry must be an absolute http(s) URL
+                      rule: self.all(u, isURL(u) && url(u).getScheme() in ['http',
+                        'https'])
                   users:
                     description: |-
                       Users holds anonymous access, session duration, and password policy.

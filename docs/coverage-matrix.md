@@ -32,8 +32,8 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 
 | Key | Mapped | CR field | Notes |
 | --- | --- | --- | --- |
-| `url` | ✅ | `spec.server.url` | |
-| `additionalUrls` | ✅ | `spec.server.additionalURLs` | JSON array in CM |
+| `url` | ✅ | `spec.server.urls[0]` | Primary external URL |
+| `additionalUrls` | ✅ | `spec.server.urls[1:]` | JSON/YAML array in CM |
 | `oidc.tls.insecure.skip.verify` | ✅ | `spec.server.oidcInsecureSkipVerify` | |
 | `oidc.config` | ✅ | `spec.server.oidc` | Composite override (whole blob) |
 | `dex.config` | ✅ | `spec.server.dex` | Composite override |
@@ -42,8 +42,8 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `application.instanceLabelKey` | ✅ | `spec.controller.instanceLabelKey` | |
 | `application.resourceTrackingMethod` | ✅ | `spec.controller.resourceTrackingMethod` | |
 | `application.allowedNodeLabels` | ✅ | `spec.controller.allowedNodeLabelKeys` | CSV |
-| `application.sync.impersonation.enabled` | ✅ | `spec.controller.sync.impersonation.enabled` | |
-| `application.sync.impersonation.enforced` | ✅ | `spec.controller.sync.impersonation.enforced` | |
+| `application.sync.impersonation.enabled` | ✅ | `spec.controller.sync.impersonation.mode` | With `.enforced` → disabled/optional/required |
+| `application.sync.impersonation.enforced` | ✅ | `spec.controller.sync.impersonation.mode` | Paired with `.enabled` |
 | `application.sync.requireOverridePrivilegeForRevisionSync` | ✅ | `spec.controller.sync.requireOverridePrivilegeForRevisionSync` | |
 | `application.links` | ✅ | `spec.server.deepLinks.application` | YAML list |
 | `project.links` | ✅ | `spec.server.deepLinks.project` | |
@@ -51,9 +51,9 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `cluster.inClusterEnabled` | ✅ | `spec.cluster.inClusterEnabled` | Also cmd-params |
 | `resource.exclusions` | ✅ | `spec.controller.resource.exclusions` | |
 | `resource.inclusions` | ✅ | `spec.controller.resource.inclusions` | |
-| `resource.compareoptions` | ✅ | `spec.controller.resource.compareOptions` | Composite |
+| `resource.compareoptions` | ✅ | `spec.controller.diff.compareOptions` | Composite |
 | `resource.respectRBAC` | ✅ | `spec.controller.resource.respectRBAC` | |
-| `resource.ignoreResourceUpdatesEnabled` | ✅ | `spec.controller.resource.ignoreResourceUpdatesEnabled` | |
+| `resource.ignoreResourceUpdatesEnabled` | ✅ | `spec.controller.diff.ignoreResourceUpdatesEnabled` | |
 | `resource.customLabels` | ✅ | `spec.controller.resource.customLabelKeys` | |
 | `resource.sensitive.mask.annotations` | ✅ | `spec.controller.resource.sensitiveMaskAnnotationKeys` | |
 | `resource.includeEventLabelKeys` | ✅ | `spec.controller.resource.eventLabels.includeKeyGlobs` | |
@@ -75,7 +75,7 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `users.anonymous.enabled` | ✅ | `spec.server.users.anonymousEnabled` | |
 | `users.session.duration` | ✅ | `spec.server.users.sessionDuration` | |
 | `passwordPattern` | ✅ | `spec.server.users.passwordRegex` | |
-| `server.maxPodLogsToRender` | ✅ | `spec.server.maxPodLogsToRender` | |
+| `server.maxPodLogsToRender` | ✅ | `spec.server.logs.maxPodsToRender` | |
 | `help.chatUrl` | ✅ | `spec.server.help.chat.url` | |
 | `help.chatText` | ✅ | `spec.server.help.chat.text` | |
 | `help.download.*` | ✅ | `spec.server.help.binaryURLs` | Prefix per arch |
@@ -104,7 +104,7 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `timeout.reconciliation` | ✅ | `spec.controller.reconciliation.timeout` | Also cmd-params |
 | `timeout.reconciliation.jitter` | ✅ | `spec.controller.reconciliation.jitter` | |
 | `installationID` | ✅ | `spec.installationID` | |
-| `server.rbac.disableApplicationFineGrainedRBACInheritance` | ✅ | `spec.server.rbac.applicationFineGrainedInheritanceDisabled` | |
+| `server.rbac.disableApplicationFineGrainedRBACInheritance` | ✅ | `spec.server.rbac.applicationFineGrainedInheritanceEnabled` | Inverted |
 
 ---
 
@@ -126,16 +126,16 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `otlp.headers` | ✅ | `spec.otlp.headers` | |
 | `otlp.attrs` | ✅ | `spec.otlp.attrs` | |
 | `otlp.sample.ratio` | ✅ | `spec.otlp.sampleRatio` | |
-| `server.insecure` | ✅ | `spec.server.tlsDisabled` | |
-| `server.log.format` | ✅ | `spec.server.logFormat` | |
-| `server.log.level` | ✅ | `spec.server.logLevel` | |
+| `server.insecure` | ✅ | `spec.server.tlsEnabled` | Inverted |
+| `server.log.format` | ✅ | `spec.server.log.format` | |
+| `server.log.level` | ✅ | `spec.server.log.level` | |
 | `server.basehref` | ✅ | `spec.server.baseHref` | |
 | `server.rootpath` | ✅ | `spec.server.rootPath` | |
 | `server.staticassets` | ✅ | `spec.server.staticAssetsPath` | |
 | `server.listen.address` | ✅ | `spec.server.listen.address` | |
 | `server.metrics.listen.address` | ✅ | `spec.server.listen.metricsAddress` | |
-| `server.disable.auth` | ✅ | `spec.server.authDisabled` | |
-| `server.enable.gzip` | ✅ | `spec.server.gzipDisabled` | Inverted |
+| `server.disable.auth` | ✅ | `spec.server.authEnabled` | Inverted |
+| `server.enable.gzip` | ✅ | `spec.server.compression` (`disabled`/`gzip`) | |
 | `server.enable.proxy.extension` | ✅ | `spec.server.proxyExtensionEnabled` | |
 | `server.sync.replace.allowed` | ✅ | `spec.server.syncReplaceAllowed` | |
 | `server.x.frame.options` | ✅ | `spec.server.xFrameOptions` | |
@@ -143,7 +143,7 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `server.profile.enabled` | ✅ | `spec.server.profileEnabled` | |
 | `server.grpc.enable.txt.service.config` | ✅ | `spec.server.grpcTXTServiceConfigEnabled` | |
 | `server.dex.server` | ✅ | `spec.server.dexServer.address` | |
-| `server.dex.server.plaintext` | ✅ | `spec.server.dexServer.tlsDisabled` | |
+| `server.dex.server.plaintext` | ✅ | `spec.server.dexServer.tlsEnabled` | Inverted |
 | `server.dex.server.strict.tls` | ✅ | `spec.server.dexServer.insecureSkipVerify` | Inverted |
 | `server.app.state.cache.expiration` | ✅ | `spec.server.cache.appStateExpiration` | |
 | `server.connection.status.cache.expiration` | ✅ | `spec.server.cache.connectionStatusExpiration` | |
@@ -157,16 +157,16 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `server.webhook.refresh.workers` | ✅ | `spec.server.webhook.refresh.workers` | |
 | `server.k8s.client.*` | ✅ | `spec.server.k8sClient.*` (incl. `tcp.*`) | QPS, burst, timeouts, retry |
 | `server.repo.server.*` | ✅ | `spec.repoServer.client.*` | Collapsed with controller variant |
-| `reposerver.log.format` | ✅ | `spec.repoServer.logFormat` | |
-| `reposerver.log.level` | ✅ | `spec.repoServer.logLevel` | |
+| `reposerver.log.format` | ✅ | `spec.repoServer.log.format` | |
+| `reposerver.log.level` | ✅ | `spec.repoServer.log.level` | |
 | `reposerver.parallelism.limit` | ✅ | `spec.repoServer.parallelismLimit` | |
 | `reposerver.listen.address` | ✅ | `spec.repoServer.listen.address` | |
 | `reposerver.metrics.listen.address` | ✅ | `spec.repoServer.listen.metricsAddress` | |
-| `reposerver.disable.tls` | ✅ | `spec.repoServer.tlsDisabled` | |
-| `reposerver.enable.git.submodule` | ✅ | `spec.repoServer.git.submoduleDisabled` | Inverted |
+| `reposerver.disable.tls` | ✅ | `spec.repoServer.tlsEnabled` | Inverted |
+| `reposerver.enable.git.submodule` | ✅ | `spec.repoServer.git.submoduleEnabled` | |
 | `reposerver.allow.oob.symlinks` | ✅ | `spec.repoServer.allowOOBSymlinks` | |
 | `reposerver.include.hidden.directories` | ✅ | `spec.repoServer.includeHiddenDirectories` | |
-| `reposerver.enable.builtin.git.config` | ✅ | `spec.repoServer.git.builtinConfigDisabled` | Inverted |
+| `reposerver.enable.builtin.git.config` | ✅ | `spec.repoServer.git.builtinConfigEnabled` | |
 | `reposerver.git.request.timeout` | ✅ | `spec.repoServer.git.requestTimeout` | |
 | `reposerver.git.lsremote.parallelism.limit` | ✅ | `spec.repoServer.git.lsRemoteParallelismLimit` | |
 | `reposerver.default.cache.expiration` | ✅ | `spec.repoServer.cache.defaultExpiration` | |
@@ -180,21 +180,21 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `reposerver.client.ca.path` | ✅ | `spec.repoServer.clientCAPath` | |
 | `reposerver.tls.*` | ✅ | `spec.repoServer.tls.*` | |
 | `reposerver.oci.manifest.max.extracted.size` | ✅ | `spec.repoServer.oci.manifest.maxExtractedSize` | |
-| `reposerver.disable.oci.manifest.max.extracted.size` | ✅ | `spec.repoServer.oci.manifest.maxExtractedSizeDisabled` | |
+| `reposerver.disable.oci.manifest.max.extracted.size` | ✅ | `spec.repoServer.oci.manifest.maxExtractedSizeEnabled` | Inverted |
 | `reposerver.oci.layer.media.types` | ✅ | `spec.repoServer.oci.layerMediaTypes` | |
 | `reposerver.plugin.tar.exclusions` | ✅ | `spec.repoServer.plugin.tarExclusionGlobs` | `;` separator |
-| `commitserver.log.format` | ✅ | `spec.commitServer.logFormat` | |
-| `commitserver.log.level` | ✅ | `spec.commitServer.logLevel` | |
+| `commitserver.log.format` | ✅ | `spec.commitServer.log.format` | |
+| `commitserver.log.level` | ✅ | `spec.commitServer.log.level` | |
 | `commitserver.listen.address` | ✅ | `spec.commitServer.listen.address` | |
 | `commitserver.metrics.listen.address` | ✅ | `spec.commitServer.listen.metricsAddress` | |
 | `commitserver.grpc.enable.txt.service.config` | ✅ | `spec.commitServer.grpcTXTServiceConfigEnabled` | |
-| `dexserver.log.format` | ✅ | `spec.dexServer.logFormat` | |
-| `dexserver.log.level` | ✅ | `spec.dexServer.logLevel` | |
-| `dexserver.disable.tls` | ✅ | `spec.dexServer.tlsDisabled` | |
+| `dexserver.log.format` | ✅ | `spec.dexServer.log.format` | |
+| `dexserver.log.level` | ✅ | `spec.dexServer.log.level` | |
+| `dexserver.disable.tls` | ✅ | `spec.dexServer.tlsEnabled` | Inverted |
 | `dexserver.connector.failure.continue` | ✅ | `spec.dexServer.connectorFailureContinue` | |
-| `controller.sharding.algorithm` | ✅ | `spec.controller.shardingAlgorithm` | |
-| `controller.log.format` | ✅ | `spec.controller.logFormat` | |
-| `controller.log.level` | ✅ | `spec.controller.logLevel` | |
+| `controller.sharding.algorithm` | ✅ | `spec.controller.sharding.algorithm` | |
+| `controller.log.format` | ✅ | `spec.controller.log.format` | |
+| `controller.log.level` | ✅ | `spec.controller.log.level` | |
 | `controller.status.processors` | ✅ | `spec.controller.processors.status` | |
 | `controller.operation.processors` | ✅ | `spec.controller.processors.operation` | |
 | `controller.hydration.processors` | ✅ | `spec.controller.processors.hydration` | |
@@ -202,7 +202,7 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `controller.default.cache.expiration` | ✅ | `spec.controller.cache.defaultExpiration` | |
 | `controller.resource.health.persist` | ✅ | `spec.controller.resourceHealthPersist` | |
 | `controller.kubectl.parallelism.limit` | ✅ | `spec.controller.kubectlParallelismLimit` | |
-| `controller.diff.server.side` | ✅ | `spec.controller.diffServerSide` | |
+| `controller.diff.server.side` | ✅ | `spec.controller.diff.serverSide.enabled` | |
 | `controller.metrics.cache.expiration` | ✅ | `spec.controller.metrics.cacheExpiration` | |
 | `controller.metrics.application.labels` | ✅ | `spec.controller.metrics.application.labelKeys` | |
 | `controller.metrics.application.conditions` | ✅ | `spec.controller.metrics.application.conditions` | |
@@ -212,7 +212,7 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `controller.self.heal.backoff.factor` | ✅ | `spec.controller.selfHeal.backoff.factor` | |
 | `controller.self.heal.backoff.cap.seconds` | ✅ | `spec.controller.selfHeal.backoff.maxDuration` | |
 | `controller.sync.timeout.seconds` | ✅ | `spec.controller.sync.timeout` | |
-| `controller.sync.wave.delay.seconds` | ✅ | `spec.controller.sync.waveDelay` | |
+| `controller.sync.wave.delay.seconds` | ✅ | `spec.controller.sync.wave.delay` | |
 | `controller.profile.enabled` | ✅ | `spec.controller.profileEnabled` | |
 | `controller.grpc.enable.txt.service.config` | ✅ | `spec.controller.grpcTXTServiceConfigEnabled` | |
 | `controller.repo.error.grace.period.seconds` | ✅ | `spec.controller.repoErrorGracePeriod` | |
@@ -228,13 +228,13 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `applicationsetcontroller.global.preserved.labels` | ✅ | `spec.applicationSet.globalPreserved.labelKeys` | |
 | `applicationsetcontroller.enable.scm.providers` | ✅ | `spec.applicationSet.scmProvidersEnabled` | |
 | `applicationsetcontroller.enable.policy.override` | ✅ | `spec.applicationSet.policyOverrideEnabled` | |
-| `applicationsetcontroller.enable.progressive.syncs` | ✅ | `spec.applicationSet.progressiveSyncsEnabled` | |
-| `applicationsetcontroller.enable.git.submodule` | ✅ | `spec.applicationSet.gitSubmoduleDisabled` | Inverted |
+| `applicationsetcontroller.enable.progressive.syncs` | ✅ | `spec.applicationSet.progressiveSyncs.enabled` | |
+| `applicationsetcontroller.enable.git.submodule` | ✅ | `spec.applicationSet.gitSubmoduleEnabled` | |
 | `applicationsetcontroller.enable.new.git.file.globbing` | ✅ | `spec.applicationSet.newGitFileGlobbingEnabled` | |
 | `applicationsetcontroller.enable.tokenref.strict.mode` | ✅ | `spec.applicationSet.tokenRefStrictModeEnabled` | |
 | `applicationsetcontroller.enable.github.api.metrics` | ✅ | `spec.applicationSet.gitHubAPIMetricsEnabled` | |
 | `applicationsetcontroller.dryrun` | ✅ | `spec.applicationSet.dryRun` | |
-| `applicationsetcontroller.debug` | ✅ | `spec.applicationSet.debug` | |
+| `applicationsetcontroller.debug` | ✅ | `spec.applicationSet.log.level=debug` | Legacy alias; collapsed on CM→CR (takes precedence over log.level) |
 | `applicationsetcontroller.enable.leader.election` | ✅ | `spec.applicationSet.leaderElectionEnabled` | |
 | `applicationsetcontroller.profile.enabled` | ✅ | `spec.applicationSet.profileEnabled` | |
 | `applicationsetcontroller.grpc.enable.txt.service.config` | ✅ | `spec.applicationSet.grpcTXTServiceConfigEnabled` | |
@@ -243,15 +243,15 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `applicationsetcontroller.webhook.parallelism.limit` | ✅ | `spec.applicationSet.webhookParallelismLimit` | |
 | `applicationsetcontroller.status.max.resources.count` | ✅ | `spec.applicationSet.statusMaxResourcesCount` | |
 | `applicationsetcontroller.scm.root.ca.path` | ✅ | `spec.applicationSet.scmRootCAPath` | |
-| `applicationsetcontroller.log.format` | ✅ | `spec.applicationSet.logFormat` | |
-| `applicationsetcontroller.log.level` | ✅ | `spec.applicationSet.logLevel` | |
+| `applicationsetcontroller.log.format` | ✅ | `spec.applicationSet.log.format` | |
+| `applicationsetcontroller.log.level` | ✅ | `spec.applicationSet.log.level` | |
 | `applicationsetcontroller.k8s.client.*` | ✅ | `spec.applicationSet.k8sClient.*` (incl. `tcp.*`) | |
 | `applicationsetcontroller.repo.server.*` | ✅ | `spec.applicationSet.repoServer.*` | mTLS paths |
-| `notificationscontroller.log.format` | ✅ | `spec.notifications.logFormat` | Out of scope for notifications-cm content |
-| `notificationscontroller.log.level` | ✅ | `spec.notifications.logLevel` | |
+| `notificationscontroller.log.format` | ✅ | `spec.notifications.log.format` | Out of scope for notifications-cm content |
+| `notificationscontroller.log.level` | ✅ | `spec.notifications.log.level` | |
 | `notificationscontroller.processors.count` | ✅ | `spec.notifications.processorsCount` | |
 | `notificationscontroller.selfservice.enabled` | ✅ | `spec.notifications.selfServiceEnabled` | |
-| `notificationscontroller.repo.server.plaintext` | ✅ | `spec.notifications.tlsDisabled` | |
+| `notificationscontroller.repo.server.plaintext` | ✅ | `spec.notifications.tlsEnabled` | Inverted |
 | `notificationscontroller.repo.server.*` | ✅ | `spec.notifications.repoServer.*` | Cert paths |
 
 ---

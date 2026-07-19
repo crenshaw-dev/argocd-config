@@ -8,17 +8,17 @@ spec:
   controller: {}
   repoServer: {}
   server:
-    authDisabled: false
+    authEnabled: true
     baseHref: /argo
     cache:
       appStateExpiration: 1h0m0s
       defaultExpiration: 24h0m0s
       globCacheSize: 1000
+    compression: gzip
     dexServer:
       address: https://dex:5556
       insecureSkipVerify: false
-      tlsDisabled: false
-    gzipDisabled: false
+      tlsEnabled: true
     rootPath: /argo
     tls:
       ciphers:
