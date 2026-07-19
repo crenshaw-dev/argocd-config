@@ -22,7 +22,7 @@ type ConfigMapGetter interface {
 }
 
 // LoadConfigMaps fetches the standard-named Argo CD ConfigMaps from namespace.
-// Missing ConfigMaps are omitted (same as on-disk --dir when a file is absent).
+// Missing ConfigMaps are omitted (same as omitting --cm/--cmd-params/--rbac on disk).
 // At least one ConfigMap must exist or an error is returned.
 func LoadConfigMaps(ctx context.Context, cms ConfigMapGetter, namespace string) (mapping.ConfigMaps, error) {
 	out := mapping.ConfigMaps{}

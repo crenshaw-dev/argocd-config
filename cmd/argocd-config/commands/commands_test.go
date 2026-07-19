@@ -38,6 +38,17 @@ func testdataPath(t *testing.T, elems ...string) string {
 	return filepath.Join(append([]string{moduleRoot(t), "testdata"}, elems...)...)
 }
 
+// sampleCMSFlags returns --cm/--cmd-params/--rbac pointing at testdata/sample-cms files.
+func sampleCMSFlags(t *testing.T) []string {
+	t.Helper()
+	dir := testdataPath(t, "sample-cms")
+	return []string{
+		"--cm", filepath.Join(dir, "argocd-cm.yaml"),
+		"--cmd-params", filepath.Join(dir, "argocd-cmd-params-cm.yaml"),
+		"--rbac", filepath.Join(dir, "argocd-rbac-cm.yaml"),
+	}
+}
+
 func writeMinimalCR(t *testing.T, dir string) string {
 	t.Helper()
 	path := filepath.Join(dir, "argocd-config.yaml")
@@ -127,18 +138,16 @@ func TestVersionCommandPrintsVersion(t *testing.T) {
 }
 
 func TestFromConfigMapsWithTestdata(t *testing.T) {
-	dir := testdataPath(t, "sample-cms")
 	outFile := filepath.Join(t.TempDir(), "out.yaml")
 
 	root := NewRootCommand()
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{
+	root.SetArgs(append([]string{
 		"from-configmaps",
-		"--dir", dir,
 		"--output", outFile,
 		"--no-validate",
-	})
+	}, sampleCMSFlags(t)...))
 
 	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -158,8 +167,7 @@ func TestFromConfigMapsWithTestdata(t *testing.T) {
 }
 
 func TestFromConfigMapsStrictUnknownKeyExitsNonZero(t *testing.T) {
-	cmDir := t.TempDir()
-	cmPath := filepath.Join(cmDir, "argocd-cm.yaml")
+	cmPath := filepath.Join(t.TempDir(), "argocd-cm.yaml")
 	const cmYAML = `apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -187,7 +195,7 @@ data:
 
 	root.SetArgs([]string{
 		"from-configmaps",
-		"--dir", cmDir,
+		"--cm", cmPath,
 		"--output", outFile,
 		"--no-validate",
 		"--strict",
@@ -267,19 +275,18 @@ func TestToConfigMapsStdoutMultiDoc(t *testing.T) {
 	}
 }
 
-func TestToConfigMapsSourceDirPreservesMetadata(t *testing.T) {
+func TestToConfigMapsSourcePreservesMetadata(t *testing.T) {
 	sampleDir := testdataPath(t, "sample-cms")
 	crFile := filepath.Join(t.TempDir(), "cr.yaml")
 
 	root := NewRootCommand()
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{
+	root.SetArgs(append([]string{
 		"from-configmaps",
-		"--dir", sampleDir,
 		"--output", crFile,
 		"--no-validate",
-	})
+	}, sampleCMSFlags(t)...))
 	if err := root.Execute(); err != nil {
 		t.Fatalf("from-configmaps: %v", err)
 	}
@@ -291,7 +298,9 @@ func TestToConfigMapsSourceDirPreservesMetadata(t *testing.T) {
 	root.SetArgs([]string{
 		"to-configmaps",
 		"--file", crFile,
-		"--source-dir", sampleDir,
+		"--source-cm", filepath.Join(sampleDir, "argocd-cm.yaml"),
+		"--source-cmd-params", filepath.Join(sampleDir, "argocd-cmd-params-cm.yaml"),
+		"--source-rbac", filepath.Join(sampleDir, "argocd-rbac-cm.yaml"),
 		"--output", outDir,
 	})
 	if err := root.Execute(); err != nil {
@@ -423,26 +432,22 @@ spec:
 }
 
 func TestFromConfigMapsSelfCheck(t *testing.T) {
-	dir := testdataPath(t, "sample-cms")
-
 	root := NewRootCommand()
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{
+	root.SetArgs(append([]string{
 		"from-configmaps",
-		"--dir", dir,
 		"--self-check",
 		"--output", "/dev/null",
 		"--no-validate",
-	})
+	}, sampleCMSFlags(t)...))
 	if err := root.Execute(); err != nil {
 		t.Fatalf("self-check round trip: %v", err)
 	}
 }
 
 func TestReportJSONDiagnosticsOnStderr(t *testing.T) {
-	cmDir := t.TempDir()
-	cmPath := filepath.Join(cmDir, "argocd-cm.yaml")
+	cmPath := filepath.Join(t.TempDir(), "argocd-cm.yaml")
 	const cmYAML = `apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -460,7 +465,7 @@ data:
 	_, stderr := captureStdio(t, func(root *cobra.Command) {
 		root.SetArgs([]string{
 			"from-configmaps",
-			"--dir", cmDir,
+			"--cm", cmPath,
 			"--output", outFile,
 			"--no-validate",
 			"--report", "json",
@@ -479,18 +484,18 @@ data:
 	}
 }
 
-func TestFromConfigMapsFromClusterConflictsWithDir(t *testing.T) {
+func TestFromConfigMapsFromClusterConflictsWithFiles(t *testing.T) {
 	root := NewRootCommand()
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
 	root.SetArgs([]string{
 		"from-configmaps",
 		"--from-cluster",
-		"--dir", testdataPath(t, "sample-cms"),
+		"--cm", filepath.Join(testdataPath(t, "sample-cms"), "argocd-cm.yaml"),
 	})
 	err := root.Execute()
 	if err == nil {
-		t.Fatal("expected error when combining --from-cluster and --dir")
+		t.Fatal("expected error when combining --from-cluster and --cm")
 	}
 	if !strings.Contains(err.Error(), "--from-cluster") {
 		t.Fatalf("unexpected error: %v", err)
@@ -498,7 +503,7 @@ func TestFromConfigMapsFromClusterConflictsWithDir(t *testing.T) {
 }
 
 func TestLoadConfigMapsInputRequiresSource(t *testing.T) {
-	_, err := loadConfigMapsInput(t.Context(), false, "", "", "argocd", "", "", "", "")
+	_, err := loadConfigMapsInput(t.Context(), false, "", "", "argocd", "", "", "")
 	if err == nil {
 		t.Fatal("expected error when no source provided")
 	}

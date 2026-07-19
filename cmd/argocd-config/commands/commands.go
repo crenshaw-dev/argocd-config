@@ -80,7 +80,6 @@ func NewRootCommand() *cobra.Command {
 
 func newFromConfigMapsCommand(g *GlobalOpts) *cobra.Command {
 	var (
-		dir         string
 		cmFile      string
 		cmdFile     string
 		rbacFile    string
@@ -96,7 +95,7 @@ func newFromConfigMapsCommand(g *GlobalOpts) *cobra.Command {
 		Use:   "from-configmaps",
 		Short: "Convert argocd-cm / argocd-cmd-params-cm / argocd-rbac-cm into an ArgoCDConfiguration",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cms, err := loadConfigMapsInput(cmd.Context(), fromCluster, kubeconfig, kubeContext, namespace, dir, cmFile, cmdFile, rbacFile)
+			cms, err := loadConfigMapsInput(cmd.Context(), fromCluster, kubeconfig, kubeContext, namespace, cmFile, cmdFile, rbacFile)
 			if err != nil {
 				return err
 			}
@@ -126,7 +125,6 @@ func newFromConfigMapsCommand(g *GlobalOpts) *cobra.Command {
 			return finish(diag, nil, g)
 		},
 	}
-	cmd.Flags().StringVar(&dir, "dir", "", "Directory containing argocd-cm.yaml, argocd-cmd-params-cm.yaml, argocd-rbac-cm.yaml")
 	cmd.Flags().StringVar(&cmFile, "cm", "", "Path to argocd-cm YAML")
 	cmd.Flags().StringVar(&cmdFile, "cmd-params", "", "Path to argocd-cmd-params-cm YAML")
 	cmd.Flags().StringVar(&rbacFile, "rbac", "", "Path to argocd-rbac-cm YAML")
@@ -141,14 +139,14 @@ func newFromConfigMapsCommand(g *GlobalOpts) *cobra.Command {
 }
 
 // loadConfigMapsInput loads ConfigMaps from the cluster or from disk.
-// --from-cluster is mutually exclusive with --dir / --cm / --cmd-params / --rbac.
-func loadConfigMapsInput(ctx context.Context, fromCluster bool, kubeconfig, kubeContext, namespace, dir, cmFile, cmdFile, rbacFile string) (mapping.ConfigMaps, error) {
-	hasDisk := dir != "" || cmFile != "" || cmdFile != "" || rbacFile != ""
+// --from-cluster is mutually exclusive with --cm / --cmd-params / --rbac.
+func loadConfigMapsInput(ctx context.Context, fromCluster bool, kubeconfig, kubeContext, namespace, cmFile, cmdFile, rbacFile string) (mapping.ConfigMaps, error) {
+	hasDisk := cmFile != "" || cmdFile != "" || rbacFile != ""
 	if fromCluster && hasDisk {
-		return mapping.ConfigMaps{}, fmt.Errorf("--from-cluster cannot be combined with --dir, --cm, --cmd-params, or --rbac")
+		return mapping.ConfigMaps{}, fmt.Errorf("--from-cluster cannot be combined with --cm, --cmd-params, or --rbac")
 	}
 	if !fromCluster && !hasDisk {
-		return mapping.ConfigMaps{}, fmt.Errorf("no ConfigMaps provided (use --from-cluster, --dir, or --cm/--cmd-params/--rbac)")
+		return mapping.ConfigMaps{}, fmt.Errorf("no ConfigMaps provided (use --from-cluster, or --cm/--cmd-params/--rbac)")
 	}
 	if fromCluster {
 		cs, err := kube.NewClientset(kube.ClientOptions{Kubeconfig: kubeconfig, Context: kubeContext})
@@ -157,22 +155,17 @@ func loadConfigMapsInput(ctx context.Context, fromCluster bool, kubeconfig, kube
 		}
 		return kube.LoadConfigMaps(ctx, kube.ConfigMapsInNamespace(cs, namespace), namespace)
 	}
-	cms, err := loadConfigMaps(dir, cmFile, cmdFile, rbacFile)
-	if err != nil {
-		return cms, err
-	}
-	if cms.CM == nil && cms.CmdParams == nil && cms.RBAC == nil {
-		return cms, fmt.Errorf("no ConfigMaps found (use --dir or --cm/--cmd-params/--rbac)")
-	}
-	return cms, nil
+	return loadConfigMaps(cmFile, cmdFile, rbacFile)
 }
 
 func newToConfigMapsCommand(g *GlobalOpts) *cobra.Command {
 	var (
-		inFile    string
-		outDir    string
-		namespace string
-		sourceDir string
+		inFile     string
+		outDir     string
+		namespace  string
+		sourceCM   string
+		sourceCmd  string
+		sourceRBAC string
 	)
 	cmd := &cobra.Command{
 		Use:   "to-configmaps",
@@ -200,13 +193,13 @@ func newToConfigMapsCommand(g *GlobalOpts) *cobra.Command {
 			}
 
 			source := mapping.ConfigMaps{}
-			if sourceDir != "" {
-				source, err = loadConfigMaps(sourceDir, "", "", "")
+			if sourceCM != "" || sourceCmd != "" || sourceRBAC != "" {
+				source, err = loadConfigMaps(sourceCM, sourceCmd, sourceRBAC)
 				if err != nil {
 					return err
 				}
 				if g.Verbose {
-					fmt.Fprintf(os.Stderr, "loaded source ConfigMaps from %q for metadata preservation\n", sourceDir)
+					fmt.Fprintf(os.Stderr, "loaded source ConfigMaps for metadata preservation\n")
 				}
 			}
 
@@ -239,7 +232,9 @@ func newToConfigMapsCommand(g *GlobalOpts) *cobra.Command {
 	cmd.Flags().StringVarP(&inFile, "file", "f", "-", "Input ArgoCDConfiguration YAML (- for stdin)")
 	cmd.Flags().StringVarP(&outDir, "output", "o", "-", "Output directory (or - for stdout multi-doc)")
 	cmd.Flags().StringVar(&namespace, "namespace", "", "Namespace for emitted ConfigMaps (default: from CR metadata)")
-	cmd.Flags().StringVar(&sourceDir, "source-dir", "", "Directory with original ConfigMaps for metadata preservation")
+	cmd.Flags().StringVar(&sourceCM, "source-cm", "", "Original argocd-cm YAML for metadata preservation")
+	cmd.Flags().StringVar(&sourceCmd, "source-cmd-params", "", "Original argocd-cmd-params-cm YAML for metadata preservation")
+	cmd.Flags().StringVar(&sourceRBAC, "source-rbac", "", "Original argocd-rbac-cm YAML for metadata preservation")
 	return cmd
 }
 
@@ -364,23 +359,9 @@ func writeDiagnostics(w io.Writer, diag *mapping.Diagnostics, report string) err
 	}
 }
 
-func loadConfigMaps(dir, cmFile, cmdFile, rbacFile string) (mapping.ConfigMaps, error) {
+func loadConfigMaps(cmFile, cmdFile, rbacFile string) (mapping.ConfigMaps, error) {
 	cms := mapping.ConfigMaps{}
 	var err error
-	if dir != "" {
-		cms.CM, err = readCMFile(filepath.Join(dir, "argocd-cm.yaml"))
-		if err != nil && !os.IsNotExist(err) {
-			return cms, err
-		}
-		cms.CmdParams, err = readCMFile(filepath.Join(dir, "argocd-cmd-params-cm.yaml"))
-		if err != nil && !os.IsNotExist(err) {
-			return cms, err
-		}
-		cms.RBAC, err = readCMFile(filepath.Join(dir, "argocd-rbac-cm.yaml"))
-		if err != nil && !os.IsNotExist(err) {
-			return cms, err
-		}
-	}
 	if cmFile != "" {
 		cms.CM, err = readCMFile(cmFile)
 		if err != nil {

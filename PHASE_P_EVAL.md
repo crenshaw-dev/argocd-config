@@ -15,7 +15,11 @@ Prototype: `/Users/mcrenshaw/src/argocd-configuration` (`github.com/crenshaw-dev
 
 ```bash
 make generate manifests build test
-./bin/argocd-config from-configmaps --dir testdata/sample-cms -o /tmp/acc.yaml
+./bin/argocd-config from-configmaps \
+  --cm testdata/sample-cms/argocd-cm.yaml \
+  --cmd-params testdata/sample-cms/argocd-cmd-params-cm.yaml \
+  --rbac testdata/sample-cms/argocd-rbac-cm.yaml \
+  -o /tmp/acc.yaml
 ./bin/argocd-config to-configmaps -f /tmp/acc.yaml -o /tmp/cms
 ```
 

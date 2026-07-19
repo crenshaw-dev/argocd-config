@@ -20,7 +20,11 @@ This repo prototypes a structured replacement for `argocd-cm`, `argocd-cmd-param
 
 ```bash
 make generate manifests build test
-./bin/argocd-config from-configmaps --dir testdata/sample-cms -o /tmp/argocdconfiguration.yaml
+./bin/argocd-config from-configmaps \
+  --cm testdata/sample-cms/argocd-cm.yaml \
+  --cmd-params testdata/sample-cms/argocd-cmd-params-cm.yaml \
+  --rbac testdata/sample-cms/argocd-rbac-cm.yaml \
+  -o /tmp/argocdconfiguration.yaml
 ./bin/argocd-config to-configmaps -f /tmp/argocdconfiguration.yaml -o /tmp/cms
 ```
 
@@ -47,7 +51,11 @@ Convert sample ConfigMaps to a CR, validate, round-trip back, and exercise apiVe
 
 ```bash
 # ConfigMaps → CRD YAML
-./bin/argocd-config from-configmaps --dir testdata/sample-cms -o /tmp/acc.yaml
+./bin/argocd-config from-configmaps \
+  --cm testdata/sample-cms/argocd-cm.yaml \
+  --cmd-params testdata/sample-cms/argocd-cmd-params-cm.yaml \
+  --rbac testdata/sample-cms/argocd-rbac-cm.yaml \
+  -o /tmp/acc.yaml
 
 # Validate (name + mirrored URL rules; not full apiserver CEL)
 ./bin/argocd-config validate -f /tmp/acc.yaml
@@ -70,7 +78,7 @@ Global flags on conversion commands:
 | `--self-check` | (`from-configmaps`) Round-trip CM→CR→CM and warn on key diffs |
 | `--no-validate` | Skip post-conversion validation |
 
-`from-configmaps` also supports `--dir`, individual `--cm` / `--cmd-params` / `--rbac` paths, `-o` for output, and `--from-cluster` (with optional `--kubeconfig` / `--context`) to load the standard-named ConfigMaps from a live cluster instead of disk.
+`from-configmaps` takes `--cm` / `--cmd-params` / `--rbac` file paths (any subset), `-o` for output, or `--from-cluster` (with optional `--kubeconfig` / `--context`) to load the standard-named ConfigMaps from a live cluster. `to-configmaps` can preserve labels/annotations via `--source-cm` / `--source-cmd-params` / `--source-rbac`.
 
 ## Coverage and limitations
 
