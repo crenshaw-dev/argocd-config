@@ -4,11 +4,11 @@ data:
   application.allowedNodeLabels: app.kubernetes.io/name
   application.instanceLabelKey: app.kubernetes.io/instance
   application.links: |
-    - description: Example description
-      icon.class: example-iconClass
-      if: example-conditionExpr
-      title: Example Link
-      url: https://example.com/{{.app.metadata.name}}
+    - description: Application metrics dashboard
+      icon.class: fa-external-link
+      if: app.status.sync.status == 'Synced'
+      title: Open in Grafana
+      url: https://grafana.example.com/d/argo/{{.app.metadata.name}}
   application.resourceTrackingMethod: annotation
   application.sync.impersonation.enabled: "true"
   application.sync.impersonation.enforced: "false"
@@ -33,70 +33,70 @@ data:
     - Backend:
         services:
         - cluster:
-            name: example-extension
+            name: metrics
             server: https://example.com
           headers:
-          - name: example-extension
-            value: example-value
+          - name: Authorization
+            value: $extension.metrics.token
           url: https://example.com
         transport:
           connectionTimeout: 1h0m0s
           idleConnectionTimeout: 1h0m0s
           keepAlive: 1h0m0s
-          maxIdleConnections: 1
-      Name: example-extension
+          maxIdleConnections: 50
+      Name: metrics
   ga.anonymizeusers: "true"
-  ga.trackingid: example-trackingID
+  ga.trackingid: UA-123456-1
   globalProjects: |
     - labelSelector:
         matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
           values:
-          - example
+          - frontend
         matchLabels:
-          example-key: example-matchLabels
+          app.kubernetes.io/part-of: argocd
       projectName: global
   helm.enable: "true"
-  helm.valuesFileSchemes: example-valuesFileSchemes
-  help.chatText: example-text
+  helm.valuesFileSchemes: https
+  help.chatText: Chat with us on Slack
   help.chatUrl: https://example.com
-  help.download.darwin-arm64: https://example.com
-  installationID: example-installation-id
+  help.download.darwin-arm64: https://example.com/argocd-darwin-arm64
+  installationID: prod-us-west-1
   jsonnet.enable: "true"
-  kustomize.buildOptions: --enable-alpha-plugins
-  kustomize.buildOptions.v5.0.0: --enable-alpha-plugins
+  kustomize.buildOptions: --enable-helm --load-restrictor LoadRestrictionsNone
+  kustomize.buildOptions.v5.0.0: --enable-helm --load-restrictor LoadRestrictionsNone
   kustomize.enable: "true"
-  kustomize.path.v5.0.0: /userinfo
+  kustomize.path.v5.0.0: /usr/local/bin/kustomize
   oidc.config: |
     allowedAudiences:
-    - example-allowedAudiences
+    - argocd
     azure:
       graphApiEndpoint: https://example.com
       useWorkloadIdentity: true
       userGroupOverageClaim:
         cacheExpiration: 1h0m0s
         enabled: true
-    cliClientID: example-cliClientID
-    clientID: example-clientID
+    cliClientID: argocd
+    clientID: argocd
     clientSecret: $oidc.clientSecret
-    domainHint: example-domainHint
+    domainHint: contoso.onmicrosoft.com
     enablePKCEAuthentication: true
     issuer: https://example.com
     logoutURL: https://example.com
-    name: example
+    name: Okta
     refreshTokenThreshold: 1h0m0s
     requestedIDTokenClaims:
       groups:
         essential: true
-        value: example-value
+        value: admin
         values:
-        - example
+        - frontend
     requestedScopes:
-    - example-requestedScopes
+    - openid
     rootCA: |-
       -----BEGIN CERTIFICATE-----
-      EXAMPLE
+      MIIB...
       -----END CERTIFICATE-----
     skipAudienceCheckWhenTokenHasNoAudience: true
     userInfo:
@@ -107,11 +107,11 @@ data:
   oidc.tls.insecure.skip.verify: "true"
   passwordPattern: ^.{8,32}$
   project.links: |
-    - description: Example description
-      icon.class: example-iconClass
-      if: example-conditionExpr
-      title: Example Link
-      url: https://example.com/{{.app.metadata.name}}
+    - description: Application metrics dashboard
+      icon.class: fa-external-link
+      if: app.status.sync.status == 'Synced'
+      title: Open in Grafana
+      url: https://grafana.example.com/d/argo/{{.app.metadata.name}}
   resource.compareoptions: |
     ignoreAggregatedRoles: true
     ignoreDifferencesOnResourceUpdates: true
@@ -119,30 +119,39 @@ data:
   resource.customLabels: app.kubernetes.io/name
   resource.customizations.actions.apps_Deployment: |
     definitions:
-    - action.lua: return true
-      name: example
-    discovery.lua: return true
+    - action.lua: |-
+        obj.spec.replicas = 0
+        return obj
+      name: restart
+    discovery.lua: |-
+      actions = {}
+      actions["restart"] = {}
+      return actions
     mergeBuiltinActions: true
-  resource.customizations.health.apps_Deployment: return true
+  resource.customizations.health.apps_Deployment: |-
+    hs = {}
+    hs.status = "Healthy"
+    hs.message = "ok"
+    return hs
   resource.customizations.ignoreDifferences.apps_Deployment: |
     jqPathExpressions:
-    - example-jqPathExpressions
+    - .metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"
     jsonPointers:
-    - example-jsonPointers
+    - /status
     managedFieldsManagers:
-    - example-managedFieldsManagers
+    - kube-controller-manager
   resource.customizations.ignoreResourceUpdates.apps_Deployment: |
     jqPathExpressions:
-    - example-jqPathExpressions
+    - .metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"
     jsonPointers:
-    - example-jsonPointers
+    - /status
     managedFieldsManagers:
-    - example-managedFieldsManagers
+    - kube-controller-manager
   resource.customizations.knownTypeFields.apps_Deployment: |
     - field: spec.template
       type: core/v1/PodSpec
   resource.customizations.useOpenLibs.apps_Deployment: "true"
-  resource.excludeEventLabelKeys: example-excludeKeyGlobs
+  resource.excludeEventLabelKeys: kubectl.kubernetes.io/*
   resource.exclusions: |
     - apiGroups:
       - apps
@@ -151,7 +160,7 @@ data:
       kinds:
       - Deployment
   resource.ignoreResourceUpdatesEnabled: "true"
-  resource.includeEventLabelKeys: example-includeKeyGlobs
+  resource.includeEventLabelKeys: app.kubernetes.io/*
   resource.inclusions: |
     - apiGroups:
       - apps
@@ -160,23 +169,30 @@ data:
       kinds:
       - Deployment
   resource.links: |
-    - description: Example description
-      icon.class: example-iconClass
-      if: example-conditionExpr
-      title: Example Link
-      url: https://example.com/{{.app.metadata.name}}
+    - description: Application metrics dashboard
+      icon.class: fa-external-link
+      if: app.status.sync.status == 'Synced'
+      title: Open in Grafana
+      url: https://grafana.example.com/d/argo/{{.app.metadata.name}}
   resource.respectRBAC: strict
   resource.sensitive.mask.annotations: app.kubernetes.io/name
   server.maxPodLogsToRender: "10"
   server.rbac.disableApplicationFineGrainedRBACInheritance: "false"
-  sourceHydrator.commitMessageTemplate: '{{.metadata.name}}'
-  sourceHydrator.readmeMessageTemplate: '{{.metadata.name}}'
+  sourceHydrator.commitMessageTemplate: |-
+    chore: hydrate {{.metadata.name}}
+
+    {{range .spec.sources}}{{.repoURL}}@{{.targetRevision}}
+    {{end}}
+  sourceHydrator.readmeMessageTemplate: |-
+    # {{.metadata.name}}
+
+    Hydrated by Argo CD source hydrator.
   statusbadge.enabled: "true"
   statusbadge.url: https://example.com
   timeout.hard.reconciliation: 1h0m0s
   timeout.reconciliation: 1h0m0s
   timeout.reconciliation.jitter: 1h0m0s
-  ui.bannercontent: Example banner
+  ui.bannercontent: Scheduled maintenance Sunday 02:00–04:00 UTC
   ui.bannerpermanent: "true"
   ui.bannerposition: top
   ui.bannerurl: https://example.com
@@ -187,7 +203,7 @@ data:
   users.session.duration: 1h0m0s
   webhook.maxPayloadSizeMB: "10"
   webhook.refresh.jitter: 1h0m0s
-  webhook.refresh.jitter.threshold: "1"
+  webhook.refresh.jitter.threshold: "3"
 kind: ConfigMap
 metadata:
   name: argocd-cm

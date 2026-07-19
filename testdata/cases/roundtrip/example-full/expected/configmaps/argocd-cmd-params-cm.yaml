@@ -15,50 +15,50 @@ data:
   applicationsetcontroller.global.preserved.annotations: app.kubernetes.io/name
   applicationsetcontroller.global.preserved.labels: app.kubernetes.io/name
   applicationsetcontroller.grpc.enable.txt.service.config: "true"
-  applicationsetcontroller.k8s.client.burst: "10"
-  applicationsetcontroller.k8s.client.max.idle.connections: "1"
+  applicationsetcontroller.k8s.client.burst: "100"
+  applicationsetcontroller.k8s.client.max.idle.connections: "50"
   applicationsetcontroller.k8s.client.qps: "50"
   applicationsetcontroller.k8s.tcp.idle.timeout: 1h0m0s
   applicationsetcontroller.k8s.tcp.keepalive: 1h0m0s
   applicationsetcontroller.k8s.tcp.timeout: 1h0m0s
   applicationsetcontroller.k8s.tls.handshake.timeout: 1h0m0s
   applicationsetcontroller.k8sclient.retry.base.backoff: "3600000"
-  applicationsetcontroller.k8sclient.retry.max: "1"
+  applicationsetcontroller.k8sclient.retry.max: "5"
   applicationsetcontroller.log.format: json
   applicationsetcontroller.log.level: info
   applicationsetcontroller.namespaces: team-*
   applicationsetcontroller.policy: sync
   applicationsetcontroller.profile.enabled: "true"
-  applicationsetcontroller.repo.server.ca.cert.path: /example/caCertPath
-  applicationsetcontroller.repo.server.client.cert.key.path: /example/clientCertKeyPath
-  applicationsetcontroller.repo.server.client.cert.path: /example/clientCertPath
+  applicationsetcontroller.repo.server.ca.cert.path: /etc/argocd/tls/ca.crt
+  applicationsetcontroller.repo.server.client.cert.key.path: /etc/argocd/tls/tls.key
+  applicationsetcontroller.repo.server.client.cert.path: /etc/argocd/tls/tls.crt
   applicationsetcontroller.requeue.after: 1h0m0s
-  applicationsetcontroller.scm.root.ca.path: /example/scmRootCAPath
-  applicationsetcontroller.status.max.resources.count: "1"
+  applicationsetcontroller.scm.root.ca.path: /etc/argocd/tls/ca.crt
+  applicationsetcontroller.status.max.resources.count: "100"
   applicationsetcontroller.webhook.parallelism.limit: "10"
-  commit.server: example.local:8080
+  commit.server: argocd-commit-server:8086
   commitserver.grpc.enable.txt.service.config: "true"
-  commitserver.listen.address: example.local:8080
+  commitserver.listen.address: argocd-commit-server:8086
   commitserver.log.format: json
   commitserver.log.level: info
-  commitserver.metrics.listen.address: example.local:8080
+  commitserver.metrics.listen.address: 0.0.0.0:8083
   controller.app.state.cache.expiration: 1h0m0s
   controller.cluster.cache.batch.events.processing: "true"
   controller.cluster.cache.events.processing.interval: 1h0m0s
   controller.default.cache.expiration: 1h0m0s
   controller.diff.server.side: "true"
   controller.grpc.enable.txt.service.config: "true"
-  controller.hydration.processors: "10"
+  controller.hydration.processors: "20"
   controller.ignore.normalizer.jq.timeout: 1h0m0s
-  controller.k8s.client.burst: "10"
-  controller.k8s.client.max.idle.connections: "1"
+  controller.k8s.client.burst: "100"
+  controller.k8s.client.max.idle.connections: "50"
   controller.k8s.client.qps: "50"
   controller.k8s.tcp.idle.timeout: 1h0m0s
   controller.k8s.tcp.keepalive: 1h0m0s
   controller.k8s.tcp.timeout: 1h0m0s
   controller.k8s.tls.handshake.timeout: 1h0m0s
   controller.k8sclient.retry.base.backoff: "3600000"
-  controller.k8sclient.retry.max: "1"
+  controller.k8sclient.retry.max: "5"
   controller.kubectl.parallelism.limit: "10"
   controller.log.format: json
   controller.log.level: info
@@ -66,12 +66,12 @@ data:
   controller.metrics.application.labels: app.kubernetes.io/name
   controller.metrics.cache.expiration: 1h0m0s
   controller.metrics.cluster.labels: app.kubernetes.io/name
-  controller.operation.processors: "10"
+  controller.operation.processors: "20"
   controller.profile.enabled: "true"
   controller.repo.error.grace.period.seconds: "3600"
-  controller.repo.server.ca.cert.path: /example/caCertPath
-  controller.repo.server.client.cert.key.path: /example/clientCertKeyPath
-  controller.repo.server.client.cert.path: /example/clientCertPath
+  controller.repo.server.ca.cert.path: /etc/argocd/tls/ca.crt
+  controller.repo.server.client.cert.key.path: /etc/argocd/tls/tls.key
+  controller.repo.server.client.cert.path: /etc/argocd/tls/tls.crt
   controller.repo.server.plaintext: "false"
   controller.repo.server.strict.tls: "false"
   controller.repo.server.timeout.seconds: "3600"
@@ -82,7 +82,7 @@ data:
   controller.self.heal.backoff.timeout.seconds: "3600"
   controller.self.heal.timeout.seconds: "3600"
   controller.sharding.algorithm: legacy
-  controller.status.processors: "10"
+  controller.status.processors: "20"
   controller.sync.timeout.seconds: "3600"
   controller.sync.wave.delay.seconds: "3600"
   dexserver.connector.failure.continue: "true"
@@ -93,26 +93,26 @@ data:
   log.format.timestamp: RFC3339
   notificationscontroller.log.format: json
   notificationscontroller.log.level: info
-  notificationscontroller.processors.count: "10"
-  notificationscontroller.repo.server.ca.cert.path: /example/caCertPath
-  notificationscontroller.repo.server.client.cert.key.path: /example/clientCertKeyPath
-  notificationscontroller.repo.server.client.cert.path: /example/clientCertPath
+  notificationscontroller.processors.count: "20"
+  notificationscontroller.repo.server.ca.cert.path: /etc/argocd/tls/ca.crt
+  notificationscontroller.repo.server.client.cert.key.path: /etc/argocd/tls/tls.key
+  notificationscontroller.repo.server.client.cert.path: /etc/argocd/tls/tls.crt
   notificationscontroller.repo.server.plaintext: "false"
   notificationscontroller.selfservice.enabled: "true"
-  otlp.address: example.local:8080
-  otlp.attrs: x-example:example-attrs
-  otlp.headers: Authorization=example-headers
+  otlp.address: otel-collector:4317
+  otlp.attrs: service.name:argocd-server
+  otlp.headers: Authorization=Bearer token
   otlp.insecure: "false"
   otlp.sample.ratio: "0.5"
   redis.compression: gzip
   redis.db: "0"
-  redis.key.prefix: example-keyPrefix
+  redis.key.prefix: argocd
   redis.sentinel.hosts: redis-sentinel:26379
   redis.sentinel.master: mymaster
-  redis.server: example-server
-  repo.server: example.local:8080
+  redis.server: argocd-redis:6379
+  repo.server: argocd-repo-server:8081
   reposerver.allow.oob.symlinks: "true"
-  reposerver.client.ca.path: /example/clientCAPath
+  reposerver.client.ca.path: /etc/argocd/tls/ca.crt
   reposerver.default.cache.expiration: 1h0m0s
   reposerver.disable.helm.manifest.max.extracted.size: "false"
   reposerver.disable.oci.manifest.max.extracted.size: "false"
@@ -124,17 +124,17 @@ data:
   reposerver.grpc.enable.txt.service.config: "true"
   reposerver.grpc.max.size: "10"
   reposerver.helm.manifest.max.extracted.size: 10M
-  reposerver.helm.user.agent: example-userAgent
+  reposerver.helm.user.agent: argocd-repo-server
   reposerver.include.hidden.directories: "true"
-  reposerver.listen.address: example.local:8080
+  reposerver.listen.address: argocd-repo-server:8081
   reposerver.log.format: json
   reposerver.log.level: info
   reposerver.max.combined.directory.manifests.size: 10M
-  reposerver.metrics.listen.address: example.local:8080
-  reposerver.oci.layer.media.types: example-layerMediaTypes
+  reposerver.metrics.listen.address: 0.0.0.0:8083
+  reposerver.oci.layer.media.types: application/vnd.oci.image.layer.v1.tar+gzip
   reposerver.oci.manifest.max.extracted.size: 10M
   reposerver.parallelism.limit: "10"
-  reposerver.plugin.tar.exclusions: example-tarExclusionGlobs
+  reposerver.plugin.tar.exclusions: .git/*
   reposerver.plugin.use.manifest.generate.paths: "true"
   reposerver.profile.enabled: "true"
   reposerver.repo.cache.expiration: 1h0m0s
@@ -144,40 +144,40 @@ data:
   reposerver.tls.ciphers: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
   reposerver.tls.maxversion: "1.3"
   reposerver.tls.minversion: "1.2"
-  server.api.content.types: example-apiContentTypes
+  server.api.content.types: application/json
   server.app.state.cache.expiration: 1h0m0s
   server.basehref: /argo-cd
   server.connection.status.cache.expiration: 1h0m0s
-  server.content.security.policy: example-contentSecurityPolicy
+  server.content.security.policy: frame-ancestors 'self'; object-src 'none'
   server.default.cache.expiration: 1h0m0s
-  server.dex.server: example.local:8080
+  server.dex.server: argocd-dex-server:5556
   server.dex.server.plaintext: "false"
   server.dex.server.strict.tls: "false"
   server.disable.auth: "false"
   server.enable.gzip: "true"
   server.enable.proxy.extension: "true"
-  server.glob.cache.size: "1"
+  server.glob.cache.size: "1000"
   server.grpc.enable.txt.service.config: "true"
   server.http.cookie.maxnumber: "10"
   server.insecure: "false"
-  server.k8s.client.burst: "10"
-  server.k8s.client.max.idle.connections: "1"
+  server.k8s.client.burst: "100"
+  server.k8s.client.max.idle.connections: "50"
   server.k8s.client.qps: "50"
   server.k8s.tcp.idle.timeout: 1h0m0s
   server.k8s.tcp.keepalive: 1h0m0s
   server.k8s.tcp.timeout: 1h0m0s
   server.k8s.tls.handshake.timeout: 1h0m0s
   server.k8sclient.retry.base.backoff: "3600000"
-  server.k8sclient.retry.max: "1"
-  server.listen.address: example.local:8080
+  server.k8sclient.retry.max: "5"
+  server.listen.address: 0.0.0.0:8080
   server.log.format: json
   server.log.level: info
-  server.metrics.listen.address: example.local:8080
+  server.metrics.listen.address: 0.0.0.0:8083
   server.oidc.cache.expiration: 1h0m0s
   server.profile.enabled: "true"
-  server.repo.server.ca.cert.path: /example/caCertPath
-  server.repo.server.client.cert.key.path: /example/clientCertKeyPath
-  server.repo.server.client.cert.path: /example/clientCertPath
+  server.repo.server.ca.cert.path: /etc/argocd/tls/ca.crt
+  server.repo.server.client.cert.key.path: /etc/argocd/tls/tls.key
+  server.repo.server.client.cert.path: /etc/argocd/tls/tls.crt
   server.repo.server.plaintext: "false"
   server.repo.server.strict.tls: "false"
   server.repo.server.timeout.seconds: "3600"
@@ -188,7 +188,7 @@ data:
   server.tls.maxversion: "1.3"
   server.tls.minversion: "1.2"
   server.webhook.parallelism.limit: "10"
-  server.webhook.refresh.workers: "10"
+  server.webhook.refresh.workers: "20"
   server.x.frame.options: sameorigin
 kind: ConfigMap
 metadata:

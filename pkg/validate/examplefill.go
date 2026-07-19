@@ -69,15 +69,20 @@ func fillValue(v reflect.Value, jsonName string, ctx fillContext) {
 		fillValue(elem, jsonName, ctx)
 		v.Set(reflect.Append(v, elem))
 	case reflect.Map:
-		key, _ := exampleMapEntry(v.Type(), ctx)
+		key, val := exampleMapEntry(v.Type(), ctx)
 		keyVal := reflect.New(v.Type().Key()).Elem()
 		keyVal.SetString(key)
 		elem := reflect.New(v.Type().Elem()).Elem()
-		fillValue(elem, jsonName, fillContext{
+		childCtx := fillContext{
 			jsonPath:  ctx.jsonPath,
 			fieldName: ctx.fieldName,
 			mapKey:    key,
-		})
+		}
+		if elem.Kind() == reflect.String && val != "" {
+			elem.SetString(val)
+		} else {
+			fillValue(elem, jsonName, childCtx)
+		}
 		v.Set(reflect.MakeMap(v.Type()))
 		v.SetMapIndex(keyVal, elem)
 	default:
@@ -189,20 +194,250 @@ func exampleString(jsonName string, ctx fillContext) string {
 	}
 
 	lower := strings.ToLower(jsonName)
-	fieldLower := strings.ToLower(ctx.fieldName)
+	path := strings.ToLower(ctx.jsonPath)
+
+	// Path-aware overrides first (more specific than field name alone).
+	switch {
+	case lower == "path" && strings.Contains(path, "kustomize"):
+		return "/usr/local/bin/kustomize"
+	case lower == "path" && strings.Contains(path, "userinfo"):
+		return "/userinfo"
+	case lower == "server" && strings.Contains(path, "redis"):
+		return "argocd-redis:6379"
+	case lower == "name" && strings.Contains(path, "commit.author"):
+		return "Argo CD"
+	case lower == "name" && strings.Contains(path, "headers"):
+		return "Authorization"
+	case lower == "name" && strings.Contains(path, "extensions"):
+		return "metrics"
+	case lower == "name" && strings.Contains(path, "actions.definitions"):
+		return "restart"
+	case lower == "name" && strings.Contains(path, "accounts"):
+		return "admin"
+	case lower == "name" && strings.Contains(path, "connectors"):
+		return "GitHub"
+	case lower == "name" && strings.Contains(path, "policyoverlays"):
+		return "extra"
+	case lower == "name" && strings.Contains(path, "versions"):
+		return "v5.0.0"
+	case lower == "name" && strings.Contains(path, "oidc"):
+		return "Okta"
+	case lower == "value" && strings.Contains(path, "headers"):
+		return "$extension.metrics.token"
+	case lower == "value" && strings.Contains(path, "requestedidtokenclaims"):
+		return "admin"
+	case lower == "type" && strings.Contains(path, "connectors"):
+		return "github"
+	case lower == "id" && strings.Contains(path, "connectors"):
+		return "github"
+	case lower == "type" && strings.Contains(path, "knowntypefields"):
+		return "core/v1/PodSpec"
+	case lower == "key" && strings.Contains(path, "matchexpressions"):
+		return "app.kubernetes.io/name"
+	case lower == "text" && strings.Contains(path, "chat"):
+		return "Chat with us on Slack"
+	}
+
+	switch lower {
+	case "urltemplate":
+		return "https://grafana.example.com/d/argo/{{.app.metadata.name}}"
+	case "instancelabelkey":
+		return "app.kubernetes.io/instance"
+	case "cssurl":
+		return "/shared/app/custom.css"
+	case "urls", "url", "serverurl", "issuerurl", "logouturl", "baseurl", "graphapiendpointurl",
+		"chaturl", "statusbadgeurl", "bannerurl":
+		return exampleHTTPSURL
+	case "email":
+		return exampleEmail
+	case "passwordregex":
+		return `^.{8,32}$`
+	case "commitmessagetemplate":
+		return "chore: hydrate {{.metadata.name}}\n\n{{range .spec.sources}}{{.repoURL}}@{{.targetRevision}}\n{{end}}"
+	case "readmemessagetemplate":
+		return "# {{.metadata.name}}\n\nHydrated by Argo CD source hydrator."
+	case "actionlua":
+		return "obj.spec.replicas = 0\nreturn obj"
+	case "discoverylua":
+		return "actions = {}\nactions[\"restart\"] = {}\nreturn actions"
+	case "healthlua":
+		return "hs = {}\nhs.status = \"Healthy\"\nhs.message = \"ok\"\nreturn hs"
+	case "policycsv", "csv":
+		return "p, role:org-admin, applications, *, */*, allow"
+	case "rootca":
+		return "-----BEGIN CERTIFICATE-----\nMIIB...\n-----END CERTIFICATE-----"
+	case "address", "reposerveraddress", "metricsaddress", "listenaddress":
+		if strings.Contains(path, "metrics") {
+			return "0.0.0.0:8083"
+		}
+		if strings.Contains(path, "reposerver") || strings.Contains(path, "repo.server") {
+			return "argocd-repo-server:8081"
+		}
+		if strings.Contains(path, "commitserver") {
+			return "argocd-commit-server:8086"
+		}
+		if strings.Contains(path, "dex") {
+			return "argocd-dex-server:5556"
+		}
+		if strings.Contains(path, "otlp") {
+			return "otel-collector:4317"
+		}
+		return "0.0.0.0:8080"
+	case "probeaddr":
+		return ":8082"
+	case "webhookaddr":
+		return ":7000"
+	case "db":
+		return "0"
+	case "master":
+		return "mymaster"
+	case "server":
+		return "argocd-redis:6379"
+	case "keyprefix":
+		return "argocd"
+	case "sampleratio":
+		return "0.5"
+	case "qps":
+		return "50"
+	case "formattimestamp":
+		return "RFC3339"
+	case "buildoptions":
+		return "--enable-helm --load-restrictor LoadRestrictionsNone"
+	case "name":
+		return exampleMapKeyName(ctx)
+	case "kinds", "kind":
+		return "Deployment"
+	case "apigroups", "group":
+		return "apps"
+	case "applicationnamespaceglobs", "namespaceglobs":
+		return "team-*"
+	case "operator":
+		return "In"
+	case "values":
+		return "frontend"
+	case "conditions":
+		return "Synced"
+	case "ciphers":
+		return "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+	case "layermediatypes":
+		return "application/vnd.oci.image.layer.v1.tar+gzip"
+	case "valuesfileschemes":
+		return "https"
+	case "apicontenttypes":
+		return "application/json"
+	case "shells":
+		return "bash"
+	case "hosts":
+		return "redis-sentinel:26379"
+	case "clusters":
+		return "https://kubernetes.default.svc"
+	case "scopes":
+		return "groups"
+	case "requestedscopes":
+		return "openid"
+	case "allowedaudiences":
+		return "argocd"
+	case "includekeyglobs":
+		return "app.kubernetes.io/*"
+	case "excludekeyglobs":
+		return "kubectl.kubernetes.io/*"
+	case "tarexclusionglobs":
+		return ".git/*"
+	case "projectname":
+		return "global"
+	case "field":
+		return "spec.template"
+	case "jsonpointers":
+		return "/status"
+	case "jqpathexpressions":
+		return ".metadata.annotations.\"kubectl.kubernetes.io/last-applied-configuration\""
+	case "managedfieldsmanagers":
+		return "kube-controller-manager"
+	case "title":
+		return "Open in Grafana"
+	case "description":
+		return "Application metrics dashboard"
+	case "iconclass":
+		return "fa-external-link"
+	case "conditionexpr":
+		return "app.status.sync.status == 'Synced'"
+	case "content":
+		return "Scheduled maintenance Sunday 02:00–04:00 UTC"
+	case "contentsecuritypolicy":
+		return "frame-ancestors 'self'; object-src 'none'"
+	case "loginbuttontext":
+		return "Log in via SSO"
+	case "basehref", "rootpath":
+		return "/argo-cd"
+	case "staticassetspath":
+		return "/shared/app"
+	case "xframeoptions":
+		return "sameorigin"
+	case "installationid":
+		return "prod-us-west-1"
+	case "minversion":
+		return "1.2"
+	case "maxversion":
+		return "1.3"
+	case "path":
+		return "/userinfo"
+	case "trackingid":
+		return "UA-123456-1"
+	case "default":
+		return "role:readonly"
+	case "matchmode":
+		return "glob"
+	case "compression":
+		return "gzip"
+	case "policy":
+		return "sync"
+	case "algorithm":
+		return "legacy"
+	case "mode":
+		return "optional"
+	case "respectrbac":
+		return "strict"
+	case "ignoreresourcestatusfield":
+		return "crd"
+	case "resourcetrackingmethod":
+		return "annotation"
+	case "position":
+		return "top"
+	case "format":
+		return "json"
+	case "level":
+		return "info"
+	case "capabilities":
+		return "login"
+	case "clientid", "cliclientid":
+		return "argocd"
+	case "domainhint":
+		return "contoso.onmicrosoft.com"
+	case "useragent":
+		return "argocd-repo-server"
+	case "applabelselector":
+		return "app.kubernetes.io/part-of=argocd"
+	case "configmapname":
+		return "argocd-notifications-cm"
+	case "secretname":
+		return "argocd-notifications-secret"
+	case "applicationsetlabels":
+		return "app.kubernetes.io/name"
+	case "profilerfilepath":
+		return "/tmp/argocd-profile.pprof"
+	case "cacertpath", "clientcapath", "scmrootcapath":
+		return "/etc/argocd/tls/ca.crt"
+	case "clientcertpath":
+		return "/etc/argocd/tls/tls.crt"
+	case "clientcertkeypath":
+		return "/etc/argocd/tls/tls.key"
+	case "allowednodelabelkeys", "customlabelkeys", "sensitivemaskannotationkeys",
+		"annotationkeys", "labelkeys":
+		return "app.kubernetes.io/name"
+	}
 
 	switch {
-	case lower == "urltemplate":
-		return "https://example.com/{{.app.metadata.name}}"
-	case lower == "instancelabelkey":
-		return "app.kubernetes.io/instance"
-	case lower == "cssurl":
-		return "/shared/app/custom.css"
-	case lower == "urls" || strings.HasSuffix(lower, "urls"):
-		return exampleHTTPSURL
-	case lower == "url" || (strings.HasSuffix(lower, "url") && !strings.HasSuffix(lower, "urltemplate")):
-		return exampleHTTPSURL
-	case strings.Contains(lower, "url") && !strings.Contains(lower, "template"):
+	case strings.HasSuffix(lower, "url") || strings.Contains(lower, "url"):
 		return exampleHTTPSURL
 	case strings.HasSuffix(lower, "email"):
 		return exampleEmail
@@ -213,172 +448,57 @@ func exampleString(jsonName string, ctx fillContext) string {
 	case strings.HasSuffix(lower, "lua"):
 		return "return true"
 	case strings.HasSuffix(lower, "csv"):
-		return "p, role:example, applications, get, */*, allow"
-	case strings.HasSuffix(lower, "rootca") || strings.HasSuffix(lower, "rootca"):
-		return "-----BEGIN CERTIFICATE-----\nEXAMPLE\n-----END CERTIFICATE-----"
-	case lower == "address" || strings.HasSuffix(lower, "address"):
-		return "example.local:8080"
-	case lower == "server" && ctx.jsonPath == "spec.redis":
-		return "argocd-redis:6379"
-	case lower == "db":
-		return "0"
-	case lower == "master":
-		return "mymaster"
-	case lower == "sampleratio":
-		return "0.5"
-	case lower == "qps":
-		return "50"
-	case lower == "formattimestamp":
-		return "RFC3339"
-	case lower == "buildoptions":
-		return "--enable-alpha-plugins"
-	case lower == "type" && strings.Contains(ctx.jsonPath, "connectors"):
-		return "github"
-	case lower == "id" && strings.Contains(ctx.jsonPath, "connectors"):
-		return "github"
-	case lower == "name" && strings.Contains(ctx.jsonPath, "commit.author"):
-		return "Argo CD"
-	case lower == "name":
-		return exampleMapKeyName(ctx)
-	case lower == "kinds":
-		return "Deployment"
-	case lower == "kind":
-		return "Deployment"
-	case lower == "apigroups":
-		return "apps"
-	case lower == "group":
-		return "apps"
-	case lower == "applicationnamespaceglobs", lower == "namespaceglobs":
-		return "team-*"
-	case lower == "operator":
-		return "In"
-	case lower == "key" && strings.Contains(ctx.jsonPath, "matchExpressions"):
-		return "app.kubernetes.io/name"
-	case strings.HasSuffix(lower, "keys"):
-		return "app.kubernetes.io/name"
-	case lower == "conditions":
-		return "Synced"
-	case lower == "ciphers":
-		return "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
-	case lower == "layerMediaTypes":
-		return "application/vnd.oci.image.layer.v1.tar+gzip"
-	case lower == "valuesFileSchemes":
-		return "https"
-	case lower == "apiContentTypes":
-		return "application/json"
-	case lower == "shells":
-		return "bash"
-	case lower == "hosts":
-		return "redis-sentinel:26379"
-	case lower == "values":
-		return "example"
-	case lower == "clusters":
-		return "https://kubernetes.default.svc"
-	case lower == "scopes":
-		return "groups"
-	case lower == "requestedScopes":
-		return "openid"
-	case lower == "allowedAudiences":
-		return "argocd"
-	case lower == "includeKeyGlobs", lower == "excludeKeyGlobs":
+		return "p, role:org-admin, applications, get, */*, allow"
+	case strings.HasSuffix(lower, "address"):
+		return "0.0.0.0:8080"
+	case strings.HasSuffix(lower, "keys") || strings.HasSuffix(lower, "globs"):
 		return "app.kubernetes.io/*"
-	case lower == "tarExclusionGlobs":
-		return "*.git"
-	case lower == "urls":
-		return exampleHTTPSURL
-	case lower == "projectname":
-		return "global"
-	case lower == "field":
-		return "spec.template"
-	case lower == "type" && strings.Contains(ctx.jsonPath, "knownTypeFields"):
-		return "core/v1/PodSpec"
-	case lower == "title":
-		return "Example Link"
-	case lower == "description":
-		return "Example description"
-	case lower == "iconClass":
-		return "fa fa-link"
-	case lower == "conditionExpr":
-		return "true"
-	case lower == "content":
-		return "Example banner"
-	case lower == "loginbuttontext":
-		return "Log in via SSO"
-	case lower == "basehref", lower == "rootpath":
-		return "/argo-cd"
-	case lower == "staticassetspath":
-		return "/shared/app"
-	case lower == "xframeoptions":
-		return "sameorigin"
-	case lower == "installationid":
-		return "example-installation-id"
-	case lower == "minversion", lower == "maxversion":
-		return "1.2"
-	case lower == "path":
-		return "/userinfo"
-	case lower == "value" && strings.Contains(ctx.jsonPath, "requestedIDTokenClaims"):
-		return "example-value"
-	case lower == "actionLua":
-		return "return obj"
-	case lower == "discoveryLua":
-		return "actions = {}\nreturn actions"
-	case lower == "healthLua":
-		return "hs = {}\nhs.status = \"Healthy\"\nreturn hs"
-	case lower == "commitMessageTemplate", lower == "readmeMessageTemplate":
-		return "{{.metadata.name}}"
-	case lower == "trackingID":
-		return "UA-12345-1"
-	case lower == "default":
-		return "role:readonly"
-	case lower == "matchMode":
-		return "glob"
-	case lower == "compression":
-		if strings.Contains(ctx.jsonPath, "redis") {
-			return "gzip"
-		}
-		return "gzip"
-	case lower == "policy":
-		return "sync"
-	case lower == "algorithm":
-		return "legacy"
-	case lower == "mode":
-		return "optional"
-	case lower == "respectrbac":
-		return "strict"
-	case lower == "ignoreResourceStatusField":
-		return "crd"
-	case lower == "resourceTrackingMethod":
-		return "annotation"
-	case lower == "position":
-		return "top"
-	case lower == "format":
-		return "json"
-	case lower == "level":
-		return "info"
-	case fieldLower == "Capabilities" || lower == "capabilities":
-		return "login"
-	case lower == "clientID", lower == "cliClientID":
-		return "argocd-client"
-	case lower == "domainHint":
-		return "example.com"
-	case lower == "cacertPath", lower == "clientCertPath", lower == "clientCertKeyPath", lower == "clientCAPath", lower == "scmRootCAPath":
-		return "/etc/argocd/tls/" + jsonName + ".pem"
 	case strings.HasSuffix(lower, "path"):
-		return "/example/" + jsonName
+		return "/etc/argocd/" + lower
 	default:
 		return "example-" + jsonName
 	}
 }
 
 func exampleInt(jsonName string, ctx fillContext) int64 {
-	switch strings.ToLower(jsonName) {
+	lower := strings.ToLower(jsonName)
+	path := strings.ToLower(ctx.jsonPath)
+	switch lower {
 	case "factor":
 		return 2
 	case "db":
 		return 0
-	case "jitterthreshold", "statusmaxresourcescount", "globcachesize", "maxidleconnections", "max":
-		return 1
+	case "jitterthreshold":
+		return 3
+	case "statusmaxresourcescount":
+		return 100
+	case "globcachesize":
+		return 1000
+	case "maxidleconnections":
+		return 50
+	case "max":
+		return 5
+	case "burst":
+		return 100
+	case "metricsport":
+		return 8083
+	case "port":
+		return 8080
+	case "processorscount", "hydration", "operation", "status", "workers":
+		return 20
+	case "kubectlparallelismlimit", "parallelismlimit", "webhookparallelismlimit",
+		"reconciliationsparallelismlimit", "lsremoteparallelismlimit":
+		return 10
+	case "httpcookiemaxnumber":
+		return 10
+	case "maxpodstorender":
+		return 10
+	case "applicationtreeshardsize":
+		return 100
 	default:
+		if strings.Contains(path, "timeout") || strings.Contains(lower, "timeout") {
+			return 60
+		}
 		return 10
 	}
 }
@@ -387,36 +507,44 @@ func exampleMapKeyName(ctx fillContext) string {
 	if ctx.mapKey != "" {
 		return ctx.mapKey
 	}
+	path := strings.ToLower(ctx.jsonPath)
 	switch {
-	case strings.Contains(ctx.jsonPath, "accounts"):
+	case strings.Contains(path, "accounts"):
 		return "admin"
-	case strings.Contains(ctx.jsonPath, "extensions"):
-		return "example-extension"
-	case strings.Contains(ctx.jsonPath, "connectors"):
+	case strings.Contains(path, "headers"):
+		return "Authorization"
+	case strings.Contains(path, "extensions"):
+		return "metrics"
+	case strings.Contains(path, "connectors"):
 		return "GitHub"
-	case strings.Contains(ctx.jsonPath, "policyOverlays"):
-		return "overlay"
-	case strings.Contains(ctx.jsonPath, "versions"):
+	case strings.Contains(path, "policyoverlays"):
+		return "extra"
+	case strings.Contains(path, "versions"):
 		return "v5.0.0"
-	case strings.Contains(ctx.jsonPath, "headers"):
-		return "X-Example"
+	case strings.Contains(path, "actions"):
+		return "restart"
 	default:
 		return "example"
 	}
 }
 
 func exampleMapEntry(mapType reflect.Type, ctx fillContext) (key, val string) {
+	path := strings.ToLower(ctx.jsonPath)
 	switch {
-	case strings.Contains(ctx.jsonPath, "requestedIDTokenClaims"):
+	case strings.Contains(path, "requestedidtokenclaims"):
 		return "groups", ""
-	case strings.Contains(ctx.jsonPath, "headers"):
-		return "Authorization", "Bearer example"
-	case strings.Contains(ctx.jsonPath, "binaryURLs"):
-		return "darwin-arm64", exampleHTTPSURL + "/argocd"
-	case strings.Contains(ctx.jsonPath, "otlp"):
-		return "x-example", "value"
+	case strings.Contains(path, "headers"):
+		return "Authorization", "Bearer token"
+	case strings.Contains(path, "binaryurls"):
+		return "darwin-arm64", exampleHTTPSURL + "/argocd-darwin-arm64"
+	case strings.Contains(path, "otlp.attrs") || strings.HasSuffix(path, "attrs"):
+		return "service.name", "argocd-server"
+	case strings.Contains(path, "otlp"):
+		return "Authorization", "Bearer token"
+	case strings.Contains(path, "matchlabels"):
+		return "app.kubernetes.io/part-of", "argocd"
 	default:
-		return "example-key", "example-value"
+		return "app.kubernetes.io/name", "argocd"
 	}
 }
 

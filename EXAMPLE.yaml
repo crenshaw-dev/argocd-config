@@ -19,15 +19,15 @@ spec:
       - app.kubernetes.io/name
     grpcTXTServiceConfigEnabled: true
     k8sClient:
-      burst: 10
-      maxIdleConnections: 1
+      burst: 100
+      maxIdleConnections: 50
       qps: "50"
       retry:
         backoff:
           duration: 1h0m0s
           factor: 2
           maxDuration: 1h0m0s
-        max: 1
+        max: 5
       tcp:
         idleTimeout: 1h0m0s
         keepAlive: 1h0m0s
@@ -38,42 +38,42 @@ spec:
       format: json
       level: info
     metrics:
-      address: example.local:8080
+      address: 0.0.0.0:8083
       applicationSetLabels:
-      - example-applicationSetLabels
+      - app.kubernetes.io/name
     namespaceGlobs:
     - team-*
     newGitFileGlobbingEnabled: true
     policy: sync
     policyOverrideEnabled: true
-    probeAddr: example-probeAddr
+    probeAddr: :8082
     profileEnabled: true
     progressiveSyncs:
       enabled: true
     reconciliationsParallelismLimit: 10
     repoServerClient:
-      caCertPath: /example/caCertPath
-      clientCertKeyPath: /example/clientCertKeyPath
-      clientCertPath: /example/clientCertPath
+      caCertPath: /etc/argocd/tls/ca.crt
+      clientCertKeyPath: /etc/argocd/tls/tls.key
+      clientCertPath: /etc/argocd/tls/tls.crt
     requeueAfter: 1h0m0s
     scmProvidersEnabled: true
-    scmRootCAPath: /example/scmRootCAPath
-    statusMaxResourcesCount: 1
+    scmRootCAPath: /etc/argocd/tls/ca.crt
+    statusMaxResourcesCount: 100
     tokenRefStrictModeEnabled: true
-    webhookAddr: example-webhookAddr
+    webhookAddr: :7000
     webhookParallelismLimit: 10
   cluster:
     inClusterEnabled: true
   commitServer:
-    address: example.local:8080
+    address: argocd-commit-server:8086
     commit:
       author:
         email: argo-cd@example.com
         name: Argo CD
     grpcTXTServiceConfigEnabled: true
     listen:
-      address: example.local:8080
-      metricsAddress: example.local:8080
+      address: argocd-commit-server:8086
+      metricsAddress: 0.0.0.0:8083
     log:
       format: json
       level: info
@@ -101,22 +101,22 @@ spec:
         - key: app.kubernetes.io/name
           operator: In
           values:
-          - example
+          - frontend
         matchLabels:
-          example-key: example-matchLabels
+          app.kubernetes.io/part-of: argocd
       projectName: global
     grpcTXTServiceConfigEnabled: true
     instanceLabelKey: app.kubernetes.io/instance
     k8sClient:
-      burst: 10
-      maxIdleConnections: 1
+      burst: 100
+      maxIdleConnections: 50
       qps: "50"
       retry:
         backoff:
           duration: 1h0m0s
           factor: 2
           maxDuration: 1h0m0s
-        max: 1
+        max: 5
       tcp:
         idleTimeout: 1h0m0s
         keepAlive: 1h0m0s
@@ -137,11 +137,11 @@ spec:
         labelKeys:
         - app.kubernetes.io/name
     processors:
-      hydration: 10
-      operation: 10
-      status: 10
+      hydration: 20
+      operation: 20
+      status: 20
     profileEnabled: true
-    profilerFilePath: /example/profilerFilePath
+    profilerFilePath: /tmp/argocd-profile.pprof
     reconciliation:
       hardTimeout: 1h0m0s
       jitter: 1h0m0s
@@ -150,9 +150,14 @@ spec:
     resource:
       actions:
       - definitions:
-        - actionLua: return true
-          name: example
-        discoveryLua: return true
+        - actionLua: |-
+            obj.spec.replicas = 0
+            return obj
+          name: restart
+        discoveryLua: |-
+          actions = {}
+          actions["restart"] = {}
+          return actions
         group: apps
         kind: Deployment
         mergeBuiltinActions: true
@@ -160,9 +165,9 @@ spec:
       - app.kubernetes.io/name
       eventLabels:
         excludeKeyGlobs:
-        - example-excludeKeyGlobs
+        - kubectl.kubernetes.io/*
         includeKeyGlobs:
-        - example-includeKeyGlobs
+        - app.kubernetes.io/*
       exclusions:
       - apiGroups:
         - apps
@@ -172,27 +177,31 @@ spec:
         - Deployment
       health:
       - group: apps
-        healthLua: return true
+        healthLua: |-
+          hs = {}
+          hs.status = "Healthy"
+          hs.message = "ok"
+          return hs
         kind: Deployment
         useOpenLibs: true
       ignoreDifferences:
       - group: apps
         jqPathExpressions:
-        - example-jqPathExpressions
+        - .metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"
         jsonPointers:
-        - example-jsonPointers
+        - /status
         kind: Deployment
         managedFieldsManagers:
-        - example-managedFieldsManagers
+        - kube-controller-manager
       ignoreResourceUpdates:
       - group: apps
         jqPathExpressions:
-        - example-jqPathExpressions
+        - .metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"
         jsonPointers:
-        - example-jsonPointers
+        - /status
         kind: Deployment
         managedFieldsManagers:
-        - example-managedFieldsManagers
+        - kube-controller-manager
       inclusions:
       - apiGroups:
         - apps
@@ -221,9 +230,16 @@ spec:
     sharding:
       algorithm: legacy
     sourceHydrator:
-      commitMessageTemplate: '{{.metadata.name}}'
+      commitMessageTemplate: |-
+        chore: hydrate {{.metadata.name}}
+
+        {{range .spec.sources}}{{.repoURL}}@{{.targetRevision}}
+        {{end}}
       enabled: true
-      readmeMessageTemplate: '{{.metadata.name}}'
+      readmeMessageTemplate: |-
+        # {{.metadata.name}}
+
+        Hydrated by Argo CD source hydrator.
     sync:
       impersonation:
         mode: optional
@@ -238,45 +254,45 @@ spec:
       level: info
     tlsEnabled: true
   execTimeout: 1h0m0s
-  installationID: example-installation-id
+  installationID: prod-us-west-1
   logging:
     formatTimestamp: RFC3339
   notifications:
-    appLabelSelector: example-appLabelSelector
-    configMapName: example-configMapName
+    appLabelSelector: app.kubernetes.io/part-of=argocd
+    configMapName: argocd-notifications-cm
     log:
       format: json
       level: info
-    metricsPort: 10
-    processorsCount: 10
-    repoServerAddress: example.local:8080
+    metricsPort: 8083
+    processorsCount: 20
+    repoServerAddress: argocd-repo-server:8081
     repoServerClient:
-      caCertPath: /example/caCertPath
-      clientCertKeyPath: /example/clientCertKeyPath
-      clientCertPath: /example/clientCertPath
+      caCertPath: /etc/argocd/tls/ca.crt
+      clientCertKeyPath: /etc/argocd/tls/tls.key
+      clientCertPath: /etc/argocd/tls/tls.crt
     repoServerStrictTLS: true
-    secretName: example-secretName
+    secretName: argocd-notifications-secret
     selfServiceEnabled: true
     tlsEnabled: true
   otlp:
-    address: example.local:8080
+    address: otel-collector:4317
     attrs:
-      x-example: example-attrs
+      service.name: argocd-server
     headers:
-      Authorization: example-headers
+      Authorization: Bearer token
     sampleRatio: "0.5"
     tlsEnabled: true
   redis:
     compression: gzip
     db: 0
-    keyPrefix: example-keyPrefix
+    keyPrefix: argocd
     sentinel:
       hosts:
       - redis-sentinel:26379
       master: mymaster
-    server: example-server
+    server: argocd-redis:6379
   repoServer:
-    address: example.local:8080
+    address: argocd-repo-server:8081
     allowOOBSymlinks: true
     cache:
       defaultExpiration: 1h0m0s
@@ -284,12 +300,12 @@ spec:
     client:
       insecureSkipVerify: true
       mtls:
-        caCertPath: /example/caCertPath
-        clientCertKeyPath: /example/clientCertKeyPath
-        clientCertPath: /example/clientCertPath
+        caCertPath: /etc/argocd/tls/ca.crt
+        clientCertKeyPath: /etc/argocd/tls/tls.key
+        clientCertPath: /etc/argocd/tls/tls.crt
       timeout: 1h0m0s
       tlsEnabled: true
-    clientCAPath: /example/clientCAPath
+    clientCAPath: /etc/argocd/tls/ca.crt
     git:
       builtinConfigEnabled: true
       lsRemoteParallelismLimit: 10
@@ -302,36 +318,36 @@ spec:
       manifest:
         maxExtractedSize: 10M
         maxExtractedSizeEnabled: true
-      userAgent: example-userAgent
+      userAgent: argocd-repo-server
       valuesFileSchemes:
-      - example-valuesFileSchemes
+      - https
     includeHiddenDirectories: true
     jsonnet:
       enabled: true
     kustomize:
-      buildOptions: --enable-alpha-plugins
+      buildOptions: --enable-helm --load-restrictor LoadRestrictionsNone
       enabled: true
       versions:
-      - buildOptions: --enable-alpha-plugins
+      - buildOptions: --enable-helm --load-restrictor LoadRestrictionsNone
         name: v5.0.0
-        path: /userinfo
+        path: /usr/local/bin/kustomize
     listen:
-      address: example.local:8080
-      metricsAddress: example.local:8080
+      address: argocd-repo-server:8081
+      metricsAddress: 0.0.0.0:8083
     log:
       format: json
       level: info
     maxCombinedDirectoryManifestsSize: 10M
     oci:
       layerMediaTypes:
-      - example-layerMediaTypes
+      - application/vnd.oci.image.layer.v1.tar+gzip
       manifest:
         maxExtractedSize: 10M
         maxExtractedSizeEnabled: true
     parallelismLimit: 10
     plugin:
       tarExclusionGlobs:
-      - example-tarExclusionGlobs
+      - .git/*
       useManifestGeneratePaths: true
     profileEnabled: true
     revisionCacheLockTimeout: 1h0m0s
@@ -351,37 +367,37 @@ spec:
       enabled: true
       name: admin
     apiContentTypes:
-    - example-apiContentTypes
-    applicationTreeShardSize: 10
+    - application/json
+    applicationTreeShardSize: 100
     authEnabled: true
     baseHref: /argo-cd
     cache:
       appStateExpiration: 1h0m0s
       connectionStatusExpiration: 1h0m0s
       defaultExpiration: 1h0m0s
-      globCacheSize: 1
+      globCacheSize: 1000
       oidcExpiration: 1h0m0s
     compression: gzip
-    contentSecurityPolicy: example-contentSecurityPolicy
+    contentSecurityPolicy: frame-ancestors 'self'; object-src 'none'
     deepLinks:
       application:
-      - conditionExpr: example-conditionExpr
-        description: Example description
-        iconClass: example-iconClass
-        title: Example Link
-        urlTemplate: https://example.com/{{.app.metadata.name}}
+      - conditionExpr: app.status.sync.status == 'Synced'
+        description: Application metrics dashboard
+        iconClass: fa-external-link
+        title: Open in Grafana
+        urlTemplate: https://grafana.example.com/d/argo/{{.app.metadata.name}}
       project:
-      - conditionExpr: example-conditionExpr
-        description: Example description
-        iconClass: example-iconClass
-        title: Example Link
-        urlTemplate: https://example.com/{{.app.metadata.name}}
+      - conditionExpr: app.status.sync.status == 'Synced'
+        description: Application metrics dashboard
+        iconClass: fa-external-link
+        title: Open in Grafana
+        urlTemplate: https://grafana.example.com/d/argo/{{.app.metadata.name}}
       resource:
-      - conditionExpr: example-conditionExpr
-        description: Example description
-        iconClass: example-iconClass
-        title: Example Link
-        urlTemplate: https://example.com/{{.app.metadata.name}}
+      - conditionExpr: app.status.sync.status == 'Synced'
+        description: Application metrics dashboard
+        iconClass: fa-external-link
+        title: Open in Grafana
+        urlTemplate: https://grafana.example.com/d/argo/{{.app.metadata.name}}
     dex:
       connectors:
       - config:
@@ -394,7 +410,7 @@ spec:
       staticClients:
       - example: true
     dexConnection:
-      address: example.local:8080
+      address: argocd-dex-server:5556
       insecureSkipVerify: true
       tlsEnabled: true
     exec:
@@ -405,47 +421,47 @@ spec:
     - connectionTimeout: 1h0m0s
       idleConnectionTimeout: 1h0m0s
       keepAlive: 1h0m0s
-      maxIdleConnections: 1
-      name: example-extension
+      maxIdleConnections: 50
+      name: metrics
       services:
       - cluster:
-          name: example-extension
+          name: metrics
           serverURL: https://example.com
         headers:
-        - name: example-extension
-          value: example-value
+        - name: Authorization
+          value: $extension.metrics.token
         url: https://example.com
     googleAnalytics:
       anonymizeUsers: true
-      trackingID: example-trackingID
+      trackingID: UA-123456-1
     grpcTXTServiceConfigEnabled: true
     help:
       binaryURLs:
-        darwin-arm64: https://example.com
+        darwin-arm64: https://example.com/argocd-darwin-arm64
       chat:
-        text: example-text
+        text: Chat with us on Slack
         url: https://example.com
     httpCookieMaxNumber: 10
     k8sClient:
-      burst: 10
-      maxIdleConnections: 1
+      burst: 100
+      maxIdleConnections: 50
       qps: "50"
       retry:
         backoff:
           duration: 1h0m0s
           factor: 2
           maxDuration: 1h0m0s
-        max: 1
+        max: 5
       tcp:
         idleTimeout: 1h0m0s
         keepAlive: 1h0m0s
         timeout: 1h0m0s
       tlsHandshakeTimeout: 1h0m0s
     listen:
-      address: example.local:8080
-      metricsAddress: example.local:8080
-      metricsPort: 10
-      port: 10
+      address: 0.0.0.0:8080
+      metricsAddress: 0.0.0.0:8083
+      metricsPort: 8083
+      port: 8080
     log:
       format: json
       level: info
@@ -453,37 +469,37 @@ spec:
       maxPodsToRender: 10
     oidc:
       allowedAudiences:
-      - example-allowedAudiences
+      - argocd
       azure:
         graphAPIEndpointURL: https://example.com
         useWorkloadIdentity: true
         userGroupOverageClaim:
           cacheExpiration: 1h0m0s
           enabled: true
-      cliClientID: example-cliClientID
-      clientID: example-clientID
+      cliClientID: argocd
+      clientID: argocd
       clientSecretRef:
         key: oidc.clientSecret
         name: argocd-secret
         optional: true
-      domainHint: example-domainHint
+      domainHint: contoso.onmicrosoft.com
       insecureSkipVerify: true
       issuerURL: https://example.com
       logoutURL: https://example.com
-      name: example
+      name: Okta
       pkceAuthenticationEnabled: true
       refreshTokenThreshold: 1h0m0s
       requestedIDTokenClaims:
         groups:
           essential: true
-          value: example-value
+          value: admin
           values:
-          - example
+          - frontend
       requestedScopes:
-      - example-requestedScopes
+      - openid
       rootCA: |-
         -----BEGIN CERTIFICATE-----
-        EXAMPLE
+        MIIB...
         -----END CERTIFICATE-----
       skipAudienceCheckWhenTokenHasNoAudience: true
       userInfo:
@@ -497,10 +513,10 @@ spec:
       applicationFineGrainedInheritanceEnabled: true
       default: role:readonly
       matchMode: glob
-      policyCSV: p, role:example, applications, get, */*, allow
+      policyCSV: p, role:org-admin, applications, *, */*, allow
       policyOverlays:
-      - csv: p, role:example, applications, get, */*, allow
-        name: overlay
+      - csv: p, role:org-admin, applications, *, */*, allow
+        name: extra
       scopes:
       - groups
     rootPath: /argo-cd
@@ -517,7 +533,7 @@ spec:
     tlsEnabled: true
     ui:
       banner:
-        content: Example banner
+        content: Scheduled maintenance Sunday 02:00–04:00 UTC
         permanent: true
         position: top
         url: https://example.com
@@ -534,6 +550,6 @@ spec:
       parallelismLimit: 10
       refresh:
         jitter: 1h0m0s
-        jitterThreshold: 1
-        workers: 10
+        jitterThreshold: 3
+        workers: 20
     xFrameOptions: sameorigin
