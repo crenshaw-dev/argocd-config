@@ -5,7 +5,8 @@ metadata:
   namespace: argocd
 spec:
   server:
-    oidcInsecureSkipVerify: true
+    oidc:
+      insecureSkipVerify: true
     urls:
     - https://argo-cd-demo.argoproj.io
     - https://argo-cd-demo2.argoproj.io

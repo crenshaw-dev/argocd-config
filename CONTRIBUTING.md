@@ -164,20 +164,22 @@ Default to **organizational subgroup** whenever someone might reasonably set one
 
 **Bools inside organizational subgroups** that need unset vs false must be `*bool` (value `bool` cannot fall through once the parent exists in the object graph). Same for other zero-able scalars if “explicit empty” matters.
 
+**Bools inside composite overrides / settings groups** may be plain `bool`: the parent pointer is the migration unit, so unset-vs-false at the child level is not independently meaningful. Prefer `*bool` only when a child can migrate on its own (e.g. `oidc.insecureSkipVerify` maps to a separate CM key nested under the OIDC composite for discoverability).
+
 **Current inventory (prototype):**
 
 | Field | Role | Why |
 | --- | --- | --- |
 | `server.dex` / `server.oidc` / `controller.diff.compareOptions` | Composite override | Single legacy document |
 | `server.ui`, `server.rbac`, `server.deepLinks`, `server.help`, `server.users`, `controller.resource`, `controller.sync`, `controller.sourceHydrator`, `repoServer.kustomize`, `repoServer.client`, `controller.metrics` | Organizational subgroup | Too broad / independent keys — migrate per child |
-| `server.googleAnalytics`, `server.exec`, `server.statusBadge`, `server.dexServer` (connection), `server.tls` / `repoServer.tls`, `repoServer.helm`, `repoServer.jsonnet`, `commitServer.commit` (+ author), `controller.selfHeal`, `controller.clusterCache` | Settings group | Small cohesive feature |
+| `server.googleAnalytics`, `server.exec`, `server.statusBadge`, `server.dexConnection`, `server.tls` / `repoServer.tls`, `repoServer.helm`, `repoServer.jsonnet`, `commitServer.commit` (+ author), `controller.selfHeal`, `controller.clusterCache` | Settings group | Small cohesive feature |
 | `server.webhook`, `server.cache`, `server.k8sClient`, `controller.k8sClient`, `repoServer.oci` | Organizational subgroup | Mixed sources / independent keys |
 
 When you add a new nested struct, pick deliberately — don’t default to settings-group wholesale just because the parent is a pointer.
 
 ### 2. Name the field
 
-1. Use clear Go / JSON names (`issuerURL`, not `issuer`).
+1. Use clear Go / JSON names (`issuerURL`, not `issuer`). Follow **Go initialism rules** ([CodeReviewComments](https://go.dev/wiki/CodeReviewComments#initialisms)): acronyms stay all-caps in Go identifiers (`URL`, `HTTP`, `API`, `ID`, `TLS`, `QPS`, `OIDC`, `OTLP`, `RBAC`, `SCM`, `OCI`, `GRPC`, `TXT`, `TCP`, `DB`). JSON tags are the Go name with the first letter lowercased (`issuerURL`, `grpcMaxSize`). See `api/v1alpha1/naming_test.go` for the enforced list — add new initialisms there when needed.
 2. Apply a **suffix** when the value’s language matters:
 
 | Suffix | Meaning | Do / don’t |
@@ -205,7 +207,7 @@ Always use positive polarity in the CR (`*Enabled`). When the legacy key uses th
 **TLS flags:**
 - Prefer `tlsEnabled` for whether TLS is used (API server, repo-server, Dex, client dials, OTLP). Invert mapping from legacy `*.insecure` / `*.plaintext` / `disable.tls`.
 - `insecureSkipVerify` — keep TLS, but skip certificate verification. Prefer this over inverted `strictTLS`. Legacy `*.strict.tls=true` maps to `insecureSkipVerify=false`.
-- Scope in the field name when needed (`oidcInsecureSkipVerify`).
+- Nest under the related config when possible (`oidc.insecureSkipVerify`, `dexConnection.insecureSkipVerify`).
 
 ### 3. Choose types and validation
 
@@ -215,10 +217,11 @@ Fields stay **optional** (`omitempty`, nilable roots) so unset vs empty stays di
 | --- | --- | --- |
 | Timeout / TTL / jitter / session length | `metav1.Duration` | Avoid raw seconds `int` or free-form strings unless necessary |
 | Size limits (bytes / payloads) | `resource.Quantity` + `*Size` name | e.g. `maxPayloadSize: 50M` — no `*MB` int fields |
+| Integers (counts, ports, DB index) | `*int32` (+ `Minimum` / `Maximum`) | e.g. `redis.db` |
+| Decimal scalars (QPS, sample ratio) | `string` + OpenAPI `Pattern` | CRDs discourage `float*` (`allowDangerousTypes`); validate shape instead |
 | Whole secret Argo controls | `corev1.SecretKeySelector` | e.g. OIDC `clientSecretRef` |
 | Label / annotation keys, kinds, API groups | OpenAPI `Pattern` / `items:Pattern` | **Never** CEL `matches()` on unbounded lists (budget cost) |
-| Absolute URLs (scalar or list) | CEL `isURL` (+ scheme allowlist) | More robust than a URL regex |
-| URL map values | `AbsoluteHTTPURL` (typed string + Pattern) | Maps don’t get list-style CEL as cleanly |
+| Absolute URLs (scalar or list) | CEL `isURL` (+ scheme allowlist) | More robust than a URL regex. Path-or-URL map values (`binaryURLs`) stay `map[string]string` without absolute-URL validation. |
 | Dynamic collections | `[]T` with `+listType=map` + `+listMapKey=…` | Not `map[string]T` for CRD lists you want to SSA-merge by key |
 | Unique scalar lists (sets) | `[]string` / `[]int` with `+listType=set` | e.g. `accounts[].capabilities` — rejects duplicates like `login` twice |
 

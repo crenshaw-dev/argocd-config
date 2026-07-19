@@ -90,7 +90,7 @@ data:
   dexserver.log.format: json
   dexserver.log.level: info
   hydrator.enabled: "true"
-  log.format.timestamp: example-formatTimestamp
+  log.format.timestamp: RFC3339
   notificationscontroller.log.format: json
   notificationscontroller.log.level: info
   notificationscontroller.processors.count: "10"
@@ -103,7 +103,7 @@ data:
   otlp.attrs: x-example:example-attrs
   otlp.headers: Authorization=example-headers
   otlp.insecure: "false"
-  otlp.sample.ratio: example-sampleRatio
+  otlp.sample.ratio: "0.5"
   redis.compression: gzip
   redis.db: "0"
   redis.key.prefix: example-keyPrefix
@@ -142,7 +142,7 @@ data:
   reposerver.streamed.manifest.max.extracted.size: 10M
   reposerver.streamed.manifest.max.tar.size: 10M
   reposerver.tls.ciphers: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-  reposerver.tls.maxversion: example-maxVersion
+  reposerver.tls.maxversion: "1.3"
   reposerver.tls.minversion: "1.2"
   server.api.content.types: example-apiContentTypes
   server.app.state.cache.expiration: 1h0m0s
@@ -185,7 +185,7 @@ data:
   server.staticassets: /shared/app
   server.sync.replace.allowed: "true"
   server.tls.ciphers: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-  server.tls.maxversion: example-maxVersion
+  server.tls.maxversion: "1.3"
   server.tls.minversion: "1.2"
   server.webhook.parallelism.limit: "10"
   server.webhook.refresh.workers: "10"

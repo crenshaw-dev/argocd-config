@@ -14,18 +14,11 @@ import (
 // - Kind/APIGroup Patterns allow '*' where Argo CD wildcards are used.
 // - *Template fields (Go templates) are not validated as plain URLs/literals.
 
-// AbsoluteHTTPURL is an absolute http(s) URL validated with OpenAPI Pattern.
-// Prefer this for map values (no list-style CEL). URL *slices* should use CEL
-// isURL via XValidation instead — more robust than a URL regex.
-//
-// +kubebuilder:validation:Pattern=`^https?://.+$`
-type AbsoluteHTTPURL string
-
 // ArgoCDConfiguration is the Schema for the argocdconfigurations API.
 // It is a pure data store (spec only; no status subresource).
 //
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Namespaced,shortName=argocdconfig;acc
+// +kubebuilder:resource:scope=Namespaced,shortName=argocdconfig
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:validation:XValidation:rule="self.metadata.name == 'argocd-config'",message="ArgoCDConfiguration must be named 'argocd-config'"
 type ArgoCDConfiguration struct {
@@ -241,11 +234,12 @@ type ServerConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm server.grpc.enable.txt.service.config.
 	// +optional
 	GRPCTXTServiceConfigEnabled *bool `json:"grpcTXTServiceConfigEnabled,omitempty"`
-	// DexServer holds how the API server connects to Dex
-	// (cmd-params: server.dex.server*).
+	// DexConnection holds how the API server connects to Dex
+	// (cmd-params: server.dex.server*). Named distinctly from spec.dexServer
+	// (Dex process runtime) to avoid overloaded keys.
 	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm server.dex.server* as a group (children apply from the CR; no merge with legacy siblings under that family).
 	// +optional
-	DexServer *ServerDexConnectionConfig `json:"dexServer,omitempty"`
+	DexConnection *DexConnectionConfig `json:"dexConnection,omitempty"`
 	// Cache holds API server cache TTLs and sizes (cmd-params: server.*.cache.*).
 	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
@@ -263,17 +257,14 @@ type ServerConfig struct {
 	// Migration: if non-nil, takes precedence over argocd-cm server.maxPodLogsToRender as a group.
 	// +optional
 	Logs *ServerLogsConfig `json:"logs,omitempty"`
-	// OIDCInsecureSkipVerify skips TLS certificate verification when talking
-	// to the OIDC provider or Dex (argocd-cm: oidc.tls.insecure.skip.verify).
-	// Migration: if set, takes precedence over argocd-cm oidc.tls.insecure.skip.verify.
-	// +optional
-	OIDCInsecureSkipVerify *bool `json:"oidcInsecureSkipVerify,omitempty"`
 	// Dex replaces dex.config wholesale when non-nil.
 	// Migration: if non-nil, takes precedence over argocd-cm dex.config as a whole, including all child fields.
 	// +optional
 	Dex *DexConfig `json:"dex,omitempty"`
 	// OIDC replaces oidc.config wholesale when non-nil (direct OIDC, alternative to Dex).
 	// Migration: if non-nil, takes precedence over argocd-cm oidc.config as a whole, including all child fields.
+	// Note: InsecureSkipVerify maps to a separate argocd-cm key (oidc.tls.insecure.skip.verify),
+	// not the oidc.config blob — it is nested here for discoverability.
 	// +optional
 	OIDC *OIDCConfig `json:"oidc,omitempty"`
 	// RBAC holds authorization policy from argocd-rbac-cm.
@@ -431,6 +422,13 @@ type OIDCConfig struct {
 	// claim when true.
 	// +optional
 	SkipAudienceCheckWhenTokenHasNoAudience bool `json:"skipAudienceCheckWhenTokenHasNoAudience,omitempty"`
+	// InsecureSkipVerify skips TLS certificate verification when talking to the
+	// OIDC provider or Dex (argocd-cm: oidc.tls.insecure.skip.verify).
+	// This is a separate legacy key from oidc.config; nested under oidc for
+	// discoverability. Pointer so it can migrate independently of the composite blob.
+	// Migration: if set, takes precedence over argocd-cm oidc.tls.insecure.skip.verify.
+	// +optional
+	InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
 }
 
 // OIDCUserInfoConfig holds UserInfo endpoint settings for OIDC group lookup.
@@ -910,9 +908,10 @@ type ControllerConfig struct {
 	// +optional
 	ResourceHealthPersist *bool `json:"resourceHealthPersist,omitempty"`
 	// KubectlParallelismLimit caps concurrent kubectl fork/execs
-	// (cmd-params: controller.kubectl.parallelism.limit). Values less than 1 mean unlimited.
+	// (cmd-params: controller.kubectl.parallelism.limit). Zero means unlimited.
 	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.kubectl.parallelism.limit.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
 	KubectlParallelismLimit *int32 `json:"kubectlParallelismLimit,omitempty"`
 	// Diff holds server-side diff and global ignore-differences settings.
 	// Migration: organizational subgroup; no legacy key — see child fields.
@@ -1098,10 +1097,10 @@ type RepoServerConfig struct {
 	// +optional
 	Client *RepoServerClientConfig `json:"client,omitempty"`
 	// ParallelismLimit caps concurrent manifest generation requests
-	// (cmd-params: reposerver.parallelism.limit). Values less than 1 mean unlimited.
+	// (cmd-params: reposerver.parallelism.limit). Zero means unlimited.
 	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.parallelism.limit.
 	// +optional
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=0
 	ParallelismLimit *int32 `json:"parallelismLimit,omitempty"`
 	// Listen holds repo-server and metrics listen addresses
 	// (cmd-params: reposerver.listen.address, reposerver.metrics.listen.address).
@@ -1213,9 +1212,10 @@ type RepoServerGitConfig struct {
 	RequestTimeout *metav1.Duration `json:"requestTimeout,omitempty"`
 	// LSRemoteParallelismLimit caps concurrent git ls-remote calls
 	// (cmd-params: reposerver.git.lsremote.parallelism.limit; also env ARGOCD_GIT_LS_REMOTE_PARALLELISM_LIMIT).
+	// Zero means unlimited.
 	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.git.lsremote.parallelism.limit.
 	// +optional
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=0
 	LSRemoteParallelismLimit *int32 `json:"lsRemoteParallelismLimit,omitempty"`
 	// BuiltinConfigEnabled controls Argo CD's built-in git config
 	// (cmd-params: reposerver.enable.builtin.git.config). On by default.
@@ -1452,11 +1452,12 @@ type ApplicationSetConfig struct {
 	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
 	K8sClient *K8sClientConfig `json:"k8sClient,omitempty"`
-	// RepoServer holds mTLS cert paths when connecting to the repo-server
-	// (cmd-params: applicationsetcontroller.repo.server.*).
+	// RepoServerClient holds mTLS cert paths when connecting to the repo-server
+	// (cmd-params: applicationsetcontroller.repo.server.*). Named distinctly from
+	// spec.repoServer (the repo-server itself) to avoid overloaded keys.
 	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
-	RepoServer *MTLSCertConfig `json:"repoServer,omitempty"`
+	RepoServerClient *MTLSCertConfig `json:"repoServerClient,omitempty"`
 	// Metrics holds ApplicationSet Prometheus metrics listen settings
 	// (flags: --metrics-addr, --metrics-applicationset-labels).
 	// Migration: if non-nil, takes precedence over ApplicationSet --metrics-addr /
@@ -1530,7 +1531,8 @@ type RedisConfig struct {
 	// DB is the Redis database number (cmd-params: redis.db).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm redis.db.
 	// +optional
-	DB string `json:"db,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	DB *int32 `json:"db,omitempty"`
 	// KeyPrefix is prepended to Redis keys (cmd-params: redis.key.prefix).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm redis.key.prefix.
 	// +optional
@@ -1571,9 +1573,11 @@ type OTLPConfig struct {
 	// +optional
 	Attrs map[string]string `json:"attrs,omitempty"`
 	// SampleRatio is the trace sampling ratio between 0.0 and 1.0
-	// (cmd-params: otlp.sample.ratio).
+	// (cmd-params: otlp.sample.ratio). Stored as a decimal string because CRDs
+	// discourage float types (cross-language JSON number issues).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm otlp.sample.ratio.
 	// +optional
+	// +kubebuilder:validation:Pattern=`^(0(\.[0-9]+)?|1(\.0+)?)$`
 	SampleRatio string `json:"sampleRatio,omitempty"`
 }
 
@@ -1879,7 +1883,7 @@ type HelpConfig struct {
 	Chat *HelpChatConfig `json:"chat,omitempty"`
 	// BinaryURLs maps architecture name to a CLI binary download path or URL
 	// (argocd-cm: help.download.<arch>). Values may be absolute http(s) URLs or paths —
-	// not validated as AbsoluteHTTPURL.
+	// not CEL-validated as absolute URLs.
 	// Migration: if present, takes precedence over argocd-cm help.download.*; replaces the whole collection.
 	// +optional
 	BinaryURLs map[string]string `json:"binaryURLs,omitempty"`
@@ -2054,8 +2058,8 @@ func init() {
 	SchemeBuilder.Register(&ArgoCDConfiguration{}, &ArgoCDConfigurationList{})
 }
 
-// ServerDexConnectionConfig is how the API server reaches Dex (cmd-params: server.dex.server*).
-type ServerDexConnectionConfig struct {
+// DexConnectionConfig is how the API server reaches Dex (cmd-params: server.dex.server*).
+type DexConnectionConfig struct {
 	// Address is the Dex server host:port (cmd-params: server.dex.server).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm server.dex.server.
 	// +optional
@@ -2103,9 +2107,11 @@ type ServerCacheConfig struct {
 type TLSVersionConfig struct {
 	// MinVersion is the minimum accepted TLS version (e.g. "1.2").
 	// +optional
+	// +kubebuilder:validation:Enum="1.0";"1.1";"1.2";"1.3"
 	MinVersion string `json:"minVersion,omitempty"`
 	// MaxVersion is the maximum accepted TLS version (e.g. "1.3").
 	// +optional
+	// +kubebuilder:validation:Enum="1.0";"1.1";"1.2";"1.3"
 	MaxVersion string `json:"maxVersion,omitempty"`
 	// Ciphers lists allowed TLS cipher suite names.
 	// +optional
@@ -2155,9 +2161,11 @@ type ServerListenConfig struct {
 // Organizational subgroup: children migrate independently.
 type K8sClientConfig struct {
 	// QPS is the client queries-per-second limit (cmd-params: *.k8s.client.qps).
-	// Stored as a string to preserve fractional values from legacy ConfigMaps.
+	// Stored as a decimal string because CRDs discourage float types; may be
+	// fractional (e.g. "50" or "12.5").
 	// Migration: if set, takes precedence over the component *.k8s.client.qps key.
 	// +optional
+	// +kubebuilder:validation:Pattern=`^[0-9]+(\.[0-9]+)?$`
 	QPS string `json:"qps,omitempty"`
 	// Burst is the client burst size (cmd-params: *.k8s.client.burst).
 	// Migration: if set, takes precedence over the component *.k8s.client.burst key.
@@ -2310,11 +2318,12 @@ type NotificationsConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm notificationscontroller.repo.server.plaintext (inverted).
 	// +optional
 	TLSEnabled *bool `json:"tlsEnabled,omitempty"`
-	// RepoServer holds mTLS cert paths when connecting to the repo-server
-	// (cmd-params: notificationscontroller.repo.server.*).
+	// RepoServerClient holds mTLS cert paths when connecting to the repo-server
+	// (cmd-params: notificationscontroller.repo.server.*). Named distinctly from
+	// spec.repoServer (the repo-server itself) to avoid overloaded keys.
 	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
-	RepoServer *MTLSCertConfig `json:"repoServer,omitempty"`
+	RepoServerClient *MTLSCertConfig `json:"repoServerClient,omitempty"`
 	// AppLabelSelector restricts which Applications the notifications controller watches
 	// (flag: --app-label-selector).
 	// Migration: if set, takes precedence over notifications --app-label-selector. Does not round-trip through ConfigMaps.

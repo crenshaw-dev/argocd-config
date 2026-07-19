@@ -15,7 +15,7 @@ spec:
       defaultExpiration: 24h0m0s
       globCacheSize: 1000
     compression: gzip
-    dexServer:
+    dexConnection:
       address: https://dex:5556
       insecureSkipVerify: false
       tlsEnabled: true

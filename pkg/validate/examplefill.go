@@ -179,10 +179,6 @@ func setScalar(v reflect.Value, jsonName string, ctx fillContext) {
 			v.Set(reflect.ValueOf(q))
 		case reflect.TypeFor[runtime.RawExtension]():
 			v.Set(reflect.ValueOf(runtime.RawExtension{Raw: []byte(`{"example":true}`)}))
-		default:
-			if v.Type().Name() == "AbsoluteHTTPURL" || v.Type().PkgPath() == argov1alpha1.GroupVersion.Group+"/v1alpha1" && v.Type().Name() == "AbsoluteHTTPURL" {
-				v.SetString(exampleHTTPSURL)
-			}
 		}
 	}
 }
@@ -228,13 +224,13 @@ func exampleString(jsonName string, ctx fillContext) string {
 		return "0"
 	case lower == "master":
 		return "mymaster"
-	case lower == "sampleRatio":
+	case lower == "sampleratio":
 		return "0.5"
 	case lower == "qps":
 		return "50"
-	case lower == "formatTimestamp":
+	case lower == "formattimestamp":
 		return "RFC3339"
-	case lower == "buildOptions":
+	case lower == "buildoptions":
 		return "--enable-alpha-plugins"
 	case lower == "type" && strings.Contains(ctx.jsonPath, "connectors"):
 		return "github"
@@ -316,10 +312,8 @@ func exampleString(jsonName string, ctx fillContext) string {
 		return "sameorigin"
 	case lower == "installationid":
 		return "example-installation-id"
-	case lower == "minversion":
+	case lower == "minversion", lower == "maxversion":
 		return "1.2"
-	case lower == "maxVersion":
-		return "1.3"
 	case lower == "path":
 		return "/userinfo"
 	case lower == "value" && strings.Contains(ctx.jsonPath, "requestedIDTokenClaims"):
@@ -380,6 +374,8 @@ func exampleInt(jsonName string, ctx fillContext) int64 {
 	switch strings.ToLower(jsonName) {
 	case "factor":
 		return 2
+	case "db":
+		return 0
 	case "jitterthreshold", "statusmaxresourcescount", "globcachesize", "maxidleconnections", "max":
 		return 1
 	default:
@@ -439,6 +435,10 @@ func enumValue(jsonPath, fieldName, jsonName string) (string, bool) {
 		"spec.server.log.format/format":                                                           "json",
 		"spec.server.log.level/level":                                                             "info",
 		"spec.server.ui.banner.position/position":                                                 "top",
+		"spec.server.tls.minVersion/minVersion":                                                   "1.2",
+		"spec.server.tls.maxVersion/maxVersion":                                                   "1.3",
+		"spec.repoServer.tls.minVersion/minVersion":                                               "1.2",
+		"spec.repoServer.tls.maxVersion/maxVersion":                                               "1.3",
 	}
 	if v, ok := enums[key]; ok {
 		return v, true

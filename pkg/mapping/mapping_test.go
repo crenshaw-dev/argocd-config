@@ -109,11 +109,11 @@ func TestRoundTripSample(t *testing.T) {
 		cfg.Spec.ApplicationSet.K8sClient.Burst == nil || *cfg.Spec.ApplicationSet.K8sClient.Burst != 100 {
 		t.Fatalf("appsset k8s client: %#v", cfg.Spec.ApplicationSet.K8sClient)
 	}
-	if cfg.Spec.ApplicationSet.RepoServer == nil ||
-		cfg.Spec.ApplicationSet.RepoServer.CACertPath != "/etc/argocd/appsset/ca.crt" ||
-		cfg.Spec.ApplicationSet.RepoServer.ClientCertPath != "/etc/argocd/appsset/tls.crt" ||
-		cfg.Spec.ApplicationSet.RepoServer.ClientCertKeyPath != "/etc/argocd/appsset/tls.key" {
-		t.Fatalf("appsset repo-server certs: %#v", cfg.Spec.ApplicationSet.RepoServer)
+	if cfg.Spec.ApplicationSet.RepoServerClient == nil ||
+		cfg.Spec.ApplicationSet.RepoServerClient.CACertPath != "/etc/argocd/appsset/ca.crt" ||
+		cfg.Spec.ApplicationSet.RepoServerClient.ClientCertPath != "/etc/argocd/appsset/tls.crt" ||
+		cfg.Spec.ApplicationSet.RepoServerClient.ClientCertKeyPath != "/etc/argocd/appsset/tls.key" {
+		t.Fatalf("appsset repo-server certs: %#v", cfg.Spec.ApplicationSet.RepoServerClient)
 	}
 	if cfg.Spec.DexServer == nil || cfg.Spec.DexServer.TLSEnabled == nil || *cfg.Spec.DexServer.TLSEnabled {
 		t.Fatalf("dexserver: %#v", cfg.Spec.DexServer)
@@ -121,11 +121,11 @@ func TestRoundTripSample(t *testing.T) {
 	if cfg.Spec.Notifications == nil || cfg.Spec.Notifications.ProcessorsCount == nil || *cfg.Spec.Notifications.ProcessorsCount != 5 {
 		t.Fatalf("notifications: %#v", cfg.Spec.Notifications)
 	}
-	if cfg.Spec.Notifications.RepoServer == nil ||
-		cfg.Spec.Notifications.RepoServer.CACertPath != "/etc/argocd/notifications/ca.crt" ||
-		cfg.Spec.Notifications.RepoServer.ClientCertPath != "/etc/argocd/notifications/tls.crt" ||
-		cfg.Spec.Notifications.RepoServer.ClientCertKeyPath != "/etc/argocd/notifications/tls.key" {
-		t.Fatalf("notifications repo-server certs: %#v", cfg.Spec.Notifications.RepoServer)
+	if cfg.Spec.Notifications.RepoServerClient == nil ||
+		cfg.Spec.Notifications.RepoServerClient.CACertPath != "/etc/argocd/notifications/ca.crt" ||
+		cfg.Spec.Notifications.RepoServerClient.ClientCertPath != "/etc/argocd/notifications/tls.crt" ||
+		cfg.Spec.Notifications.RepoServerClient.ClientCertKeyPath != "/etc/argocd/notifications/tls.key" {
+		t.Fatalf("notifications repo-server certs: %#v", cfg.Spec.Notifications.RepoServerClient)
 	}
 
 	out, outDiag, err := mapping.ToConfigMaps(cfg, "argocd")

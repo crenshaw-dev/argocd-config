@@ -24,7 +24,7 @@ spec:
       oidcExpiration: 3m0s
     compression: gzip
     contentSecurityPolicy: frame-ancestors 'self'
-    dexServer:
+    dexConnection:
       address: https://argocd-dex-server:5556
       insecureSkipVerify: false
       tlsEnabled: true

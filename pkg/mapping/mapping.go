@@ -141,6 +141,14 @@ func ensureServer(spec *argov1alpha1.ArgoCDConfigurationSpec) *argov1alpha1.Serv
 	return spec.Server
 }
 
+func ensureOIDC(spec *argov1alpha1.ArgoCDConfigurationSpec) *argov1alpha1.OIDCConfig {
+	s := ensureServer(spec)
+	if s.OIDC == nil {
+		s.OIDC = &argov1alpha1.OIDCConfig{}
+	}
+	return s.OIDC
+}
+
 func ensureController(spec *argov1alpha1.ArgoCDConfigurationSpec) *argov1alpha1.ControllerConfig {
 	if spec.Controller == nil {
 		spec.Controller = &argov1alpha1.ControllerConfig{}
@@ -231,10 +239,6 @@ func mapCM(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *Dia
 	if len(urls) > 0 {
 		ensureServer(spec).URLs = urls
 	}
-	if v, ok := kt.get("oidc.tls.insecure.skip.verify"); ok {
-		b := strings.EqualFold(v, "true")
-		ensureServer(spec).OIDCInsecureSkipVerify = &b
-	}
 	if v, ok := kt.get("dex.config"); ok && v != "" {
 		dex, err := parseDexConfig(v)
 		if err != nil {
@@ -247,7 +251,15 @@ func mapCM(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *Dia
 		if err != nil {
 			return fmt.Errorf("oidc.config: %w", err)
 		}
+		// Preserve InsecureSkipVerify if already set from the separate CM key.
+		if existing := ensureServer(spec).OIDC; existing != nil && existing.InsecureSkipVerify != nil {
+			oidc.InsecureSkipVerify = existing.InsecureSkipVerify
+		}
 		ensureServer(spec).OIDC = oidc
+	}
+	if v, ok := kt.get("oidc.tls.insecure.skip.verify"); ok {
+		b := strings.EqualFold(v, "true")
+		ensureOIDC(spec).InsecureSkipVerify = &b
 	}
 	if err := mapResource(kt, spec, diag); err != nil {
 		return err
@@ -1730,8 +1742,13 @@ func mapRedis(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *
 		changed = true
 	}
 	if v, ok := kt.get("redis.db"); ok {
-		r.DB = v
-		changed = true
+		if n, err := strconv.Atoi(v); err == nil {
+			i := int32(n)
+			r.DB = &i
+			changed = true
+		} else if diag != nil {
+			diag.Warn(DirCMToCR, "redis.db", fmt.Sprintf("invalid integer %q; ignoring", v))
+		}
 	}
 	if v, ok := kt.get("redis.key.prefix"); ok {
 		r.KeyPrefix = v
@@ -1904,8 +1921,8 @@ func unmapCM(spec *argov1alpha1.ArgoCDConfigurationSpec, data map[string]string,
 				data["additionalUrls"] = string(b)
 			}
 		}
-		if s.OIDCInsecureSkipVerify != nil {
-			data["oidc.tls.insecure.skip.verify"] = strconv.FormatBool(*s.OIDCInsecureSkipVerify)
+		if s.OIDC != nil && s.OIDC.InsecureSkipVerify != nil {
+			data["oidc.tls.insecure.skip.verify"] = strconv.FormatBool(*s.OIDC.InsecureSkipVerify)
 		}
 		if s.Dex != nil {
 			raw, err := marshalDex(s.Dex)
@@ -2610,8 +2627,8 @@ func unmapRedis(r *argov1alpha1.RedisConfig, data map[string]string) {
 			data["redis.sentinel.master"] = s.Master
 		}
 	}
-	if r.DB != "" {
-		data["redis.db"] = r.DB
+	if r.DB != nil {
+		data["redis.db"] = strconv.Itoa(int(*r.DB))
 	}
 	if r.KeyPrefix != "" {
 		data["redis.key.prefix"] = r.KeyPrefix

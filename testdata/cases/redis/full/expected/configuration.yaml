@@ -8,7 +8,7 @@ spec:
   controller: {}
   redis:
     compression: gzip
-    db: "0"
+    db: 0
     keyPrefix: argocd
     sentinel:
       hosts:

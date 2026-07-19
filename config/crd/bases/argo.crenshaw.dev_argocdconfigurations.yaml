@@ -13,7 +13,6 @@ spec:
     plural: argocdconfigurations
     shortNames:
     - argocdconfig
-    - acc
     singular: argocdconfiguration
   scope: Namespaced
   versions:
@@ -147,8 +146,10 @@ spec:
                       qps:
                         description: |-
                           QPS is the client queries-per-second limit (cmd-params: *.k8s.client.qps).
-                          Stored as a string to preserve fractional values from legacy ConfigMaps.
+                          Stored as a decimal string because CRDs discourage float types; may be
+                          fractional (e.g. "50" or "12.5").
                           Migration: if set, takes precedence over the component *.k8s.client.qps key.
+                        pattern: ^[0-9]+(\.[0-9]+)?$
                         type: string
                       retry:
                         description: |-
@@ -333,10 +334,11 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
-                  repoServer:
+                  repoServerClient:
                     description: |-
-                      RepoServer holds mTLS cert paths when connecting to the repo-server
-                      (cmd-params: applicationsetcontroller.repo.server.*).
+                      RepoServerClient holds mTLS cert paths when connecting to the repo-server
+                      (cmd-params: applicationsetcontroller.repo.server.*). Named distinctly from
+                      spec.repoServer (the repo-server itself) to avoid overloaded keys.
                       Migration: organizational subgroup; no legacy key — see child fields.
                     properties:
                       caCertPath:
@@ -708,8 +710,10 @@ spec:
                       qps:
                         description: |-
                           QPS is the client queries-per-second limit (cmd-params: *.k8s.client.qps).
-                          Stored as a string to preserve fractional values from legacy ConfigMaps.
+                          Stored as a decimal string because CRDs discourage float types; may be
+                          fractional (e.g. "50" or "12.5").
                           Migration: if set, takes precedence over the component *.k8s.client.qps key.
+                        pattern: ^[0-9]+(\.[0-9]+)?$
                         type: string
                       retry:
                         description: |-
@@ -781,9 +785,10 @@ spec:
                   kubectlParallelismLimit:
                     description: |-
                       KubectlParallelismLimit caps concurrent kubectl fork/execs
-                      (cmd-params: controller.kubectl.parallelism.limit). Values less than 1 mean unlimited.
+                      (cmd-params: controller.kubectl.parallelism.limit). Zero means unlimited.
                       Migration: if set, takes precedence over argocd-cmd-params-cm controller.kubectl.parallelism.limit.
                     format: int32
+                    minimum: 0
                     type: integer
                   log:
                     description: |-
@@ -1474,10 +1479,17 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
-                  repoServer:
+                  repoServerAddress:
                     description: |-
-                      RepoServer holds mTLS cert paths when connecting to the repo-server
-                      (cmd-params: notificationscontroller.repo.server.*).
+                      RepoServerAddress is the repo-server host:port
+                      (flag: --argocd-repo-server).
+                      Migration: if set, takes precedence over notifications --argocd-repo-server. Does not round-trip through ConfigMaps.
+                    type: string
+                  repoServerClient:
+                    description: |-
+                      RepoServerClient holds mTLS cert paths when connecting to the repo-server
+                      (cmd-params: notificationscontroller.repo.server.*). Named distinctly from
+                      spec.repoServer (the repo-server itself) to avoid overloaded keys.
                       Migration: organizational subgroup; no legacy key — see child fields.
                     properties:
                       caCertPath:
@@ -1499,12 +1511,6 @@ spec:
                           Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.repo.server.client.cert.path.
                         type: string
                     type: object
-                  repoServerAddress:
-                    description: |-
-                      RepoServerAddress is the repo-server host:port
-                      (flag: --argocd-repo-server).
-                      Migration: if set, takes precedence over notifications --argocd-repo-server. Does not round-trip through ConfigMaps.
-                    type: string
                   repoServerStrictTLS:
                     description: |-
                       RepoServerStrictTLS requires a verified TLS connection to the repo-server
@@ -1559,8 +1565,10 @@ spec:
                   sampleRatio:
                     description: |-
                       SampleRatio is the trace sampling ratio between 0.0 and 1.0
-                      (cmd-params: otlp.sample.ratio).
+                      (cmd-params: otlp.sample.ratio). Stored as a decimal string because CRDs
+                      discourage float types (cross-language JSON number issues).
                       Migration: if set, takes precedence over argocd-cmd-params-cm otlp.sample.ratio.
+                    pattern: ^(0(\.[0-9]+)?|1(\.0+)?)$
                     type: string
                   tlsEnabled:
                     description: |-
@@ -1587,7 +1595,9 @@ spec:
                     description: |-
                       DB is the Redis database number (cmd-params: redis.db).
                       Migration: if set, takes precedence over argocd-cmd-params-cm redis.db.
-                    type: string
+                    format: int32
+                    minimum: 0
+                    type: integer
                   keyPrefix:
                     description: |-
                       KeyPrefix is prepended to Redis keys (cmd-params: redis.key.prefix).
@@ -1724,9 +1734,10 @@ spec:
                         description: |-
                           LSRemoteParallelismLimit caps concurrent git ls-remote calls
                           (cmd-params: reposerver.git.lsremote.parallelism.limit; also env ARGOCD_GIT_LS_REMOTE_PARALLELISM_LIMIT).
+                          Zero means unlimited.
                           Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.git.lsremote.parallelism.limit.
                         format: int32
-                        minimum: 1
+                        minimum: 0
                         type: integer
                       requestTimeout:
                         description: |-
@@ -1958,10 +1969,10 @@ spec:
                   parallelismLimit:
                     description: |-
                       ParallelismLimit caps concurrent manifest generation requests
-                      (cmd-params: reposerver.parallelism.limit). Values less than 1 mean unlimited.
+                      (cmd-params: reposerver.parallelism.limit). Zero means unlimited.
                       Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.parallelism.limit.
                     format: int32
-                    minimum: 1
+                    minimum: 0
                     type: integer
                   plugin:
                     description: |-
@@ -2035,10 +2046,20 @@ spec:
                       maxVersion:
                         description: MaxVersion is the maximum accepted TLS version
                           (e.g. "1.3").
+                        enum:
+                        - "1.0"
+                        - "1.1"
+                        - "1.2"
+                        - "1.3"
                         type: string
                       minVersion:
                         description: MinVersion is the minimum accepted TLS version
                           (e.g. "1.2").
+                        enum:
+                        - "1.0"
+                        - "1.1"
+                        - "1.2"
+                        - "1.3"
                         type: string
                     type: object
                   tlsEnabled:
@@ -2353,10 +2374,11 @@ spec:
                         x-kubernetes-list-type: atomic
                         x-kubernetes-preserve-unknown-fields: true
                     type: object
-                  dexServer:
+                  dexConnection:
                     description: |-
-                      DexServer holds how the API server connects to Dex
-                      (cmd-params: server.dex.server*).
+                      DexConnection holds how the API server connects to Dex
+                      (cmd-params: server.dex.server*). Named distinctly from spec.dexServer
+                      (Dex process runtime) to avoid overloaded keys.
                       Migration: if non-nil, takes precedence over argocd-cmd-params-cm server.dex.server* as a group (children apply from the CR; no merge with legacy siblings under that family).
                     properties:
                       address:
@@ -2541,7 +2563,7 @@ spec:
                         description: |-
                           BinaryURLs maps architecture name to a CLI binary download path or URL
                           (argocd-cm: help.download.<arch>). Values may be absolute http(s) URLs or paths —
-                          not validated as AbsoluteHTTPURL.
+                          not CEL-validated as absolute URLs.
                           Migration: if present, takes precedence over argocd-cm help.download.*; replaces the whole collection.
                         type: object
                       chat:
@@ -2596,8 +2618,10 @@ spec:
                       qps:
                         description: |-
                           QPS is the client queries-per-second limit (cmd-params: *.k8s.client.qps).
-                          Stored as a string to preserve fractional values from legacy ConfigMaps.
+                          Stored as a decimal string because CRDs discourage float types; may be
+                          fractional (e.g. "50" or "12.5").
                           Migration: if set, takes precedence over the component *.k8s.client.qps key.
+                        pattern: ^[0-9]+(\.[0-9]+)?$
                         type: string
                       retry:
                         description: |-
@@ -2742,6 +2766,8 @@ spec:
                     description: |-
                       OIDC replaces oidc.config wholesale when non-nil (direct OIDC, alternative to Dex).
                       Migration: if non-nil, takes precedence over argocd-cm oidc.config as a whole, including all child fields.
+                      Note: InsecureSkipVerify maps to a separate argocd-cm key (oidc.tls.insecure.skip.verify),
+                      not the oidc.config blob — it is nested here for discoverability.
                     properties:
                       allowedAudiences:
                         description: AllowedAudiences are accepted JWT aud values
@@ -2822,6 +2848,14 @@ spec:
                         description: DomainHint is a domain hint passed to the IdP
                           (e.g. Azure AD login_hint / domain_hint).
                         type: string
+                      insecureSkipVerify:
+                        description: |-
+                          InsecureSkipVerify skips TLS certificate verification when talking to the
+                          OIDC provider or Dex (argocd-cm: oidc.tls.insecure.skip.verify).
+                          This is a separate legacy key from oidc.config; nested under oidc for
+                          discoverability. Pointer so it can migrate independently of the composite blob.
+                          Migration: if set, takes precedence over argocd-cm oidc.tls.insecure.skip.verify.
+                        type: boolean
                       issuerURL:
                         description: IssuerURL is the OIDC issuer URL (oidc.config
                           issuer).
@@ -2919,12 +2953,6 @@ spec:
                             type: string
                         type: object
                     type: object
-                  oidcInsecureSkipVerify:
-                    description: |-
-                      OIDCInsecureSkipVerify skips TLS certificate verification when talking
-                      to the OIDC provider or Dex (argocd-cm: oidc.tls.insecure.skip.verify).
-                      Migration: if set, takes precedence over argocd-cm oidc.tls.insecure.skip.verify.
-                    type: boolean
                   profileEnabled:
                     description: |-
                       ProfileEnabled enables pprof profiling endpoints (cmd-params: server.profile.enabled).
@@ -3056,10 +3084,20 @@ spec:
                       maxVersion:
                         description: MaxVersion is the maximum accepted TLS version
                           (e.g. "1.3").
+                        enum:
+                        - "1.0"
+                        - "1.1"
+                        - "1.2"
+                        - "1.3"
                         type: string
                       minVersion:
                         description: MinVersion is the minimum accepted TLS version
                           (e.g. "1.2").
+                        enum:
+                        - "1.0"
+                        - "1.1"
+                        - "1.2"
+                        - "1.3"
                         type: string
                     type: object
                   tlsEnabled:

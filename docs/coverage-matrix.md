@@ -34,7 +34,7 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | --- | --- | --- | --- |
 | `url` | ✅ | `spec.server.urls[0]` | Primary external URL |
 | `additionalUrls` | ✅ | `spec.server.urls[1:]` | JSON/YAML array in CM |
-| `oidc.tls.insecure.skip.verify` | ✅ | `spec.server.oidcInsecureSkipVerify` | |
+| `oidc.tls.insecure.skip.verify` | ✅ | `spec.server.oidc.insecureSkipVerify` | Nested under oidc for discoverability; separate CM key from `oidc.config` |
 | `oidc.config` | ✅ | `spec.server.oidc` | Composite override (whole blob) |
 | `dex.config` | ✅ | `spec.server.dex` | Composite override |
 | `admin.enabled` | ✅ | `spec.server.accounts[]` (admin) | |
@@ -114,7 +114,7 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | Key | Mapped | CR field | Notes |
 | --- | --- | --- | --- |
 | `application.namespaces` | ✅ | `spec.applicationNamespaceGlobs` | |
-| `repo.server` | ✅ | `spec.repoServer.client.address` | |
+| `repo.server` | ✅ | `spec.repoServer.address` | |
 | `commit.server` | ✅ | `spec.commitServer.address` | |
 | `log.format.timestamp` | ✅ | `spec.logging.formatTimestamp` | |
 | `redis.server` | ✅ | `spec.redis.server` | |
@@ -146,9 +146,9 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `server.http.cookie.maxnumber` | ✅ | `spec.server.httpCookieMaxNumber` | |
 | `server.profile.enabled` | ✅ | `spec.server.profileEnabled` | |
 | `server.grpc.enable.txt.service.config` | ✅ | `spec.server.grpcTXTServiceConfigEnabled` | |
-| `server.dex.server` | ✅ | `spec.server.dexServer.address` | |
-| `server.dex.server.plaintext` | ✅ | `spec.server.dexServer.tlsEnabled` | Inverted |
-| `server.dex.server.strict.tls` | ✅ | `spec.server.dexServer.insecureSkipVerify` | Inverted |
+| `server.dex.server` | ✅ | `spec.server.dexConnection.address` | |
+| `server.dex.server.plaintext` | ✅ | `spec.server.dexConnection.tlsEnabled` | Inverted |
+| `server.dex.server.strict.tls` | ✅ | `spec.server.dexConnection.insecureSkipVerify` | Inverted |
 | `server.app.state.cache.expiration` | ✅ | `spec.server.cache.appStateExpiration` | |
 | `server.connection.status.cache.expiration` | ✅ | `spec.server.cache.connectionStatusExpiration` | |
 | `server.default.cache.expiration` | ✅ | `spec.server.cache.defaultExpiration` | |
@@ -231,7 +231,7 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `controller.cluster.cache.events.processing.interval` | ✅ | `spec.controller.clusterCache.eventsProcessingInterval` | |
 | `controller.k8s.client.*` | ✅ | `spec.controller.k8sClient.*` (incl. `tcp.*`) | |
 | `controller.repo.server.*` | ✅ | `spec.repoServer.client.*` | Preferred over `server.repo.server.*` |
-| `hydrator.enabled` | ✅ | `spec.controller.hydrator.enabled` | |
+| `hydrator.enabled` | ✅ | `spec.controller.sourceHydrator.enabled` | |
 | `applicationsetcontroller.namespaces` | ✅ | `spec.applicationSet.namespaceGlobs` | |
 | `applicationsetcontroller.policy` | ✅ | `spec.applicationSet.policy` | |
 | `applicationsetcontroller.allowed.scm.providers` | ✅ | `spec.applicationSet.allowedSCMProviderURLs` | |
@@ -257,13 +257,13 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `applicationsetcontroller.log.format` | ✅ | `spec.applicationSet.log.format` | |
 | `applicationsetcontroller.log.level` | ✅ | `spec.applicationSet.log.level` | |
 | `applicationsetcontroller.k8s.client.*` | ✅ | `spec.applicationSet.k8sClient.*` (incl. `tcp.*`) | |
-| `applicationsetcontroller.repo.server.*` | ✅ | `spec.applicationSet.repoServer.*` | mTLS paths |
+| `applicationsetcontroller.repo.server.*` | ✅ | `spec.applicationSet.repoServerClient.*` | mTLS paths |
 | `notificationscontroller.log.format` | ✅ | `spec.notifications.log.format` | Out of scope for notifications-cm content |
 | `notificationscontroller.log.level` | ✅ | `spec.notifications.log.level` | |
 | `notificationscontroller.processors.count` | ✅ | `spec.notifications.processorsCount` | |
 | `notificationscontroller.selfservice.enabled` | ✅ | `spec.notifications.selfServiceEnabled` | |
 | `notificationscontroller.repo.server.plaintext` | ✅ | `spec.notifications.tlsEnabled` | Inverted |
-| `notificationscontroller.repo.server.*` | ✅ | `spec.notifications.repoServer.*` | Cert paths |
+| `notificationscontroller.repo.server.*` | ✅ | `spec.notifications.repoServerClient.*` | Cert paths |
 
 ---
 

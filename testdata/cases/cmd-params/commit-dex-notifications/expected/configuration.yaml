@@ -24,7 +24,7 @@ spec:
       format: json
       level: info
     processorsCount: 2
-    repoServer:
+    repoServerClient:
       caCertPath: /app/config/reposerver/tls/ca.crt
       clientCertKeyPath: /app/config/reposerver/tls/tls.key
       clientCertPath: /app/config/reposerver/tls/tls.crt

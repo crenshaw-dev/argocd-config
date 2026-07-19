@@ -42,7 +42,7 @@ spec:
     progressiveSyncs:
       enabled: true
     reconciliationsParallelismLimit: 10
-    repoServer:
+    repoServerClient:
       caCertPath: /app/config/reposerver/tls/ca.crt
       clientCertKeyPath: /app/config/reposerver/tls/tls.key
       clientCertPath: /app/config/reposerver/tls/tls.crt

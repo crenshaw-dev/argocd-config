@@ -8,7 +8,8 @@ spec:
     urls:
     - https://argocd.example.com
     - https://argocd-alt.example.com
-    oidcInsecureSkipVerify: true
+    oidc:
+      insecureSkipVerify: true
     logs:
       maxPodsToRender: 15
     ui:

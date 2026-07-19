@@ -64,8 +64,8 @@ data:
   help.download.darwin-arm64: https://example.com
   installationID: example-installation-id
   jsonnet.enable: "true"
-  kustomize.buildOptions: example-buildOptions
-  kustomize.buildOptions.v5.0.0: example-buildOptions
+  kustomize.buildOptions: --enable-alpha-plugins
+  kustomize.buildOptions.v5.0.0: --enable-alpha-plugins
   kustomize.enable: "true"
   kustomize.path.v5.0.0: /userinfo
   oidc.config: |

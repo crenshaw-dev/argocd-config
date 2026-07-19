@@ -55,7 +55,7 @@ func mapServerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSp
 	setBoolPtr(kt, "server.grpc.enable.txt.service.config", &s.GRPCTXTServiceConfigEnabled)
 
 	dexChanged := false
-	dex := &argov1alpha1.ServerDexConnectionConfig{}
+	dex := &argov1alpha1.DexConnectionConfig{}
 	if v, ok := kt.get("server.dex.server"); ok {
 		dex.Address = v
 		dexChanged = true
@@ -69,7 +69,7 @@ func mapServerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSp
 		dexChanged = true
 	}
 	if dexChanged {
-		s.DexServer = dex
+		s.DexConnection = dex
 	}
 
 	cacheChanged := false
@@ -166,7 +166,7 @@ func unmapServerCmdParams(s *argov1alpha1.ServerConfig, data map[string]string) 
 			data["server.webhook.refresh.workers"] = strconv.Itoa(int(*w.Refresh.Workers))
 		}
 	}
-	if d := s.DexServer; d != nil {
+	if d := s.DexConnection; d != nil {
 		setStr(data, "server.dex.server", d.Address)
 		setBoolKeyInverted(data, "server.dex.server.plaintext", d.TLSEnabled)
 		if d.InsecureSkipVerify != nil {
@@ -527,7 +527,7 @@ func mapApplicationSetCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigu
 		ensure().K8sClient = kc
 	}
 	if rs := mapMTLSCerts(kt, "applicationsetcontroller"); rs != nil {
-		ensure().RepoServer = rs
+		ensure().RepoServerClient = rs
 	}
 }
 
@@ -577,7 +577,7 @@ func unmapApplicationSetCmdParams(a *argov1alpha1.ApplicationSetConfig, data map
 	setBoolKey(data, "applicationsetcontroller.profile.enabled", a.ProfileEnabled)
 	setBoolKey(data, "applicationsetcontroller.grpc.enable.txt.service.config", a.GRPCTXTServiceConfigEnabled)
 	unmapK8sClient(a.K8sClient, data, "applicationsetcontroller")
-	unmapMTLSCerts(a.RepoServer, data, "applicationsetcontroller")
+	unmapMTLSCerts(a.RepoServerClient, data, "applicationsetcontroller")
 }
 
 func mapControllerCmdParamsExtras(kt *keyTracker, diag *Diagnostics, c *argov1alpha1.ControllerConfig) {
@@ -696,7 +696,7 @@ func mapNotificationsCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigur
 		changed = true
 	}
 	if rs := mapMTLSCerts(kt, "notificationscontroller"); rs != nil {
-		n.RepoServer = rs
+		n.RepoServerClient = rs
 		changed = true
 	}
 	if changed {
@@ -717,7 +717,7 @@ func unmapNotificationsCmdParams(n *argov1alpha1.NotificationsConfig, data map[s
 	}
 	setBoolKey(data, "notificationscontroller.selfservice.enabled", n.SelfServiceEnabled)
 	setBoolKeyInverted(data, "notificationscontroller.repo.server.plaintext", n.TLSEnabled)
-	unmapMTLSCerts(n.RepoServer, data, "notificationscontroller")
+	unmapMTLSCerts(n.RepoServerClient, data, "notificationscontroller")
 }
 
 // --- shared helpers ---

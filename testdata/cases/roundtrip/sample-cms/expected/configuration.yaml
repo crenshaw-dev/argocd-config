@@ -14,7 +14,7 @@ spec:
     policy: sync
     progressiveSyncs:
       enabled: true
-    repoServer:
+    repoServerClient:
       caCertPath: /etc/argocd/appsset/ca.crt
       clientCertKeyPath: /etc/argocd/appsset/tls.key
       clientCertPath: /etc/argocd/appsset/tls.crt
@@ -74,7 +74,7 @@ spec:
   installationID: sample-install
   notifications:
     processorsCount: 5
-    repoServer:
+    repoServerClient:
       caCertPath: /etc/argocd/notifications/ca.crt
       clientCertKeyPath: /etc/argocd/notifications/tls.key
       clientCertPath: /etc/argocd/notifications/tls.crt

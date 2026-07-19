@@ -3,6 +3,8 @@ data:
   additionalUrls: |
     - https://argo-cd-demo2.argoproj.io
     - https://argocd-alt.example.com
+  oidc.config: |
+    {}
   oidc.tls.insecure.skip.verify: "true"
   url: https://argo-cd-demo.argoproj.io
 kind: ConfigMap
