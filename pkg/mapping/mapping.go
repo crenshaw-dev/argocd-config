@@ -623,11 +623,9 @@ func parseResourceCustomizations(kt *keyTracker, diag *Diagnostics) ([]argov1alp
 			}
 			c.UseOpenLibs = b
 		case "actions":
-			a, err := parseResourceActions(v)
-			if err != nil {
+			if err := applyResourceActionsBlob(c, v); err != nil {
 				return nil, fmt.Errorf("%s: %w", k, err)
 			}
-			c.Actions = a
 		case "ignoreDifferences":
 			var d argov1alpha1.OverrideIgnoreDiff
 			if err := yaml.Unmarshal([]byte(v), &d); err != nil {
@@ -669,15 +667,16 @@ func applyOverrideMap(c *argov1alpha1.ResourceCustomization, fields map[string]a
 		c.UseOpenLibs = b
 	}
 	if s, ok := fields["actions"].(string); ok {
-		a, err := parseResourceActions(s)
-		if err == nil {
-			c.Actions = a
+		if err := applyResourceActionsBlob(c, s); err != nil {
+			return err
 		}
 	} else if m, ok := fields["actions"].(map[string]any); ok {
-		b, _ := yaml.Marshal(m)
-		a, err := parseResourceActions(string(b))
-		if err == nil {
-			c.Actions = a
+		b, err := yaml.Marshal(m)
+		if err != nil {
+			return err
+		}
+		if err := applyResourceActionsBlob(c, string(b)); err != nil {
+			return err
 		}
 	}
 	if id, ok := fields["ignoreDifferences"]; ok {
@@ -726,20 +725,19 @@ func splitGroupKind(gk string) (group, kind string) {
 	return "", gk
 }
 
-func parseResourceActions(raw string) (*argov1alpha1.ResourceActionsConfig, error) {
+func applyResourceActionsBlob(c *argov1alpha1.ResourceCustomization, raw string) error {
 	if strings.TrimSpace(raw) == "" {
-		return nil, nil
+		return nil
 	}
 	var m map[string]any
 	if err := yaml.Unmarshal([]byte(raw), &m); err != nil {
-		return nil, err
+		return err
 	}
-	out := &argov1alpha1.ResourceActionsConfig{}
 	if s, ok := m["discovery.lua"].(string); ok {
-		out.DiscoveryLua = s
+		c.DiscoveryLua = s
 	}
 	if b, ok := m["mergeBuiltinActions"].(bool); ok {
-		out.MergeBuiltinActions = b
+		c.MergeBuiltinActions = b
 	}
 	if defs, ok := m["definitions"].([]any); ok {
 		for _, d := range defs {
@@ -747,38 +745,39 @@ func parseResourceActions(raw string) (*argov1alpha1.ResourceActionsConfig, erro
 			if !ok {
 				continue
 			}
-			out.Definitions = append(out.Definitions, argov1alpha1.ResourceActionDefinition{
+			c.Actions = append(c.Actions, argov1alpha1.ResourceActionDefinition{
 				Name:      asString(dm["name"]),
 				ActionLua: asString(dm["action.lua"]),
 			})
 		}
 	}
-	return out, nil
+	return nil
 }
 
-func marshalResourceActions(a *argov1alpha1.ResourceActionsConfig) (string, error) {
-	if a == nil {
+func hasResourceActions(c argov1alpha1.ResourceCustomization) bool {
+	return c.DiscoveryLua != "" || c.MergeBuiltinActions || len(c.Actions) > 0
+}
+
+func marshalResourceActions(c argov1alpha1.ResourceCustomization) (string, error) {
+	if !hasResourceActions(c) {
 		return "", nil
 	}
 	m := map[string]any{}
-	if a.DiscoveryLua != "" {
-		m["discovery.lua"] = a.DiscoveryLua
+	if c.DiscoveryLua != "" {
+		m["discovery.lua"] = c.DiscoveryLua
 	}
-	if a.MergeBuiltinActions {
+	if c.MergeBuiltinActions {
 		m["mergeBuiltinActions"] = true
 	}
-	if len(a.Definitions) > 0 {
-		defs := make([]any, 0, len(a.Definitions))
-		for _, d := range a.Definitions {
+	if len(c.Actions) > 0 {
+		defs := make([]any, 0, len(c.Actions))
+		for _, d := range c.Actions {
 			defs = append(defs, map[string]any{
 				"name":       d.Name,
 				"action.lua": d.ActionLua,
 			})
 		}
 		m["definitions"] = defs
-	}
-	if len(m) == 0 {
-		return "", nil
 	}
 	b, err := yaml.Marshal(m)
 	if err != nil {
@@ -1006,12 +1005,13 @@ func mapExtensions(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, d
 		}
 		for _, e := range wrap.Extensions {
 			ext := argov1alpha1.ExtensionConfig{Name: e.Name}
-			b, _ := yaml.Marshal(e.Backend)
-			backend, err := parseExtensionBackend(b, diag)
+			b, err := yaml.Marshal(e.Backend)
 			if err != nil {
 				return err
 			}
-			ext.Backend = backend
+			if err := applyExtensionBackend(&ext, b, diag); err != nil {
+				return err
+			}
 			exts = append(exts, ext)
 		}
 	}
@@ -1022,11 +1022,11 @@ func mapExtensions(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, d
 		}
 		kt.use(k)
 		name := strings.TrimPrefix(k, prefix)
-		backend, err := parseExtensionBackend([]byte(v), diag)
-		if err != nil {
+		ext := argov1alpha1.ExtensionConfig{Name: name}
+		if err := applyExtensionBackend(&ext, []byte(v), diag); err != nil {
 			return fmt.Errorf("%s: %w", k, err)
 		}
-		exts = append(exts, argov1alpha1.ExtensionConfig{Name: name, Backend: backend})
+		exts = append(exts, ext)
 	}
 	if len(exts) > 0 {
 		ensureServer(spec).Extensions = exts
@@ -1034,36 +1034,27 @@ func mapExtensions(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, d
 	return nil
 }
 
-func parseExtensionBackend(raw []byte, diag *Diagnostics) (argov1alpha1.ExtensionBackend, error) {
+// applyExtensionBackend parses the legacy CM backend YAML into flat ExtensionConfig fields.
+func applyExtensionBackend(ext *argov1alpha1.ExtensionConfig, raw []byte, diag *Diagnostics) error {
 	var m map[string]any
 	if err := yaml.Unmarshal(raw, &m); err != nil {
-		return argov1alpha1.ExtensionBackend{}, err
+		return err
 	}
-	b := argov1alpha1.ExtensionBackend{}
 	if transport, ok := m["transport"].(map[string]any); ok {
-		b.Transport = parseExtensionTransport(transport, diag)
+		applyExtensionTransport(ext, transport, diag)
 	} else {
 		// Legacy flat keys in extension backend YAML
-		tr := &argov1alpha1.ExtensionTransportConfig{}
-		trChanged := false
 		if d, _ := parseDurationPtr(diag, "extension.config/connectionTimeout", strFromMap(m, "connectionTimeout")); d != nil {
-			tr.ConnectionTimeout = d
-			trChanged = true
+			ext.ConnectionTimeout = d
 		}
 		if d, _ := parseDurationPtr(diag, "extension.config/keepAlive", strFromMap(m, "keepAlive")); d != nil {
-			tr.KeepAlive = d
-			trChanged = true
+			ext.KeepAlive = d
 		}
 		if d, _ := parseDurationPtr(diag, "extension.config/idleConnectionTimeout", strFromMap(m, "idleConnectionTimeout")); d != nil {
-			tr.IdleConnectionTimeout = d
-			trChanged = true
+			ext.IdleConnectionTimeout = d
 		}
 		if n, ok := asInt(m["maxIdleConnections"]); ok {
-			tr.MaxIdleConnections = int32(n)
-			trChanged = true
-		}
-		if trChanged {
-			b.Transport = tr
+			ext.MaxIdleConnections = int32(n)
 		}
 	}
 	if svcs, ok := m["services"].([]any); ok {
@@ -1085,35 +1076,25 @@ func parseExtensionBackend(raw []byte, diag *Diagnostics) (argov1alpha1.Extensio
 					})
 				}
 			}
-			b.Services = append(b.Services, svc)
+			ext.Services = append(ext.Services, svc)
 		}
 	}
-	return b, nil
+	return nil
 }
 
-func parseExtensionTransport(m map[string]any, diag *Diagnostics) *argov1alpha1.ExtensionTransportConfig {
-	tr := &argov1alpha1.ExtensionTransportConfig{}
-	changed := false
+func applyExtensionTransport(ext *argov1alpha1.ExtensionConfig, m map[string]any, diag *Diagnostics) {
 	if d, _ := parseDurationPtr(diag, "extension.config/transport/connectionTimeout", strFromMap(m, "connectionTimeout")); d != nil {
-		tr.ConnectionTimeout = d
-		changed = true
+		ext.ConnectionTimeout = d
 	}
 	if d, _ := parseDurationPtr(diag, "extension.config/transport/keepAlive", strFromMap(m, "keepAlive")); d != nil {
-		tr.KeepAlive = d
-		changed = true
+		ext.KeepAlive = d
 	}
 	if d, _ := parseDurationPtr(diag, "extension.config/transport/idleConnectionTimeout", strFromMap(m, "idleConnectionTimeout")); d != nil {
-		tr.IdleConnectionTimeout = d
-		changed = true
+		ext.IdleConnectionTimeout = d
 	}
 	if n, ok := asInt(m["maxIdleConnections"]); ok {
-		tr.MaxIdleConnections = int32(n)
-		changed = true
+		ext.MaxIdleConnections = int32(n)
 	}
-	if !changed {
-		return nil
-	}
-	return tr
 }
 
 func mapGlobalProjects(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *Diagnostics) error {
@@ -2174,8 +2155,8 @@ func unmapResource(r *argov1alpha1.ResourceConfig, data map[string]string) error
 		if c.UseOpenLibs {
 			data["resource.customizations.useOpenLibs."+gkKey] = "true"
 		}
-		if c.Actions != nil {
-			b, err := marshalResourceActions(c.Actions)
+		if hasResourceActions(c) {
+			b, err := marshalResourceActions(c)
 			if err != nil {
 				return err
 			}
@@ -2335,7 +2316,7 @@ func unmapExtensions(exts []argov1alpha1.ExtensionConfig, data map[string]string
 	}
 	var list []wrapExt
 	for _, e := range exts {
-		be, err := extensionBackendToMap(e.Backend)
+		be, err := extensionToBackendMap(e)
 		if err != nil {
 			return err
 		}
@@ -2349,28 +2330,27 @@ func unmapExtensions(exts []argov1alpha1.ExtensionConfig, data map[string]string
 	return nil
 }
 
-func extensionBackendToMap(b argov1alpha1.ExtensionBackend) (map[string]any, error) {
+// extensionToBackendMap rebuilds the legacy CM backend object from flat CR fields.
+func extensionToBackendMap(e argov1alpha1.ExtensionConfig) (map[string]any, error) {
 	m := map[string]any{}
-	if tr := b.Transport; tr != nil {
-		tm := map[string]any{}
-		if s := durationString(tr.ConnectionTimeout); s != "" {
-			tm["connectionTimeout"] = s
-		}
-		if s := durationString(tr.KeepAlive); s != "" {
-			tm["keepAlive"] = s
-		}
-		if s := durationString(tr.IdleConnectionTimeout); s != "" {
-			tm["idleConnectionTimeout"] = s
-		}
-		if tr.MaxIdleConnections != 0 {
-			tm["maxIdleConnections"] = tr.MaxIdleConnections
-		}
-		if len(tm) > 0 {
-			m["transport"] = tm
-		}
+	tm := map[string]any{}
+	if s := durationString(e.ConnectionTimeout); s != "" {
+		tm["connectionTimeout"] = s
+	}
+	if s := durationString(e.KeepAlive); s != "" {
+		tm["keepAlive"] = s
+	}
+	if s := durationString(e.IdleConnectionTimeout); s != "" {
+		tm["idleConnectionTimeout"] = s
+	}
+	if e.MaxIdleConnections != 0 {
+		tm["maxIdleConnections"] = e.MaxIdleConnections
+	}
+	if len(tm) > 0 {
+		m["transport"] = tm
 	}
 	var svcs []any
-	for _, s := range b.Services {
+	for _, s := range e.Services {
 		sm := map[string]any{"url": s.URL}
 		if s.Cluster != nil {
 			cm := map[string]any{}

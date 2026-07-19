@@ -50,13 +50,13 @@ func TestRoundTripSample(t *testing.T) {
 	}
 	var foundActions bool
 	for _, c := range cfg.Spec.Controller.Resource.Customizations {
-		if c.Group == "apps" && c.Kind == "Deployment" && c.Actions != nil {
+		if c.Group == "apps" && c.Kind == "Deployment" && (c.DiscoveryLua != "" || len(c.Actions) > 0) {
 			foundActions = true
-			if c.Actions.DiscoveryLua == "" {
-				t.Fatalf("actions discoveryLua empty: %#v", c.Actions)
+			if c.DiscoveryLua == "" {
+				t.Fatalf("actions discoveryLua empty: %#v", c)
 			}
-			if len(c.Actions.Definitions) != 1 || c.Actions.Definitions[0].Name != "restart" || c.Actions.Definitions[0].ActionLua == "" {
-				t.Fatalf("actions definitions: %#v", c.Actions.Definitions)
+			if len(c.Actions) != 1 || c.Actions[0].Name != "restart" || c.Actions[0].ActionLua == "" {
+				t.Fatalf("actions: %#v", c.Actions)
 			}
 		}
 	}

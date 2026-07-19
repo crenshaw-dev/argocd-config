@@ -193,8 +193,8 @@ extensions:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Spec.Server.Extensions[0].Backend.Transport == nil || cfg.Spec.Server.Extensions[0].Backend.Transport.MaxIdleConnections != 42 {
-		t.Fatalf("maxIdleConnections: %#v", cfg.Spec.Server.Extensions[0].Backend)
+	if cfg.Spec.Server.Extensions[0].MaxIdleConnections != 42 {
+		t.Fatalf("maxIdleConnections: %#v", cfg.Spec.Server.Extensions[0])
 	}
 }
 

@@ -6,29 +6,25 @@ metadata:
 spec:
   server:
     extensions:
-    - backend:
-        services:
-        - cluster:
-            name: some-cluster
-            serverURL: https://some-cluster
-          headers:
-          - name: Authorization
-            value: $extension.httpbin.token
-          - name: X-Request-Id
-            value: argocd
-          url: http://httpbin.org
-        transport:
-          connectionTimeout: 2s
-          idleConnectionTimeout: 1m0s
-          keepAlive: 15s
-          maxIdleConnections: 30
+    - connectionTimeout: 2s
+      idleConnectionTimeout: 1m0s
+      keepAlive: 15s
+      maxIdleConnections: 30
       name: httpbin
-    - backend:
-        services:
-        - headers:
-          - name: Authorization
-            value: $extension.metrics.token
-          url: https://metrics.example.com
-        transport:
-          maxIdleConnections: 10
+      services:
+      - cluster:
+          name: some-cluster
+          serverURL: https://some-cluster
+        headers:
+        - name: Authorization
+          value: $extension.httpbin.token
+        - name: X-Request-Id
+          value: argocd
+        url: http://httpbin.org
+    - maxIdleConnections: 10
       name: metrics
+      services:
+      - headers:
+        - name: Authorization
+          value: $extension.metrics.token
+        url: https://metrics.example.com

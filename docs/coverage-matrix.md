@@ -61,7 +61,7 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `resource.customizations` | ✅ | `spec.controller.resource.customizations` | Legacy monolithic key |
 | `resource.customizations.health.*` | ✅ | `spec.controller.resource.customizations[].healthLua` | Prefix + GVK suffix |
 | `resource.customizations.useOpenLibs.*` | ✅ | `spec.controller.resource.customizations[].useOpenLibs` | |
-| `resource.customizations.actions.*` | ✅ | `spec.controller.resource.customizations[].actions` | |
+| `resource.customizations.actions.*` | ✅ | `spec.controller.resource.customizations[].{discoveryLua,mergeBuiltinActions,actions}` | CM blob uses `definitions[]`; CR flattens to `actions` |
 | `resource.customizations.ignoreDifferences.*` | ✅ | `spec.controller.resource.customizations[].ignoreDifferences` | |
 | `resource.customizations.ignoreResourceUpdates.*` | ✅ | `spec.controller.resource.customizations[].ignoreResourceUpdates` | |
 | `resource.customizations.knownTypeFields.*` | ✅ | `spec.controller.resource.customizations[].knownTypeFields` | |
@@ -80,7 +80,7 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `help.chatText` | ✅ | `spec.server.help.chat.text` | |
 | `help.download.*` | ✅ | `spec.server.help.binaryURLs` | Prefix per arch |
 | `extension.config` | ✅ | `spec.server.extensions[]` | YAML envelope |
-| `extension.config.*` | ✅ | `spec.server.extensions[]` | Per-extension backend |
+| `extension.config.*` | ✅ | `spec.server.extensions[]` | CR flattens `backend`/`transport`; unmap still emits `backend:` |
 | `kustomize.enable` | ✅ | `spec.repoServer.kustomize.enabled` | |
 | `kustomize.buildOptions` | ✅ | `spec.repoServer.kustomize.buildOptions` | |
 | `kustomize.path.*` | ✅ | `spec.repoServer.kustomize.versions[].path` | Per version name |

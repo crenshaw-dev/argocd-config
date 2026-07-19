@@ -8,14 +8,13 @@ spec:
     resource:
       customizations:
       - actions:
-          definitions:
-          - actionLua: |
-              return obj
-            name: restart
-          discoveryLua: |
-            actions = {}
-            actions["restart"] = {}
-            return actions
+        - actionLua: |
+            return obj
+          name: restart
+        discoveryLua: |
+          actions = {}
+          actions["restart"] = {}
+          return actions
         group: apps
         kind: Deployment
       - group: cert-manager.io

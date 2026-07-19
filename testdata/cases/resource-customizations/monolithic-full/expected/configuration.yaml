@@ -8,20 +8,18 @@ spec:
     resource:
       customizations:
       - actions:
-          definitions:
-          - actionLua: |
-              return obj
-            name: restart
-          - actionLua: |
-              obj.spec.paused = true
-              return obj
-            name: pause
-          discoveryLua: |
-            actions = {}
-            actions["restart"] = {}
-            actions["pause"] = {}
-            return actions
-          mergeBuiltinActions: true
+        - actionLua: |
+            return obj
+          name: restart
+        - actionLua: |
+            obj.spec.paused = true
+            return obj
+          name: pause
+        discoveryLua: |
+          actions = {}
+          actions["restart"] = {}
+          actions["pause"] = {}
+          return actions
         group: apps
         healthLua: |
           hs = {}
@@ -37,6 +35,7 @@ spec:
         knownTypeFields:
         - field: spec.template.spec
           type: core/v1/PodSpec
+        mergeBuiltinActions: true
         useOpenLibs: true
       - group: cert-manager.io
         healthLua: |

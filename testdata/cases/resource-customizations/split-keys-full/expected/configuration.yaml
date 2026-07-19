@@ -32,17 +32,16 @@ spec:
           - kube-controller-manager
         kind: MutatingWebhookConfiguration
       - actions:
-          definitions:
-          - actionLua: |
-              return obj
-            name: restart
-          discoveryLua: |
-            actions = {}
-            actions["restart"] = {}
-            return actions
-          mergeBuiltinActions: true
+        - actionLua: |
+            return obj
+          name: restart
+        discoveryLua: |
+          actions = {}
+          actions["restart"] = {}
+          return actions
         group: apps
         kind: Deployment
+        mergeBuiltinActions: true
       - group: argoproj.io
         ignoreResourceUpdates:
           jsonPointers:

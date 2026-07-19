@@ -152,11 +152,9 @@ spec:
       - app.kubernetes.io/name
       customizations:
       - actions:
-          definitions:
-          - actionLua: return true
-            name: example
-          discoveryLua: return true
-          mergeBuiltinActions: true
+        - actionLua: return true
+          name: example
+        discoveryLua: return true
         group: apps
         healthLua: return true
         ignoreDifferences:
@@ -177,6 +175,7 @@ spec:
         knownTypeFields:
         - field: spec.template
           type: core/v1/PodSpec
+        mergeBuiltinActions: true
         useOpenLibs: true
       eventLabels:
         excludeKeyGlobs:
@@ -393,21 +392,19 @@ spec:
       shells:
       - bash
     extensions:
-    - backend:
-        services:
-        - cluster:
-            name: example-extension
-            serverURL: https://example.com
-          headers:
-          - name: example-extension
-            value: example-value
-          url: https://example.com
-        transport:
-          connectionTimeout: 1h0m0s
-          idleConnectionTimeout: 1h0m0s
-          keepAlive: 1h0m0s
-          maxIdleConnections: 1
+    - connectionTimeout: 1h0m0s
+      idleConnectionTimeout: 1h0m0s
+      keepAlive: 1h0m0s
+      maxIdleConnections: 1
       name: example-extension
+      services:
+      - cluster:
+          name: example-extension
+          serverURL: https://example.com
+        headers:
+        - name: example-extension
+          value: example-value
+        url: https://example.com
     googleAnalytics:
       anonymizeUsers: true
       trackingID: example-trackingID

@@ -989,52 +989,43 @@ spec:
                           properties:
                             actions:
                               description: |-
-                                Actions configures custom resource actions (discovery + action scripts).
-                                Maps to/from the legacy resource.customizations.actions.<group_kind> YAML blob.
-                                Migration: if non-nil, takes precedence over argocd-cm resource.customizations.actions.<group_kind> as a whole, including all child fields.
-                              properties:
-                                definitions:
-                                  description: |-
-                                    Definitions are named actions and their Lua implementations.
-                                    Migration: composite child of resource.customizations.actions.<group_kind>.
-                                  items:
-                                    description: ResourceActionDefinition is one named
-                                      custom resource action.
-                                    properties:
-                                      actionLua:
-                                        description: |-
-                                          ActionLua is the Lua script that performs the action on the resource
-                                          (obj global; legacy key: action.lua / definitions[].action.lua).
-                                        minLength: 1
-                                        type: string
-                                      name:
-                                        description: |-
-                                          Name is the action identifier shown in the UI and referenced in RBAC as
-                                          action/<group>/<kind>/<name> (legacy: definitions[].name).
-                                        minLength: 1
-                                        type: string
-                                    required:
-                                    - actionLua
-                                    - name
-                                    type: object
-                                  type: array
-                                  x-kubernetes-list-map-keys:
-                                  - name
-                                  x-kubernetes-list-type: map
-                                discoveryLua:
-                                  description: |-
-                                    DiscoveryLua is a Lua script that returns which actions are available
-                                    (and optional disabled flags) for the resource (legacy key: discovery.lua).
-                                    Migration: composite child of resource.customizations.actions.<group_kind>.
-                                  type: string
-                                mergeBuiltinActions:
-                                  description: |-
-                                    MergeBuiltinActions merges custom actions with built-in ones instead of
-                                    replacing them (Argo CD ≥ 2.13; legacy key: mergeBuiltinActions).
-                                    Default false — custom actions replace built-ins.
-                                    Migration: composite child of resource.customizations.actions.<group_kind>.
-                                  type: boolean
-                              type: object
+                                Actions are named custom resource actions (legacy: definitions[] in the
+                                resource.customizations.actions.<group_kind> YAML blob).
+                                Migration: settings group with DiscoveryLua / MergeBuiltinActions (see DiscoveryLua).
+                              items:
+                                description: ResourceActionDefinition is one named
+                                  custom resource action.
+                                properties:
+                                  actionLua:
+                                    description: |-
+                                      ActionLua is the Lua script that performs the action on the resource
+                                      (obj global; legacy key: action.lua / definitions[].action.lua).
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: |-
+                                      Name is the action identifier shown in the UI and referenced in RBAC as
+                                      action/<group>/<kind>/<name> (legacy: definitions[].name).
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - actionLua
+                                - name
+                                type: object
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
+                            discoveryLua:
+                              description: |-
+                                DiscoveryLua is a Lua script that returns which custom actions are available
+                                (and optional disabled flags) for the resource.
+                                Legacy: discovery.lua inside resource.customizations.actions.<group_kind>.
+                                With Actions / MergeBuiltinActions, forms the actions settings group that replaces
+                                the whole actions blob when any of the three is set.
+                                Migration: if set (or Actions/MergeBuiltinActions present), takes precedence over
+                                argocd-cm resource.customizations.actions.<group_kind> as a whole.
+                              type: string
                             group:
                               description: |-
                                 Group is the API group ("" for core, "*" for wildcard).
@@ -1133,6 +1124,13 @@ spec:
                               x-kubernetes-list-map-keys:
                               - field
                               x-kubernetes-list-type: map
+                            mergeBuiltinActions:
+                              description: |-
+                                MergeBuiltinActions merges custom actions with built-in ones instead of
+                                replacing them (Argo CD ≥ 2.13; legacy: mergeBuiltinActions in the actions blob).
+                                Default false — custom actions replace built-ins.
+                                Migration: settings group with DiscoveryLua / Actions (see DiscoveryLua).
+                              type: boolean
                             useOpenLibs:
                               description: |-
                                 UseOpenLibs enables standard Lua libraries for health/action scripts for this GVK
@@ -2540,115 +2538,30 @@ spec:
                       description: |-
                         ExtensionConfig configures one UI proxy extension (argocd-cm: extension.config).
                         Requires server.proxyExtensionEnabled (cmd-params: server.enable.proxy.extension).
+                        Transport fields are hoisted onto the extension (legacy CM still nests them under backend).
                       properties:
-                        backend:
+                        connectionTimeout:
                           description: |-
-                            Backend describes how the API server proxies to the extension service(s).
-                            Legacy: extension.config extensions[].backend.
-                          properties:
-                            services:
-                              description: |-
-                                Services are upstream backends the proxy may forward to (optionally
-                                filtered by Application destination cluster).
-                                Legacy: extension.config extensions[].backend.services.
-                              items:
-                                description: ExtensionService is one upstream URL
-                                  for an extension backend.
-                                properties:
-                                  cluster:
-                                    description: |-
-                                      Cluster optionally restricts this backend to Applications whose destination
-                                      matches. Required when multiple services are configured; ignored when only
-                                      one service exists. Legacy: ...services[].cluster.
-                                    properties:
-                                      name:
-                                        description: |-
-                                          Name is the Argo CD cluster name to match against Application
-                                          destination.name (legacy: cluster.name).
-                                        type: string
-                                      serverURL:
-                                        description: |-
-                                          ServerURL is the cluster API server URL to match against Application
-                                          destination.server (legacy: cluster.server).
-                                        type: string
-                                        x-kubernetes-validations:
-                                        - message: must be an absolute URL
-                                          rule: self == '' || isURL(self)
-                                    type: object
-                                  headers:
-                                    description: |-
-                                      Headers are extra HTTP headers injected on outgoing proxy requests
-                                      (override same-named incoming headers; reserved names are ignored).
-                                      Values may use $secret.key for argocd-secret lookup.
-                                      Legacy: ...services[].headers.
-                                    items:
-                                      description: ExtensionHeader is an HTTP header
-                                        injected into extension proxy requests.
-                                      properties:
-                                        name:
-                                          description: 'Name is the HTTP header name
-                                            (legacy: headers[].name).'
-                                          minLength: 1
-                                          type: string
-                                        value:
-                                          description: |-
-                                            Value is the header value; may include $secret.key interpolation
-                                            (legacy: headers[].value).
-                                          type: string
-                                      required:
-                                      - name
-                                      - value
-                                      type: object
-                                    type: array
-                                    x-kubernetes-list-map-keys:
-                                    - name
-                                    x-kubernetes-list-type: map
-                                  url:
-                                    description: |-
-                                      URL is the upstream extension service base URL (mandatory).
-                                      Legacy: extension.config ...services[].url.
-                                    type: string
-                                    x-kubernetes-validations:
-                                    - message: must be an absolute http(s) URL
-                                      rule: isURL(self) && url(self).getScheme() in
-                                        ['http', 'https']
-                                required:
-                                - url
-                                type: object
-                              type: array
-                              x-kubernetes-list-map-keys:
-                              - url
-                              x-kubernetes-list-type: map
-                            transport:
-                              description: |-
-                                Transport holds HTTP transport tuning for upstream connections.
-                                Legacy: extension.config backend connectionTimeout / keepAlive /
-                                idleConnectionTimeout / maxIdleConnections (defaults 2s / 15s / 60s / 30).
-                              properties:
-                                connectionTimeout:
-                                  description: |-
-                                    ConnectionTimeout is the max dial time to the upstream extension server
-                                    (legacy: backend.connectionTimeout; default 2s).
-                                  type: string
-                                idleConnectionTimeout:
-                                  description: |-
-                                    IdleConnectionTimeout is how long idle upstream connections are kept
-                                    (legacy: backend.idleConnectionTimeout; default 60s).
-                                  type: string
-                                keepAlive:
-                                  description: |-
-                                    KeepAlive is the HTTP keep-alive probe interval for upstream connections
-                                    (legacy: backend.keepAlive; default 15s).
-                                  type: string
-                                maxIdleConnections:
-                                  description: |-
-                                    MaxIdleConnections is the max idle connections in the upstream pool
-                                    (legacy: backend.maxIdleConnections; default 30).
-                                  format: int32
-                                  minimum: 0
-                                  type: integer
-                              type: object
-                          type: object
+                            ConnectionTimeout is the max dial time to the upstream extension server
+                            (legacy: backend.connectionTimeout / backend.transport.connectionTimeout; default 2s).
+                          type: string
+                        idleConnectionTimeout:
+                          description: |-
+                            IdleConnectionTimeout is how long idle upstream connections are kept
+                            (legacy: backend.idleConnectionTimeout; default 60s).
+                          type: string
+                        keepAlive:
+                          description: |-
+                            KeepAlive is the HTTP keep-alive probe interval for upstream connections
+                            (legacy: backend.keepAlive; default 15s).
+                          type: string
+                        maxIdleConnections:
+                          description: |-
+                            MaxIdleConnections is the max idle connections in the upstream pool
+                            (legacy: backend.maxIdleConnections; default 30).
+                          format: int32
+                          minimum: 0
+                          type: integer
                         name:
                           description: |-
                             Name is the extension identifier; registers the proxy route at
@@ -2656,6 +2569,79 @@ spec:
                             Legacy: extension.config extensions[].name.
                           minLength: 1
                           type: string
+                        services:
+                          description: |-
+                            Services are upstream backends the proxy may forward to (optionally
+                            filtered by Application destination cluster).
+                            Legacy: extension.config extensions[].backend.services.
+                          items:
+                            description: ExtensionService is one upstream URL for
+                              an extension.
+                            properties:
+                              cluster:
+                                description: |-
+                                  Cluster optionally restricts this backend to Applications whose destination
+                                  matches. Required when multiple services are configured; ignored when only
+                                  one service exists. Legacy: ...services[].cluster.
+                                properties:
+                                  name:
+                                    description: |-
+                                      Name is the Argo CD cluster name to match against Application
+                                      destination.name (legacy: cluster.name).
+                                    type: string
+                                  serverURL:
+                                    description: |-
+                                      ServerURL is the cluster API server URL to match against Application
+                                      destination.server (legacy: cluster.server).
+                                    type: string
+                                    x-kubernetes-validations:
+                                    - message: must be an absolute URL
+                                      rule: self == '' || isURL(self)
+                                type: object
+                              headers:
+                                description: |-
+                                  Headers are extra HTTP headers injected on outgoing proxy requests
+                                  (override same-named incoming headers; reserved names are ignored).
+                                  Values may use $secret.key for argocd-secret lookup.
+                                  Legacy: ...services[].headers.
+                                items:
+                                  description: ExtensionHeader is an HTTP header injected
+                                    into extension proxy requests.
+                                  properties:
+                                    name:
+                                      description: 'Name is the HTTP header name (legacy:
+                                        headers[].name).'
+                                      minLength: 1
+                                      type: string
+                                    value:
+                                      description: |-
+                                        Value is the header value; may include $secret.key interpolation
+                                        (legacy: headers[].value).
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              url:
+                                description: |-
+                                  URL is the upstream extension service base URL (mandatory).
+                                  Legacy: extension.config ...services[].url.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be an absolute http(s) URL
+                                  rule: isURL(self) && url(self).getScheme() in ['http',
+                                    'https']
+                            required:
+                            - url
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - url
+                          x-kubernetes-list-type: map
                       required:
                       - name
                       type: object

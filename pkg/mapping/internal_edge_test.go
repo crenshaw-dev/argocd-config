@@ -177,15 +177,14 @@ func TestNewKeyTrackerNilDataAndNilUse(t *testing.T) {
 }
 
 func TestParseAndMarshalResourceActionsEmpty(t *testing.T) {
-	a, err := parseResourceActions("")
-	if err != nil || a != nil {
-		t.Fatalf("%v %v", a, err)
+	c := argov1alpha1.ResourceCustomization{}
+	if err := applyResourceActionsBlob(&c, ""); err != nil {
+		t.Fatal(err)
 	}
-	s, err := marshalResourceActions(nil)
-	if err != nil || s != "" {
-		t.Fatal(s, err)
+	if hasResourceActions(c) {
+		t.Fatalf("expected empty: %#v", c)
 	}
-	s, err = marshalResourceActions(&argov1alpha1.ResourceActionsConfig{})
+	s, err := marshalResourceActions(c)
 	if err != nil || s != "" {
 		t.Fatal(s, err)
 	}
@@ -214,8 +213,8 @@ func TestApplyOverrideMapActionsString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Actions == nil || c.Actions.DiscoveryLua == "" {
-		t.Fatalf("%#v", c.Actions)
+	if c.DiscoveryLua == "" {
+		t.Fatalf("%#v", c)
 	}
 }
 

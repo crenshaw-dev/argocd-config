@@ -740,11 +740,28 @@ type ResourceCustomization struct {
 	// or health.lua.useOpenLibs. Default false.
 	// +optional
 	UseOpenLibs bool `json:"useOpenLibs,omitempty"`
-	// Actions configures custom resource actions (discovery + action scripts).
-	// Maps to/from the legacy resource.customizations.actions.<group_kind> YAML blob.
-	// Migration: if non-nil, takes precedence over argocd-cm resource.customizations.actions.<group_kind> as a whole, including all child fields.
+	// DiscoveryLua is a Lua script that returns which custom actions are available
+	// (and optional disabled flags) for the resource.
+	// Legacy: discovery.lua inside resource.customizations.actions.<group_kind>.
+	// With Actions / MergeBuiltinActions, forms the actions settings group that replaces
+	// the whole actions blob when any of the three is set.
+	// Migration: if set (or Actions/MergeBuiltinActions present), takes precedence over
+	// argocd-cm resource.customizations.actions.<group_kind> as a whole.
 	// +optional
-	Actions *ResourceActionsConfig `json:"actions,omitempty"`
+	DiscoveryLua string `json:"discoveryLua,omitempty"`
+	// MergeBuiltinActions merges custom actions with built-in ones instead of
+	// replacing them (Argo CD ≥ 2.13; legacy: mergeBuiltinActions in the actions blob).
+	// Default false — custom actions replace built-ins.
+	// Migration: settings group with DiscoveryLua / Actions (see DiscoveryLua).
+	// +optional
+	MergeBuiltinActions bool `json:"mergeBuiltinActions,omitempty"`
+	// Actions are named custom resource actions (legacy: definitions[] in the
+	// resource.customizations.actions.<group_kind> YAML blob).
+	// Migration: settings group with DiscoveryLua / MergeBuiltinActions (see DiscoveryLua).
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Actions []ResourceActionDefinition `json:"actions,omitempty"`
 	// IgnoreDifferences are JSON Pointer / jq paths / managedFields managers ignored
 	// during live vs desired sync diff.
 	// Legacy: resource.customizations.ignoreDifferences.<group_kind>.
@@ -762,28 +779,6 @@ type ResourceCustomization struct {
 	// +listType=map
 	// +listMapKey=field
 	KnownTypeFields []KnownTypeField `json:"knownTypeFields,omitempty"`
-}
-
-// ResourceActionsConfig holds custom resource actions for a GVK.
-// Legacy argocd-cm stores this as a YAML document with discovery.lua / action.lua keys.
-type ResourceActionsConfig struct {
-	// DiscoveryLua is a Lua script that returns which actions are available
-	// (and optional disabled flags) for the resource (legacy key: discovery.lua).
-	// Migration: composite child of resource.customizations.actions.<group_kind>.
-	// +optional
-	DiscoveryLua string `json:"discoveryLua,omitempty"`
-	// Definitions are named actions and their Lua implementations.
-	// Migration: composite child of resource.customizations.actions.<group_kind>.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	Definitions []ResourceActionDefinition `json:"definitions,omitempty"`
-	// MergeBuiltinActions merges custom actions with built-in ones instead of
-	// replacing them (Argo CD ≥ 2.13; legacy key: mergeBuiltinActions).
-	// Default false — custom actions replace built-ins.
-	// Migration: composite child of resource.customizations.actions.<group_kind>.
-	// +optional
-	MergeBuiltinActions bool `json:"mergeBuiltinActions,omitempty"`
 }
 
 // ResourceActionDefinition is one named custom resource action.
@@ -1857,6 +1852,7 @@ type AccountConfig struct {
 
 // ExtensionConfig configures one UI proxy extension (argocd-cm: extension.config).
 // Requires server.proxyExtensionEnabled (cmd-params: server.enable.proxy.extension).
+// Transport fields are hoisted onto the extension (legacy CM still nests them under backend).
 type ExtensionConfig struct {
 	// Name is the extension identifier; registers the proxy route at
 	// <argocd-host>/api/v1/extensions/<name> and is used in RBAC.
@@ -1864,14 +1860,6 @@ type ExtensionConfig struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
-	// Backend describes how the API server proxies to the extension service(s).
-	// Legacy: extension.config extensions[].backend.
-	// +optional
-	Backend ExtensionBackend `json:"backend,omitempty"`
-}
-
-// ExtensionBackend is the HTTP proxy backend for a UI extension.
-type ExtensionBackend struct {
 	// Services are upstream backends the proxy may forward to (optionally
 	// filtered by Application destination cluster).
 	// Legacy: extension.config extensions[].backend.services.
@@ -1879,17 +1867,8 @@ type ExtensionBackend struct {
 	// +listType=map
 	// +listMapKey=url
 	Services []ExtensionService `json:"services,omitempty"`
-	// Transport holds HTTP transport tuning for upstream connections.
-	// Legacy: extension.config backend connectionTimeout / keepAlive /
-	// idleConnectionTimeout / maxIdleConnections (defaults 2s / 15s / 60s / 30).
-	// +optional
-	Transport *ExtensionTransportConfig `json:"transport,omitempty"`
-}
-
-// ExtensionTransportConfig holds HTTP transport settings for an extension backend.
-type ExtensionTransportConfig struct {
 	// ConnectionTimeout is the max dial time to the upstream extension server
-	// (legacy: backend.connectionTimeout; default 2s).
+	// (legacy: backend.connectionTimeout / backend.transport.connectionTimeout; default 2s).
 	// +optional
 	ConnectionTimeout *metav1.Duration `json:"connectionTimeout,omitempty"`
 	// KeepAlive is the HTTP keep-alive probe interval for upstream connections
@@ -1907,7 +1886,7 @@ type ExtensionTransportConfig struct {
 	MaxIdleConnections int32 `json:"maxIdleConnections,omitempty"`
 }
 
-// ExtensionService is one upstream URL for an extension backend.
+// ExtensionService is one upstream URL for an extension.
 type ExtensionService struct {
 	// URL is the upstream extension service base URL (mandatory).
 	// Legacy: extension.config ...services[].url.
