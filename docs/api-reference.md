@@ -3,12 +3,12 @@
 # API Reference
 
 ## Packages
-- [argo.crenshaw.dev/v1alpha1](#argocrenshawdevv1alpha1)
+- [argoproj.io/v1alpha1](#argoprojiov1alpha1)
 
 
-## argo.crenshaw.dev/v1alpha1
+## argoproj.io/v1alpha1
 
-Package v1alpha1 contains API Schema definitions for the argo.crenshaw.dev v1alpha1 API group.
+Package v1alpha1 contains API Schema definitions for the argoproj.io v1alpha1 API group.
 
 ### Resource Types
 - [ArgoCDConfiguration](#argocdconfiguration)
@@ -124,7 +124,7 @@ It is a pure data store (spec only; no status subresource).
 
 | Field | Description | Validation |
 | --- | --- | --- |
-| `apiVersion` _string_ | `argo.crenshaw.dev/v1alpha1` | |
+| `apiVersion` _string_ | `argoproj.io/v1alpha1` | |
 | `kind` _string_ | `ArgoCDConfiguration` | |
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |
 | `spec` _[ArgoCDConfigurationSpec](#argocdconfigurationspec)_ | Spec holds Argo CD configuration values that replace or override<br />argocd-cm, argocd-cmd-params-cm, and argocd-rbac-cm. |  |

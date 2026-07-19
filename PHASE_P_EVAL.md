@@ -5,8 +5,8 @@ Prototype: `/Users/mcrenshaw/src/argocd-configuration` (`github.com/crenshaw-dev
 
 ## Delivered
 
-- Spec-only CRD `ArgoCDConfiguration` (`argo.crenshaw.dev/v1alpha1`)
-- Generated deepcopy + CRD: `config/crd/bases/argo.crenshaw.dev_argocdconfigurations.yaml`
+- Spec-only CRD `ArgoCDConfiguration` (`argoproj.io/v1alpha1`)
+- Generated deepcopy + CRD: `config/crd/bases/argoproj.io_argocdconfigurations.yaml`
 - CLI `argocd-config`: `from-configmaps`, `to-configmaps`, `convert --to-version`
 - Hub conversion scaffolding (`v1alpha1` is hub)
 - Round-trip tests covering OIDC `$string` / SecretKeySelector, Dex connector envelope, RBAC raw CSV, resource customizations, cmd-params (incl. `;` separator)

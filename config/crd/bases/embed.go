@@ -5,5 +5,5 @@ import _ "embed"
 
 // ArgoCDConfigurationCRD is the generated ArgoCDConfiguration CustomResourceDefinition.
 //
-//go:embed argo.crenshaw.dev_argocdconfigurations.yaml
+//go:embed argoproj.io_argocdconfigurations.yaml
 var ArgoCDConfigurationCRD []byte

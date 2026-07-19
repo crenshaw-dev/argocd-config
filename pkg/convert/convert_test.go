@@ -95,7 +95,7 @@ func TestConvertHubSpokeRoundTrip(t *testing.T) {
 
 func TestConvertUnknownVersion(t *testing.T) {
 	in := hubWithURL("")
-	_, err := convert.ToVersion(in, "argo.crenshaw.dev/v99")
+	_, err := convert.ToVersion(in, "argoproj.io/v99")
 	if err == nil {
 		t.Fatal("expected error for unknown version")
 	}

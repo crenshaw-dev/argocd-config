@@ -90,7 +90,7 @@ This bridge exists **until Argo CD can consume `ArgoCDConfiguration` directly**.
 If you want the type available in a cluster (for storage, GitOps of the CR itself, or editor/schema tooling):
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/crenshaw-dev/argocd-config/main/config/crd/bases/argo.crenshaw.dev_argocdconfigurations.yaml
+kubectl apply -f https://raw.githubusercontent.com/crenshaw-dev/argocd-config/main/config/crd/bases/argoproj.io_argocdconfigurations.yaml
 ```
 
 Applying the CRD does **not** make Argo CD read it yet. You still generate ConfigMaps with the CLI.

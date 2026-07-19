@@ -52,7 +52,7 @@ func sampleCMSFlags(t *testing.T) []string {
 func writeMinimalCR(t *testing.T, dir string) string {
 	t.Helper()
 	path := filepath.Join(dir, "argocd-config.yaml")
-	const crYAML = `apiVersion: argo.crenshaw.dev/v1alpha1
+	const crYAML = `apiVersion: argoproj.io/v1alpha1
 kind: ArgoCDConfiguration
 metadata:
   name: argocd-config
@@ -397,7 +397,7 @@ func TestValidateGoodFile(t *testing.T) {
 func TestValidateWrongNameFails(t *testing.T) {
 	dir := t.TempDir()
 	crFile := filepath.Join(dir, "bad-name.yaml")
-	const crYAML = `apiVersion: argo.crenshaw.dev/v1alpha1
+	const crYAML = `apiVersion: argoproj.io/v1alpha1
 kind: ArgoCDConfiguration
 metadata:
   name: not-argocd-config
@@ -544,7 +544,7 @@ func TestLoadConfigMapsInputRequiresSource(t *testing.T) {
 }
 
 func TestReadConfigurationFromStdin(t *testing.T) {
-	const crYAML = `apiVersion: argo.crenshaw.dev/v1alpha1
+	const crYAML = `apiVersion: argoproj.io/v1alpha1
 kind: ArgoCDConfiguration
 metadata:
   name: argocd-config
@@ -601,7 +601,7 @@ func TestExitCodePlainErrorVsExitError(t *testing.T) {
 	}
 
 	crFile := filepath.Join(t.TempDir(), "bad.yaml")
-	if err := os.WriteFile(crFile, []byte(`apiVersion: argo.crenshaw.dev/v1alpha1
+	if err := os.WriteFile(crFile, []byte(`apiVersion: argoproj.io/v1alpha1
 kind: ArgoCDConfiguration
 metadata:
   name: wrong

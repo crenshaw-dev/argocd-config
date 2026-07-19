@@ -52,7 +52,7 @@ func Validate(cfg *argov1alpha1.ArgoCDConfiguration) *mapping.Diagnostics {
 
 	if cfg.APIVersion != "" &&
 		cfg.APIVersion != argov1alpha1.GroupVersion.String() &&
-		cfg.APIVersion != "argo.crenshaw.dev/v1beta1" {
+		cfg.APIVersion != "argoproj.io/v1beta1" {
 		diag.Warn("", "apiVersion",
 			fmt.Sprintf("expected apiVersion %q or v1beta1 spoke, got %q", argov1alpha1.GroupVersion.String(), cfg.APIVersion))
 	}

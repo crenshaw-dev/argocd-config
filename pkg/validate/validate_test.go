@@ -95,7 +95,7 @@ func TestValidateWrongKind(t *testing.T) {
 
 func TestValidateUnexpectedAPIVersionWarns(t *testing.T) {
 	cfg := &argov1alpha1.ArgoCDConfiguration{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "argo.crenshaw.dev/v99"},
+		TypeMeta:   metav1.TypeMeta{APIVersion: "argoproj.io/v99"},
 		ObjectMeta: metav1.ObjectMeta{Name: mapping.DefaultConfigurationName},
 	}
 	diag := validate.Validate(cfg)

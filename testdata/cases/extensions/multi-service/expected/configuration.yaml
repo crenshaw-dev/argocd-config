@@ -1,4 +1,4 @@
-apiVersion: argo.crenshaw.dev/v1alpha1
+apiVersion: argoproj.io/v1alpha1
 kind: ArgoCDConfiguration
 metadata:
   name: argocd-config

@@ -36,4 +36,4 @@ We must decide CRD scope and whether multiple configuration objects may exist pe
 ## References
 
 - [PHASE_P_EVAL.md](../../PHASE_P_EVAL.md) — prototype evaluation and settled open questions
-- CRD: `config/crd/bases/argo.crenshaw.dev_argocdconfigurations.yaml`
+- CRD: `config/crd/bases/argoproj.io_argocdconfigurations.yaml`
