@@ -324,39 +324,48 @@ type ServerConfig struct {
 // Connectors use a typed envelope; per-connector config stays opaque and may
 // contain $string secret interpolation (Dex-owned schema).
 type DexConfig struct {
-	// Connectors is the list of Dex identity connectors (GitHub, OIDC, SAML, …).
+	// Connectors is the list of Dex identity connectors (GitHub, OIDC, SAML, LDAP, …).
+	// See https://dexidp.io/docs/connectors/. Migration: composite child of dex.config.
 	// +optional
 	// +listType=map
 	// +listMapKey=id
 	Connectors []DexConnector `json:"connectors,omitempty"`
-	// StaticClients are Dex static OAuth clients (opaque Dex schema).
+	// StaticClients are additional Dex static OAuth clients for reuse with other
+	// services (e.g. Argo Workflows). Argo CD also injects its own static clients
+	// when Dex is enabled. Migration: composite child of dex.config (staticClients).
 	// +optional
 	// +listType=atomic
 	// +kubebuilder:pruning:PreserveUnknownFields
 	StaticClients []runtime.RawExtension `json:"staticClients,omitempty"`
 	// Extra holds any additional top-level Dex config keys not modeled above
-	// (e.g. issuer, storage). Opaque; preserved as-is.
+	// (e.g. issuer, storage). Opaque; preserved as-is from dex.config.
+	// Migration: composite child of dex.config (unmodeled root keys).
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Extra *runtime.RawExtension `json:"extra,omitempty"`
 }
 
-// DexConnector is one Dex identity connector entry.
+// DexConnector is one Dex identity connector entry (dex.config connectors[]).
 type DexConnector struct {
-	// Type is the Dex connector type (e.g. "github", "oidc", "saml").
+	// Type is the Dex connector type (e.g. "github", "oidc", "saml", "ldap").
+	// Migration: composite child of dex.config (connectors[].type).
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Type string `json:"type"`
-	// ID is the connector's unique identifier within Dex.
+	// ID is the connector's unique identifier within Dex (login routing / internal use).
+	// Migration: composite child of dex.config (connectors[].id).
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	ID string `json:"id"`
-	// Name is the human-readable connector name shown in the UI.
+	// Name is the human-readable connector name shown on the login page.
+	// Migration: composite child of dex.config (connectors[].name).
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
-	// Config is opaque Dex connector configuration ($string refs allowed).
+	// Config is opaque Dex connector configuration (client IDs, org filters, etc.).
+	// $string / $secret:key refs are allowed. Schema is owned by Dex, not Argo CD.
 	// When set from Go, Raw must be JSON bytes.
+	// Migration: composite child of dex.config (connectors[].config).
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Config runtime.RawExtension `json:"config,omitempty"`
@@ -366,67 +375,96 @@ type DexConnector struct {
 
 // OIDCConfig is direct OIDC SSO configuration (argocd-cm: oidc.config).
 // When non-nil it replaces oidc.config wholesale.
+// See docs/operator-manual/user-management/ in argo-cd.
 type OIDCConfig struct {
-	// Name is the provider display name shown on the login button.
+	// Name is the provider display name shown on the SSO login button
+	// (oidc.config name). Migration: composite child of oidc.config.
 	// +optional
 	Name string `json:"name,omitempty"`
-	// IssuerURL is the OIDC issuer URL (oidc.config issuer).
+	// IssuerURL is the OIDC issuer URL that must expose
+	// .well-known/openid-configuration (oidc.config issuer).
+	// Migration: composite child of oidc.config.
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self == '' || (isURL(self) && url(self).getScheme() in ['http', 'https'])",message="must be an absolute http(s) URL"
 	IssuerURL string `json:"issuerURL,omitempty"`
-	// ClientID is the OAuth client ID registered with the IdP.
+	// ClientID is the OAuth 2.0 client ID registered with the IdP for the Argo CD
+	// server callback (/auth/callback) (oidc.config clientID).
+	// Migration: composite child of oidc.config.
 	// +optional
 	ClientID string `json:"clientID,omitempty"`
 	// ClientSecretRef references the OIDC client secret in a Kubernetes Secret.
 	// Raw secrets and $string refs are not accepted here — use a SecretKeySelector.
-	// Migration from argocd-cm $oidc.clientSecret-style values must become an explicit secret ref.
+	// Legacy oidc.config clientSecret ($secret:key in argocd-cm) must become an
+	// explicit secret ref. Migration: composite child of oidc.config.
 	// +optional
 	ClientSecretRef *corev1.SecretKeySelector `json:"clientSecretRef,omitempty"`
-	// CLIClientID is an optional separate OAuth client ID used by the Argo CD CLI.
+	// CLIClientID is a separate OAuth client ID for the Argo CD CLI (localhost
+	// callback). When omitted, the CLI reuses ClientID (oidc.config cliClientID).
+	// Migration: composite child of oidc.config.
 	// +optional
 	CLIClientID string `json:"cliClientID,omitempty"`
-	// UserInfo holds UserInfo endpoint settings for group membership lookup.
+	// UserInfo holds UserInfo endpoint settings for group membership lookup when
+	// groups are absent from the ID token. Migration: composite child of oidc.config.
 	// +optional
 	UserInfo *OIDCUserInfoConfig `json:"userInfo,omitempty"`
-	// RequestedScopes are OIDC scopes requested at login (default openid/profile/email/groups).
+	// RequestedScopes are OIDC scopes requested at login (oidc.config requestedScopes).
+	// When omitted, Argo CD defaults to ["openid", "profile", "email", "groups"].
+	// Migration: composite child of oidc.config.
 	// +optional
 	RequestedScopes []string `json:"requestedScopes,omitempty"`
-	// RequestedIDTokenClaims requests additional claims in the ID token
-	// (OIDC claims parameter).
+	// RequestedIDTokenClaims requests additional claims via the OIDC Claims
+	// Parameter on the ID token (e.g. groups) (oidc.config requestedIDTokenClaims).
+	// Migration: composite child of oidc.config.
 	// +optional
 	RequestedIDTokenClaims map[string]OIDCClaim `json:"requestedIDTokenClaims,omitempty"`
-	// LogoutURL is an optional custom logout redirect URL. May include
-	// {{token}} and {{logoutRedirectURL}} placeholders.
+	// LogoutURL is an optional IdP logout URL. May include {{token}} and
+	// {{logoutRedirectURL}} placeholders (oidc.config logoutURL).
+	// Migration: composite child of oidc.config.
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self == '' || isURL(self)",message="must be an absolute URL"
 	LogoutURL string `json:"logoutURL,omitempty"`
-	// RootCA is a PEM-encoded root CA used to verify the OIDC provider's TLS certificate.
+	// RootCA is a PEM-encoded root CA used to verify the OIDC provider's TLS
+	// certificate when it is not signed by a well-known CA (oidc.config rootCA).
+	// Migration: composite child of oidc.config.
 	// +optional
 	RootCA string `json:"rootCA,omitempty"`
-	// PKCEAuthenticationEnabled enables PKCE for the OIDC authorization code flow.
+	// PKCEAuthenticationEnabled enables PKCE for the authorization code flow
+	// (oidc.config enablePKCEAuthentication). Default false.
+	// Migration: composite child of oidc.config.
 	// +optional
 	PKCEAuthenticationEnabled bool `json:"pkceAuthenticationEnabled,omitempty"`
-	// DomainHint is a domain hint passed to the IdP (e.g. Azure AD login_hint / domain_hint).
+	// DomainHint is sent to the IdP as the domain_hint authorization parameter
+	// (common with Microsoft Entra ID) (oidc.config domainHint). Empty = not sent.
+	// Migration: composite child of oidc.config.
 	// +optional
 	DomainHint string `json:"domainHint,omitempty"`
-	// Azure holds Azure AD–specific OIDC options (workload identity, group overage).
+	// Azure holds Azure AD / Entra ID–specific OIDC options (workload identity,
+	// group overage). Migration: composite child of oidc.config (azure).
 	// +optional
 	Azure *AzureOIDCConfig `json:"azure,omitempty"`
-	// RefreshTokenThreshold refreshes the ID token this long before expiry.
+	// RefreshTokenThreshold refreshes the ID token this long before expiry using
+	// the refresh token (oidc.config refreshTokenThreshold). Default 0s refreshes
+	// only after expiry; must be shorter than token lifetime.
+	// Migration: composite child of oidc.config.
 	// +optional
 	RefreshTokenThreshold *metav1.Duration `json:"refreshTokenThreshold,omitempty"`
-	// AllowedAudiences are accepted JWT aud values for tokens presented to Argo CD.
+	// AllowedAudiences are accepted JWT aud values for tokens presented to Argo CD
+	// (oidc.config allowedAudiences). When omitted/empty, defaults to
+	// [clientID, cliClientID].
+	// Migration: composite child of oidc.config.
 	// +optional
 	AllowedAudiences []string `json:"allowedAudiences,omitempty"`
 	// SkipAudienceCheckWhenTokenHasNoAudience accepts tokens that omit the aud
-	// claim when true.
+	// claim when true (oidc.config skipAudienceCheckWhenTokenHasNoAudience).
+	// Default false for direct OIDC (Argo CD ≥ 2.6).
+	// Migration: composite child of oidc.config.
 	// +optional
 	SkipAudienceCheckWhenTokenHasNoAudience bool `json:"skipAudienceCheckWhenTokenHasNoAudience,omitempty"`
 	// InsecureSkipVerify skips TLS certificate verification when talking to the
-	// OIDC provider or Dex (argocd-cm: oidc.tls.insecure.skip.verify).
+	// OIDC provider or bundled Dex (argocd-cm: oidc.tls.insecure.skip.verify).
 	// This is a separate legacy key from oidc.config; nested under oidc for
 	// discoverability. Pointer so it can migrate independently of the composite blob.
-	// Migration: if set, takes precedence over argocd-cm oidc.tls.insecure.skip.verify.
+	// Default false. Migration: if set, takes precedence over argocd-cm oidc.tls.insecure.skip.verify.
 	// +optional
 	InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
 }
@@ -434,49 +472,64 @@ type OIDCConfig struct {
 // OIDCUserInfoConfig holds UserInfo endpoint settings for OIDC group lookup.
 type OIDCUserInfoConfig struct {
 	// GroupsEnabled fetches group membership from the UserInfo endpoint when groups
-	// are absent from the ID token (oidc.config enableUserInfoGroups).
+	// are absent from the ID token (oidc.config enableUserInfoGroups). Default false.
+	// Migration: composite child of oidc.config.
 	// +optional
 	GroupsEnabled bool `json:"groupsEnabled,omitempty"`
 	// BaseURL overrides the UserInfo endpoint base URL when it differs from the issuer
-	// (oidc.config userInfoBaseURL).
+	// (oidc.config userInfoBaseURL). Empty uses the issuer URL.
+	// Migration: composite child of oidc.config.
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self == '' || (isURL(self) && url(self).getScheme() in ['http', 'https'])",message="must be an absolute http(s) URL"
 	BaseURL string `json:"baseURL,omitempty"`
-	// Path is the UserInfo path appended to BaseURL (default "/userinfo")
-	// (oidc.config userInfoPath).
+	// Path is the UserInfo path appended to BaseURL or the issuer URL
+	// (oidc.config userInfoPath). Must be set (with GroupsEnabled) to enable
+	// UserInfo lookup; there is no hardcoded default in Argo CD.
+	// Migration: composite child of oidc.config.
 	// +optional
 	Path string `json:"path,omitempty"`
 	// CacheExpiration is how long cached UserInfo group results are kept
-	// (oidc.config userInfoCacheExpiration).
+	// (oidc.config userInfoCacheExpiration). Zero falls back to ID token lifetime.
+	// Migration: composite child of oidc.config.
 	// +optional
 	CacheExpiration *metav1.Duration `json:"cacheExpiration,omitempty"`
 }
 
-// OIDCClaim describes a requested ID token claim (OIDC "claims" request).
+// OIDCClaim describes a requested ID token claim (OIDC Claims Parameter).
 type OIDCClaim struct {
-	// Essential marks the claim as required by the RP.
+	// Essential marks the claim as essential in the OIDC claims request
+	// (oidc.config requestedIDTokenClaims.<claim>.essential).
+	// Migration: composite child of oidc.config.
 	// +optional
 	Essential bool `json:"essential,omitempty"`
-	// Value requests a single specific claim value.
+	// Value requests a single specific claim value
+	// (oidc.config requestedIDTokenClaims.<claim>.value).
+	// Migration: composite child of oidc.config.
 	// +optional
 	Value string `json:"value,omitempty"`
-	// Values requests one of several allowed claim values.
+	// Values requests that the claim match one of several allowed values
+	// (oidc.config requestedIDTokenClaims.<claim>.values).
+	// Migration: composite child of oidc.config.
 	// +optional
 	Values []string `json:"values,omitempty"`
 }
 
-// AzureOIDCConfig holds Azure Active Directory–specific OIDC settings.
+// AzureOIDCConfig holds Azure Active Directory / Entra ID–specific OIDC settings.
 type AzureOIDCConfig struct {
-	// UseWorkloadIdentity authenticates to Azure AD using Kubernetes workload identity
-	// instead of a client secret.
+	// UseWorkloadIdentity authenticates to Azure AD using Kubernetes workload
+	// identity instead of a client secret (oidc.config azure.useWorkloadIdentity).
+	// Default false. Migration: composite child of oidc.config.
 	// +optional
 	UseWorkloadIdentity bool `json:"useWorkloadIdentity,omitempty"`
-	// UserGroupOverageClaim resolves Azure AD group overage via Microsoft Graph when the
-	// token indicates the user has more groups than fit in the token.
+	// UserGroupOverageClaim resolves Azure AD group overage (>200 groups) via
+	// Microsoft Graph when the token indicates groups were truncated.
+	// Migration: composite child of oidc.config.
 	// +optional
 	UserGroupOverageClaim *AzureUserGroupOverageClaimConfig `json:"userGroupOverageClaim,omitempty"`
-	// GraphAPIEndpointURL overrides the Microsoft Graph API endpoint
-	// (useful for national clouds).
+	// GraphAPIEndpointURL overrides the Microsoft Graph API base URL for sovereign
+	// clouds (oidc.config azure.graphApiEndpoint).
+	// Default https://graph.microsoft.com/v1.0.
+	// Migration: composite child of oidc.config.
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self == '' || (isURL(self) && url(self).getScheme() in ['http', 'https'])",message="must be an absolute http(s) URL"
 	GraphAPIEndpointURL string `json:"graphAPIEndpointURL,omitempty"`
@@ -484,11 +537,15 @@ type AzureOIDCConfig struct {
 
 // AzureUserGroupOverageClaimConfig holds Azure AD group overage resolution settings.
 type AzureUserGroupOverageClaimConfig struct {
-	// Enabled resolves group overage via Microsoft Graph (oidc.config azure enableUserGroupOverageClaim).
+	// Enabled resolves group overage via Microsoft Graph
+	// (oidc.config azure.enableUserGroupOverageClaim). Default false.
+	// Migration: composite child of oidc.config.
 	// +optional
 	Enabled bool `json:"enabled,omitempty"`
-	// CacheExpiration is the cache TTL for Graph group lookups
-	// (oidc.config azure userGroupOverageClaimCacheExpiration).
+	// CacheExpiration is the cache TTL for Graph-resolved group IDs
+	// (oidc.config azure.userGroupOverageClaimCacheExpiration).
+	// When unset (0), falls back to token expiry.
+	// Migration: composite child of oidc.config.
 	// +optional
 	CacheExpiration *metav1.Duration `json:"cacheExpiration,omitempty"`
 }
@@ -534,13 +591,15 @@ type RBACConfig struct {
 	ApplicationFineGrainedInheritanceEnabled *bool `json:"applicationFineGrainedInheritanceEnabled,omitempty"`
 }
 
-// RBACPolicyOverlay is a named extra policy.csv fragment.
+// RBACPolicyOverlay is a named extra policy.csv fragment concatenated after the
+// main policy (argocd-rbac-cm: policy.<name>.csv).
 type RBACPolicyOverlay struct {
-	// Name is the overlay identifier (maps to policy.<name>.csv).
+	// Name is the overlay identifier (maps to policy.<name>.csv in argocd-rbac-cm).
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
-	// CSV is the Casbin CSV policy content for this overlay.
+	// CSV is the Casbin CSV policy content for this overlay (roles, bindings,
+	// and resource rules). Maps to argocd-rbac-cm policy.<name>.csv.
 	// +kubebuilder:validation:Required
 	CSV string `json:"csv"`
 }
@@ -610,53 +669,75 @@ type EventLabelsConfig struct {
 	ExcludeKeyGlobs []string `json:"excludeKeyGlobs,omitempty"`
 }
 
-// FilteredResource selects resources by API group, kind, and/or cluster.
+// FilteredResource selects resources by API group, kind, and/or cluster for
+// resource.exclusions / resource.inclusions. Omitting a field matches all values
+// for that dimension. events.k8s.io and metrics.k8s.io are excluded by default
+// even when this list is empty.
 type FilteredResource struct {
 	// APIGroups are API groups to match ("" for core, "*" for any).
+	// Omitted = match all groups. Legacy: resource.exclusions/inclusions apiGroups.
 	// +optional
 	// +kubebuilder:validation:items:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])?$`
 	APIGroups []string `json:"apiGroups,omitempty"`
 	// Kinds are Kubernetes Kind names to match ("*" for any).
+	// Omitted = match all kinds. Legacy: resource.exclusions/inclusions kinds.
 	// +optional
 	// +kubebuilder:validation:items:Pattern=`^([A-Z][A-Za-z0-9]*|[*])$`
 	Kinds []string `json:"kinds,omitempty"`
-	// Clusters are cluster server URLs or names this filter applies to.
+	// Clusters are cluster server URLs or names this filter applies to
+	// (supports globs such as "*.local"). Omitted = all clusters.
+	// Legacy: resource.exclusions/inclusions clusters.
 	// +optional
 	Clusters []string `json:"clusters,omitempty"`
 }
 
-// CompareOptions controls how live vs desired state are compared.
+// CompareOptions controls how live vs desired state are compared
+// (argocd-cm: resource.compareoptions).
 type CompareOptions struct {
-	// IgnoreAggregatedRoles ignores differences in aggregated ClusterRoles.
+	// IgnoreAggregatedRoles ignores RBAC differences caused by aggregated
+	// ClusterRoles (resource.compareoptions ignoreAggregatedRoles). Default false.
+	// Migration: composite child of resource.compareoptions.
 	// +optional
 	IgnoreAggregatedRoles bool `json:"ignoreAggregatedRoles,omitempty"`
 	// IgnoreResourceStatusField controls ignoring .status during diff:
-	// "crd" (default), "all", or "none".
+	// "all" (default in Argo CD), "crd" (CustomResourceDefinitions only), or "none".
+	// Legacy: resource.compareoptions ignoreResourceStatusField.
+	// Migration: composite child of resource.compareoptions.
 	// +optional
 	// +kubebuilder:validation:Enum=all;crd;none
 	IgnoreResourceStatusField string `json:"ignoreResourceStatusField,omitempty"`
 	// IgnoreDifferencesOnResourceUpdates applies ignoreDifferences rules when
-	// deciding whether a watched resource update should trigger reconcile.
+	// deciding whether a watched resource update should trigger reconcile
+	// (resource.compareoptions ignoreDifferencesOnResourceUpdates). Default true.
+	// Migration: composite child of resource.compareoptions.
 	// +optional
 	IgnoreDifferencesOnResourceUpdates bool `json:"ignoreDifferencesOnResourceUpdates,omitempty"`
 }
 
-// ResourceCustomization is a per-GVK override for health, actions, and ignore rules.
+// ResourceCustomization is a per-GVK override for health, actions, and ignore rules
+// (argocd-cm: resource.customizations.*).<group_kind> uses <group>_<kind>.
 type ResourceCustomization struct {
 	// Group is the API group ("" for core, "*" for wildcard).
+	// Legacy key prefix: resource.customizations.<type>.<group>_<kind>.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^$|^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])$`
 	Group string `json:"group,omitempty"`
-	// Kind is the Kubernetes Kind ("*" for wildcard).
+	// Kind is the Kubernetes Kind ("*" for wildcard). Required.
+	// Wildcards are only valid in the unified resource.customizations YAML blob,
+	// not in split ConfigMap keys.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^([A-Z][A-Za-z0-9]*|[*])$`
 	Kind string `json:"kind"`
-	// HealthLua is a Lua script that overrides built-in health assessment for this GVK
-	// (argocd-cm: resource.customizations.health.<group_kind> / health.lua).
+	// HealthLua is a Lua script that overrides built-in health assessment for this GVK.
+	// Must return a table with status (Healthy/Progressing/Degraded/…) and optional message.
+	// When absent, default health is Progressing until a status is produced.
+	// Legacy: resource.customizations.health.<group_kind> or health.lua in the unified blob.
 	// Migration: if set, takes precedence over argocd-cm resource.customizations.health.<group_kind>.
 	// +optional
 	HealthLua string `json:"healthLua,omitempty"`
-	// UseOpenLibs enables Lua open libraries for health/action scripts for this GVK.
+	// UseOpenLibs enables standard Lua libraries for health/action scripts for this GVK
+	// (disabled by default for security). Legacy: resource.customizations.useOpenLibs.<group_kind>
+	// or health.lua.useOpenLibs. Default false.
 	// +optional
 	UseOpenLibs bool `json:"useOpenLibs,omitempty"`
 	// Actions configures custom resource actions (discovery + action scripts).
@@ -664,13 +745,19 @@ type ResourceCustomization struct {
 	// Migration: if non-nil, takes precedence over argocd-cm resource.customizations.actions.<group_kind> as a whole, including all child fields.
 	// +optional
 	Actions *ResourceActionsConfig `json:"actions,omitempty"`
-	// IgnoreDifferences are JSON Pointer / jq paths ignored during sync diff.
+	// IgnoreDifferences are JSON Pointer / jq paths / managedFields managers ignored
+	// during live vs desired sync diff.
+	// Legacy: resource.customizations.ignoreDifferences.<group_kind>.
 	// +optional
 	IgnoreDifferences *OverrideIgnoreDiff `json:"ignoreDifferences,omitempty"`
-	// IgnoreResourceUpdates are paths whose changes should not trigger reconcile.
+	// IgnoreResourceUpdates are paths whose changes should not trigger application
+	// reconcile (requires ignoreResourceUpdatesEnabled).
+	// Legacy: resource.customizations.ignoreResourceUpdates.<group_kind>.
 	// +optional
 	IgnoreResourceUpdates *OverrideIgnoreDiff `json:"ignoreResourceUpdates,omitempty"`
-	// KnownTypeFields declares typed fields used for structured diff normalization.
+	// KnownTypeFields declares typed fields used for structured diff normalization
+	// (e.g. treating a nested object as core/v1/PodSpec).
+	// Legacy: resource.customizations.knownTypeFields.<group_kind>.
 	// +optional
 	// +listType=map
 	// +listMapKey=field
@@ -680,52 +767,64 @@ type ResourceCustomization struct {
 // ResourceActionsConfig holds custom resource actions for a GVK.
 // Legacy argocd-cm stores this as a YAML document with discovery.lua / action.lua keys.
 type ResourceActionsConfig struct {
-	// DiscoveryLua is a Lua script that discovers which actions are available
-	// (legacy key: discovery.lua).
+	// DiscoveryLua is a Lua script that returns which actions are available
+	// (and optional disabled flags) for the resource (legacy key: discovery.lua).
+	// Migration: composite child of resource.customizations.actions.<group_kind>.
 	// +optional
 	DiscoveryLua string `json:"discoveryLua,omitempty"`
 	// Definitions are named actions and their Lua implementations.
+	// Migration: composite child of resource.customizations.actions.<group_kind>.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
 	Definitions []ResourceActionDefinition `json:"definitions,omitempty"`
-	// MergeBuiltinActions merges custom actions with built-in ones
-	// (legacy key: mergeBuiltinActions).
+	// MergeBuiltinActions merges custom actions with built-in ones instead of
+	// replacing them (Argo CD ≥ 2.13; legacy key: mergeBuiltinActions).
+	// Default false — custom actions replace built-ins.
+	// Migration: composite child of resource.customizations.actions.<group_kind>.
 	// +optional
 	MergeBuiltinActions bool `json:"mergeBuiltinActions,omitempty"`
 }
 
 // ResourceActionDefinition is one named custom resource action.
 type ResourceActionDefinition struct {
-	// Name is the action identifier shown in the UI / used in RBAC.
+	// Name is the action identifier shown in the UI and referenced in RBAC as
+	// action/<group>/<kind>/<name> (legacy: definitions[].name).
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
-	// ActionLua is the Lua script that performs the action (legacy key: action.lua).
+	// ActionLua is the Lua script that performs the action on the resource
+	// (obj global; legacy key: action.lua / definitions[].action.lua).
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	ActionLua string `json:"actionLua"`
 }
 
-// OverrideIgnoreDiff lists paths and managers ignored during comparison.
+// OverrideIgnoreDiff lists paths and managers ignored during comparison or
+// update-triggered reconcile (resource.customizations.ignoreDifferences /
+// ignoreResourceUpdates).
 type OverrideIgnoreDiff struct {
-	// JSONPointers are RFC 6901 JSON Pointers to ignore.
+	// JSONPointers are RFC 6901 JSON Pointers to ignore (e.g. /spec/replicas).
 	// +optional
 	JSONPointers []string `json:"jsonPointers,omitempty"`
 	// JQPathExpressions are jq expressions selecting fields to ignore.
 	// +optional
 	JQPathExpressions []string `json:"jqPathExpressions,omitempty"`
-	// ManagedFieldsManagers ignores fields owned by these managedFields managers.
+	// ManagedFieldsManagers ignores fields owned by these managedFields managers
+	// (they take precedence over desired state for those fields).
 	// +optional
 	ManagedFieldsManagers []string `json:"managedFieldsManagers,omitempty"`
 }
 
 // KnownTypeField names a field with a known Go/Kubernetes type for diffing.
 type KnownTypeField struct {
-	// Field is the field path within the resource.
+	// Field is the JSON path within the resource needing typed normalization
+	// (e.g. "spec.template.spec"). Legacy: knownTypeFields[].field.
 	// +optional
 	Field string `json:"field,omitempty"`
-	// Type is the known type name (e.g. "core/v1/PodSpec").
+	// Type is the known Kubernetes type name for normalization
+	// (e.g. "core/v1/PodSpec", "core/Quantity").
+	// See util/argo/normalizers/diffing_known_types.txt in argo-cd.
 	// +optional
 	Type string `json:"type,omitempty"`
 }
@@ -786,17 +885,20 @@ type ControllerMetricsClusterConfig struct {
 // SelfHealConfig holds controller self-heal timing (cmd-params: controller.self.heal.*).
 type SelfHealConfig struct {
 	// Timeout is the minimum interval between self-heal attempts
-	// (cmd-params: controller.self.heal.timeout.seconds). Zero means no minimum.
+	// (cmd-params: controller.self.heal.timeout.seconds). Zero means no minimum
+	// (Argo CD default).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.self.heal.timeout.seconds.
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
-	// Cooldown is an additional wait after a self-heal attempt before backoff
-	// resumes (cmd-params: controller.self.heal.backoff.cooldown.seconds).
+	// Cooldown maps to controller.self.heal.backoff.cooldown.seconds.
+	// Deprecated in Argo CD: the CLI flag is marked deprecated and has no effect.
+	// Kept for ConfigMap round-trip compatibility only.
 	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.self.heal.backoff.cooldown.seconds.
 	// +optional
 	Cooldown *metav1.Duration `json:"cooldown,omitempty"`
 	// Backoff configures exponential backoff between self-heal attempts
-	// (cmd-params: controller.self.heal.backoff.*).
+	// (cmd-params: controller.self.heal.backoff.*). Defaults in Argo CD:
+	// duration 2s, factor 3, maxDuration 300s.
 	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm controller.self.heal.backoff.* as a group (children apply from the CR; no merge with legacy siblings under that family).
 	// +optional
 	Backoff *BackoffConfig `json:"backoff,omitempty"`
@@ -807,17 +909,21 @@ type SelfHealConfig struct {
 // Use this shape for any retry/backoff settings group rather than ad-hoc
 // timeout/cap/baseBackoff field names.
 type BackoffConfig struct {
-	// Duration is the initial / base wait before the first retry
-	// (Application: backoff.duration; self-heal: backoff.timeout.seconds;
-	// k8s client: *.k8sclient.retry.base.backoff).
+	// Duration is the initial / base wait before the first retry.
+	// Self-heal: controller.self.heal.backoff.timeout.seconds (default 2s).
+	// K8s client: *.k8sclient.retry.base.backoff (default 100ms; doubles each
+	// retry up to an internal 10s cap — only Duration is used for k8s client).
+	// Application sync: backoff.duration.
 	// +optional
 	Duration *metav1.Duration `json:"duration,omitempty"`
-	// Factor multiplies the wait after each failed attempt
-	// (Application: backoff.factor; self-heal: backoff.factor).
+	// Factor multiplies the wait after each failed attempt.
+	// Self-heal: controller.self.heal.backoff.factor (default 3).
+	// Unused for current k8s client retry (reserved for shape consistency).
 	// +optional
 	Factor *int32 `json:"factor,omitempty"`
-	// MaxDuration is the maximum wait between retries
-	// (Application: backoff.maxDuration; self-heal: backoff.cap.seconds).
+	// MaxDuration is the maximum wait between retries.
+	// Self-heal: controller.self.heal.backoff.cap.seconds (default 300s).
+	// Unused for current k8s client retry (hard-capped at 10s in code).
 	// +optional
 	MaxDuration *metav1.Duration `json:"maxDuration,omitempty"`
 }
@@ -1000,7 +1106,8 @@ type ControllerDiffConfig struct {
 	CompareOptions *CompareOptions `json:"compareOptions,omitempty"`
 	// IgnoreResourceUpdatesEnabled is the master switch for ignoreResourceUpdates
 	// rules that skip reconciles on watched updates
-	// (argocd-cm: resource.ignoreResourceUpdatesEnabled).
+	// (argocd-cm: resource.ignoreResourceUpdatesEnabled). Default true in Argo CD —
+	// when false, all resource updates are applied to the cluster cache.
 	// Migration: if set, takes precedence over argocd-cm resource.ignoreResourceUpdatesEnabled.
 	// +optional
 	IgnoreResourceUpdatesEnabled *bool `json:"ignoreResourceUpdatesEnabled,omitempty"`
@@ -1616,23 +1723,31 @@ type KustomizeConfig struct {
 	// Migration: if set, takes precedence over argocd-cm kustomize.buildOptions.
 	// +optional
 	BuildOptions string `json:"buildOptions,omitempty"`
-	// Versions lists alternate Kustomize binaries and per-version build options.
+	// Versions lists alternate Kustomize binaries and per-version build options
+	// (argocd-cm: kustomize.path.* / kustomize.buildOptions.*).
+	// Applications select a version via source.kustomize.version.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
 	Versions []KustomizeVersion `json:"versions,omitempty"`
 }
 
-// KustomizeVersion names an alternate Kustomize binary.
+// KustomizeVersion names an alternate Kustomize binary selectable via
+// Application source.kustomize.version.
 type KustomizeVersion struct {
-	// Name is the version identifier referenced by Applications (e.g. "v4.5.7").
+	// Name is the version identifier referenced by Applications
+	// (e.g. "v4.5.7"). Legacy: suffix of kustomize.path.<name> or deprecated
+	// kustomize.version.<name>.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
-	// Path is the filesystem path to the kustomize binary for this version.
+	// Path is the filesystem path to the kustomize binary for this version
+	// (argocd-cm: kustomize.path.<name>; preferred over deprecated
+	// kustomize.version.<name>).
 	// +optional
 	Path string `json:"path,omitempty"`
-	// BuildOptions are `kustomize build` options specific to this version.
+	// BuildOptions are extra `kustomize build` flags specific to this version
+	// (argocd-cm: kustomize.buildOptions.<name>).
 	// +optional
 	BuildOptions string `json:"buildOptions,omitempty"`
 }
@@ -1716,19 +1831,23 @@ type UIBannerConfig struct {
 	Position string `json:"position,omitempty"`
 }
 
-// AccountConfig configures a local (non-SSO) user account.
+// AccountConfig configures a local (non-SSO) user account (argocd-cm: accounts.*).
+// The built-in admin user is also represented here (legacy admin.enabled).
 type AccountConfig struct {
-	// Name is the account username (e.g. "admin", "ci-bot").
+	// Name is the local account username (max 32 characters in Argo CD),
+	// e.g. "admin", "ci-bot". Legacy: suffix of accounts.<name>.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// Enabled enables or disables the account (argocd-cm: accounts.<name>.enabled
-	// or admin.enabled for the built-in admin user).
+	// or admin.enabled for the built-in admin user). Accounts are enabled by
+	// default when the accounts.<name> entry exists.
 	// Migration: if set, takes precedence over argocd-cm accounts.
 	// +optional
 	Enabled bool `json:"enabled,omitempty"`
-	// Capabilities is the set of actions the account may perform: "login" and/or "apiKey"
-	// (argocd-cm: accounts.<name>). Entries must be unique.
+	// Capabilities is the set of actions the account may perform: "login" (UI)
+	// and/or "apiKey" (generate tokens). Legacy: comma-separated value of
+	// accounts.<name> (e.g. "apiKey, login"). Entries must be unique.
 	// Migration: if present, takes precedence over argocd-cm accounts.<name> capabilities; replaces the whole collection.
 	// +optional
 	// +listType=set
@@ -1736,13 +1855,17 @@ type AccountConfig struct {
 	Capabilities []string `json:"capabilities,omitempty"`
 }
 
-// ExtensionConfig configures one UI proxy extension.
+// ExtensionConfig configures one UI proxy extension (argocd-cm: extension.config).
+// Requires server.proxyExtensionEnabled (cmd-params: server.enable.proxy.extension).
 type ExtensionConfig struct {
-	// Name is the extension identifier used in URLs and RBAC.
+	// Name is the extension identifier; registers the proxy route at
+	// <argocd-host>/api/v1/extensions/<name> and is used in RBAC.
+	// Legacy: extension.config extensions[].name.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// Backend describes how the API server proxies to the extension service(s).
+	// Legacy: extension.config extensions[].backend.
 	// +optional
 	Backend ExtensionBackend `json:"backend,omitempty"`
 }
@@ -1750,28 +1873,35 @@ type ExtensionConfig struct {
 // ExtensionBackend is the HTTP proxy backend for a UI extension.
 type ExtensionBackend struct {
 	// Services are upstream backends the proxy may forward to (optionally
-	// filtered by cluster).
+	// filtered by Application destination cluster).
+	// Legacy: extension.config extensions[].backend.services.
 	// +optional
 	// +listType=map
 	// +listMapKey=url
 	Services []ExtensionService `json:"services,omitempty"`
 	// Transport holds HTTP transport tuning for upstream connections.
+	// Legacy: extension.config backend connectionTimeout / keepAlive /
+	// idleConnectionTimeout / maxIdleConnections (defaults 2s / 15s / 60s / 30).
 	// +optional
 	Transport *ExtensionTransportConfig `json:"transport,omitempty"`
 }
 
 // ExtensionTransportConfig holds HTTP transport settings for an extension backend.
 type ExtensionTransportConfig struct {
-	// ConnectionTimeout is the dial timeout for upstream connections.
+	// ConnectionTimeout is the max dial time to the upstream extension server
+	// (legacy: backend.connectionTimeout; default 2s).
 	// +optional
 	ConnectionTimeout *metav1.Duration `json:"connectionTimeout,omitempty"`
-	// KeepAlive is the HTTP keep-alive period for upstream connections.
+	// KeepAlive is the HTTP keep-alive probe interval for upstream connections
+	// (legacy: backend.keepAlive; default 15s).
 	// +optional
 	KeepAlive *metav1.Duration `json:"keepAlive,omitempty"`
-	// IdleConnectionTimeout is how long idle upstream connections are kept.
+	// IdleConnectionTimeout is how long idle upstream connections are kept
+	// (legacy: backend.idleConnectionTimeout; default 60s).
 	// +optional
 	IdleConnectionTimeout *metav1.Duration `json:"idleConnectionTimeout,omitempty"`
-	// MaxIdleConnections is the max idle connections in the upstream pool.
+	// MaxIdleConnections is the max idle connections in the upstream pool
+	// (legacy: backend.maxIdleConnections; default 30).
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	MaxIdleConnections int32 `json:"maxIdleConnections,omitempty"`
@@ -1779,15 +1909,20 @@ type ExtensionTransportConfig struct {
 
 // ExtensionService is one upstream URL for an extension backend.
 type ExtensionService struct {
-	// URL is the upstream extension service base URL.
+	// URL is the upstream extension service base URL (mandatory).
+	// Legacy: extension.config ...services[].url.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="isURL(self) && url(self).getScheme() in ['http', 'https']",message="must be an absolute http(s) URL"
 	URL string `json:"url"`
-	// Cluster optionally restricts this backend to a specific destination cluster.
+	// Cluster optionally restricts this backend to Applications whose destination
+	// matches. Required when multiple services are configured; ignored when only
+	// one service exists. Legacy: ...services[].cluster.
 	// +optional
 	Cluster *ExtensionCluster `json:"cluster,omitempty"`
-	// Headers are extra HTTP headers sent to the upstream. Values may use $string
-	// for partial secret insertion.
+	// Headers are extra HTTP headers injected on outgoing proxy requests
+	// (override same-named incoming headers; reserved names are ignored).
+	// Values may use $secret.key for argocd-secret lookup.
+	// Legacy: ...services[].headers.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
@@ -1796,54 +1931,67 @@ type ExtensionService struct {
 
 // ExtensionCluster selects a destination cluster for an extension backend.
 type ExtensionCluster struct {
-	// ServerURL is the cluster API server URL to match.
+	// ServerURL is the cluster API server URL to match against Application
+	// destination.server (legacy: cluster.server).
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self == '' || isURL(self)",message="must be an absolute URL"
 	ServerURL string `json:"serverURL,omitempty"`
-	// Name is the Argo CD cluster name to match.
+	// Name is the Argo CD cluster name to match against Application
+	// destination.name (legacy: cluster.name).
 	// +optional
 	Name string `json:"name,omitempty"`
 }
 
 // ExtensionHeader is an HTTP header injected into extension proxy requests.
 type ExtensionHeader struct {
-	// Name is the HTTP header name.
+	// Name is the HTTP header name (legacy: headers[].name).
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
-	// Value is the header value; may include $string secret interpolation.
+	// Value is the header value; may include $secret.key interpolation
+	// (legacy: headers[].value).
 	// +kubebuilder:validation:Required
 	Value string `json:"value"`
 }
 
-// GlobalProjectConfig applies a global AppProject's defaults to matching projects.
+// GlobalProjectConfig applies a global AppProject's defaults to matching projects
+// (argocd-cm: globalProjects). Inherited settings include namespace/cluster resource
+// black/whitelists, syncWindows, sourceRepos, destinations, and
+// destinationServiceAccounts.
 type GlobalProjectConfig struct {
-	// ProjectName is the name of the global AppProject to apply.
+	// ProjectName is the name of the global AppProject to apply
+	// (legacy: globalProjects[].projectName).
 	// +optional
 	// +kubebuilder:validation:Pattern=`^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	ProjectName string `json:"projectName,omitempty"`
-	// LabelSelector selects which AppProjects receive this global project's settings.
+	// LabelSelector selects which AppProjects receive this global project's settings
+	// (In, NotIn, Exists, DoesNotExist). Legacy: globalProjects[].labelSelector.
 	// +optional
 	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
 }
 
-// DeepLinksConfig holds custom deep links for application, project, and resource views.
+// DeepLinksConfig holds custom deep links for application, project, and resource views
+// (argocd-cm: application.links / project.links / resource.links).
+// See docs/operator-manual/deep_links.md in argo-cd.
 // Organizational subgroup: each link collection migrates independently.
 type DeepLinksConfig struct {
-	// Application links appear in the application details view
-	// (argocd-cm: application.links).
+	// Application links appear in the application summary tab
+	// (argocd-cm: application.links). Template context: app/application, cluster.
 	// Migration: if present, takes precedence over argocd-cm application.links; replaces the whole collection.
 	// +optional
 	// +listType=map
 	// +listMapKey=title
 	Application []DeepLink `json:"application,omitempty"`
-	// Project links appear in the project details view (argocd-cm: project.links).
+	// Project links appear in the project tab (argocd-cm: project.links).
+	// Template context: project.
 	// Migration: if present, takes precedence over argocd-cm project.links; replaces the whole collection.
 	// +optional
 	// +listType=map
 	// +listMapKey=title
 	Project []DeepLink `json:"project,omitempty"`
-	// Resource links appear in the resource details view (argocd-cm: resource.links).
+	// Resource links appear in the resource summary tab (argocd-cm: resource.links).
+	// Template context: resource, application, cluster, project. Secret data fields
+	// are redacted but other fields remain accessible for templating.
 	// Migration: if present, takes precedence over argocd-cm resource.links; replaces the whole collection.
 	// +optional
 	// +listType=map
@@ -1852,24 +2000,27 @@ type DeepLinksConfig struct {
 }
 
 // DeepLink is one custom UI deep link. URLTemplate and ConditionExpr may use
-// Go templates / expressions evaluated against application/project/resource context.
+// Go templates / expr-lang expressions evaluated against application/project/resource context.
 type DeepLink struct {
-	// URLTemplate is the link target and may include Go template expressions
-	// (e.g. {{.app.metadata.name}}); not CEL-validated as a plain URL.
+	// URLTemplate is the link target and may include Go text/template expressions
+	// (e.g. {{.app.spec.destination.namespace}}); not CEL-validated as a plain URL.
+	// Legacy: <location>.links[].url.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	URLTemplate string `json:"urlTemplate"`
-	// Title is the link text shown in the UI.
+	// Title is the link text / tag shown in the UI (legacy: title).
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Title string `json:"title"`
-	// Description is optional explanatory text for the link.
+	// Description is optional explanatory text for the link (legacy: description).
 	// +optional
 	Description string `json:"description,omitempty"`
-	// IconClass is an optional CSS icon class for the link.
+	// IconClass is an optional Font Awesome CSS class for dropdown display
+	// (legacy: icon.class).
 	// +optional
 	IconClass string `json:"iconClass,omitempty"`
-	// ConditionExpr is the deep-link "if" expression; the link is shown only when true.
+	// ConditionExpr is an expr-lang expression; the link is shown only when true
+	// (legacy: if). Omitted = always show.
 	// +optional
 	ConditionExpr string `json:"conditionExpr,omitempty"`
 }
@@ -1954,9 +2105,11 @@ type SourceHydratorConfig struct {
 	ReadmeMessageTemplate string `json:"readmeMessageTemplate,omitempty"`
 }
 
-// CommitConfig holds commit identity settings for the hydrator/commit-server.
+// CommitConfig holds commit identity settings for the hydrator/commit-server
+// (argocd-cm: commit.author.*).
 type CommitConfig struct {
-	// Author is the git author used for hydrator-created commits.
+	// Author is the git author used for hydrator-created commits
+	// (argocd-cm: commit.author.name / commit.author.email).
 	// +optional
 	Author *CommitAuthor `json:"author,omitempty"`
 }
@@ -2103,17 +2256,23 @@ type ServerCacheConfig struct {
 	GlobCacheSize *int32 `json:"globCacheSize,omitempty"`
 }
 
-// TLSVersionConfig holds TLS min/max version and cipher suites for a component.
+// TLSVersionConfig holds TLS min/max version and cipher suites for a component
+// (cmd-params: server.tls.* / reposerver.tls.*).
 type TLSVersionConfig struct {
-	// MinVersion is the minimum accepted TLS version (e.g. "1.2").
+	// MinVersion is the minimum accepted TLS version: "1.0", "1.1", "1.2", or "1.3"
+	// (cmd-params: *.tls.minversion). Default "1.2".
 	// +optional
 	// +kubebuilder:validation:Enum="1.0";"1.1";"1.2";"1.3"
 	MinVersion string `json:"minVersion,omitempty"`
-	// MaxVersion is the maximum accepted TLS version (e.g. "1.3").
+	// MaxVersion is the maximum accepted TLS version: "1.0", "1.1", "1.2", or "1.3"
+	// (cmd-params: *.tls.maxversion). Default "1.3".
 	// +optional
 	// +kubebuilder:validation:Enum="1.0";"1.1";"1.2";"1.3"
 	MaxVersion string `json:"maxVersion,omitempty"`
-	// Ciphers lists allowed TLS cipher suite names.
+	// Ciphers lists allowed TLS cipher suite names
+	// (cmd-params: *.tls.ciphers). Default typically
+	// TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384; use "list" with the Argo CD CLI
+	// to enumerate available ciphers.
 	// +optional
 	Ciphers []string `json:"ciphers,omitempty"`
 }
@@ -2212,14 +2371,16 @@ type K8sClientTCPConfig struct {
 // ClientRetryConfig is retry policy for a Kubernetes API client.
 // Organizational subgroup: max attempts and backoff migrate independently.
 type ClientRetryConfig struct {
-	// Max is the maximum number of client retries (cmd-params: *.k8sclient.retry.max).
+	// Max is the maximum number of client retries
+	// (cmd-params: *.k8sclient.retry.max). Default 0 — only the initial attempt.
 	// Migration: if set, takes precedence over the component *.k8sclient.retry.max key.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	Max *int32 `json:"max,omitempty"`
 	// Backoff is the wait between retries. Only Duration is used by current
-	// Argo CD cmd-params (*.k8sclient.retry.base.backoff); Factor/MaxDuration
-	// are reserved for a consistent BackoffConfig shape.
+	// Argo CD cmd-params (*.k8sclient.retry.base.backoff; default 100ms);
+	// Factor/MaxDuration are reserved for a consistent BackoffConfig shape.
+	// Delay doubles each retry and is hard-capped at 10s in Argo CD.
 	// Migration: if non-nil, takes precedence over the component *.k8sclient.retry.base.backoff key via backoff.duration.
 	// +optional
 	Backoff *BackoffConfig `json:"backoff,omitempty"`

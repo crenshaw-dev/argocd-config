@@ -160,31 +160,37 @@ spec:
                           backoff:
                             description: |-
                               Backoff is the wait between retries. Only Duration is used by current
-                              Argo CD cmd-params (*.k8sclient.retry.base.backoff); Factor/MaxDuration
-                              are reserved for a consistent BackoffConfig shape.
+                              Argo CD cmd-params (*.k8sclient.retry.base.backoff; default 100ms);
+                              Factor/MaxDuration are reserved for a consistent BackoffConfig shape.
+                              Delay doubles each retry and is hard-capped at 10s in Argo CD.
                               Migration: if non-nil, takes precedence over the component *.k8sclient.retry.base.backoff key via backoff.duration.
                             properties:
                               duration:
                                 description: |-
-                                  Duration is the initial / base wait before the first retry
-                                  (Application: backoff.duration; self-heal: backoff.timeout.seconds;
-                                  k8s client: *.k8sclient.retry.base.backoff).
+                                  Duration is the initial / base wait before the first retry.
+                                  Self-heal: controller.self.heal.backoff.timeout.seconds (default 2s).
+                                  K8s client: *.k8sclient.retry.base.backoff (default 100ms; doubles each
+                                  retry up to an internal 10s cap — only Duration is used for k8s client).
+                                  Application sync: backoff.duration.
                                 type: string
                               factor:
                                 description: |-
-                                  Factor multiplies the wait after each failed attempt
-                                  (Application: backoff.factor; self-heal: backoff.factor).
+                                  Factor multiplies the wait after each failed attempt.
+                                  Self-heal: controller.self.heal.backoff.factor (default 3).
+                                  Unused for current k8s client retry (reserved for shape consistency).
                                 format: int32
                                 type: integer
                               maxDuration:
                                 description: |-
-                                  MaxDuration is the maximum wait between retries
-                                  (Application: backoff.maxDuration; self-heal: backoff.cap.seconds).
+                                  MaxDuration is the maximum wait between retries.
+                                  Self-heal: controller.self.heal.backoff.cap.seconds (default 300s).
+                                  Unused for current k8s client retry (hard-capped at 10s in code).
                                 type: string
                             type: object
                           max:
                             description: |-
-                              Max is the maximum number of client retries (cmd-params: *.k8sclient.retry.max).
+                              Max is the maximum number of client retries
+                              (cmd-params: *.k8sclient.retry.max). Default 0 — only the initial attempt.
                               Migration: if set, takes precedence over the component *.k8sclient.retry.max key.
                             format: int32
                             minimum: 0
@@ -435,8 +441,9 @@ spec:
                       Migration: if non-nil, takes precedence over argocd-cm commit.author.* as a group (children apply from the CR; no merge with legacy siblings under that family).
                     properties:
                       author:
-                        description: Author is the git author used for hydrator-created
-                          commits.
+                        description: |-
+                          Author is the git author used for hydrator-created commits
+                          (argocd-cm: commit.author.name / commit.author.email).
                         properties:
                           email:
                             description: |-
@@ -564,18 +571,24 @@ spec:
                           Migration: if non-nil, takes precedence over argocd-cm resource.compareoptions as a whole, including all child fields.
                         properties:
                           ignoreAggregatedRoles:
-                            description: IgnoreAggregatedRoles ignores differences
-                              in aggregated ClusterRoles.
+                            description: |-
+                              IgnoreAggregatedRoles ignores RBAC differences caused by aggregated
+                              ClusterRoles (resource.compareoptions ignoreAggregatedRoles). Default false.
+                              Migration: composite child of resource.compareoptions.
                             type: boolean
                           ignoreDifferencesOnResourceUpdates:
                             description: |-
                               IgnoreDifferencesOnResourceUpdates applies ignoreDifferences rules when
-                              deciding whether a watched resource update should trigger reconcile.
+                              deciding whether a watched resource update should trigger reconcile
+                              (resource.compareoptions ignoreDifferencesOnResourceUpdates). Default true.
+                              Migration: composite child of resource.compareoptions.
                             type: boolean
                           ignoreResourceStatusField:
                             description: |-
                               IgnoreResourceStatusField controls ignoring .status during diff:
-                              "crd" (default), "all", or "none".
+                              "all" (default in Argo CD), "crd" (CustomResourceDefinitions only), or "none".
+                              Legacy: resource.compareoptions ignoreResourceStatusField.
+                              Migration: composite child of resource.compareoptions.
                             enum:
                             - all
                             - crd
@@ -592,7 +605,8 @@ spec:
                         description: |-
                           IgnoreResourceUpdatesEnabled is the master switch for ignoreResourceUpdates
                           rules that skip reconciles on watched updates
-                          (argocd-cm: resource.ignoreResourceUpdatesEnabled).
+                          (argocd-cm: resource.ignoreResourceUpdatesEnabled). Default true in Argo CD —
+                          when false, all resource updates are applied to the cluster cache.
                           Migration: if set, takes precedence over argocd-cm resource.ignoreResourceUpdatesEnabled.
                         type: boolean
                       serverSide:
@@ -614,12 +628,16 @@ spec:
                       label selector (argocd-cm: globalProjects).
                       Migration: if present, takes precedence over argocd-cm globalProjects; replaces the whole collection.
                     items:
-                      description: GlobalProjectConfig applies a global AppProject's
-                        defaults to matching projects.
+                      description: |-
+                        GlobalProjectConfig applies a global AppProject's defaults to matching projects
+                        (argocd-cm: globalProjects). Inherited settings include namespace/cluster resource
+                        black/whitelists, syncWindows, sourceRepos, destinations, and
+                        destinationServiceAccounts.
                       properties:
                         labelSelector:
-                          description: LabelSelector selects which AppProjects receive
-                            this global project's settings.
+                          description: |-
+                            LabelSelector selects which AppProjects receive this global project's settings
+                            (In, NotIn, Exists, DoesNotExist). Legacy: globalProjects[].labelSelector.
                           properties:
                             matchExpressions:
                               description: matchExpressions is a list of label selector
@@ -665,8 +683,9 @@ spec:
                           type: object
                           x-kubernetes-map-type: atomic
                         projectName:
-                          description: ProjectName is the name of the global AppProject
-                            to apply.
+                          description: |-
+                            ProjectName is the name of the global AppProject to apply
+                            (legacy: globalProjects[].projectName).
                           pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                           type: string
                       type: object
@@ -724,31 +743,37 @@ spec:
                           backoff:
                             description: |-
                               Backoff is the wait between retries. Only Duration is used by current
-                              Argo CD cmd-params (*.k8sclient.retry.base.backoff); Factor/MaxDuration
-                              are reserved for a consistent BackoffConfig shape.
+                              Argo CD cmd-params (*.k8sclient.retry.base.backoff; default 100ms);
+                              Factor/MaxDuration are reserved for a consistent BackoffConfig shape.
+                              Delay doubles each retry and is hard-capped at 10s in Argo CD.
                               Migration: if non-nil, takes precedence over the component *.k8sclient.retry.base.backoff key via backoff.duration.
                             properties:
                               duration:
                                 description: |-
-                                  Duration is the initial / base wait before the first retry
-                                  (Application: backoff.duration; self-heal: backoff.timeout.seconds;
-                                  k8s client: *.k8sclient.retry.base.backoff).
+                                  Duration is the initial / base wait before the first retry.
+                                  Self-heal: controller.self.heal.backoff.timeout.seconds (default 2s).
+                                  K8s client: *.k8sclient.retry.base.backoff (default 100ms; doubles each
+                                  retry up to an internal 10s cap — only Duration is used for k8s client).
+                                  Application sync: backoff.duration.
                                 type: string
                               factor:
                                 description: |-
-                                  Factor multiplies the wait after each failed attempt
-                                  (Application: backoff.factor; self-heal: backoff.factor).
+                                  Factor multiplies the wait after each failed attempt.
+                                  Self-heal: controller.self.heal.backoff.factor (default 3).
+                                  Unused for current k8s client retry (reserved for shape consistency).
                                 format: int32
                                 type: integer
                               maxDuration:
                                 description: |-
-                                  MaxDuration is the maximum wait between retries
-                                  (Application: backoff.maxDuration; self-heal: backoff.cap.seconds).
+                                  MaxDuration is the maximum wait between retries.
+                                  Self-heal: controller.self.heal.backoff.cap.seconds (default 300s).
+                                  Unused for current k8s client retry (hard-capped at 10s in code).
                                 type: string
                             type: object
                           max:
                             description: |-
-                              Max is the maximum number of client retries (cmd-params: *.k8sclient.retry.max).
+                              Max is the maximum number of client retries
+                              (cmd-params: *.k8sclient.retry.max). Default 0 — only the initial attempt.
                               Migration: if set, takes precedence over the component *.k8sclient.retry.max key.
                             format: int32
                             minimum: 0
@@ -958,8 +983,9 @@ spec:
                           (argocd-cm: resource.customizations.*).
                           Migration: if present, takes precedence over argocd-cm resource.customizations.*; replaces the whole collection.
                         items:
-                          description: ResourceCustomization is a per-GVK override
-                            for health, actions, and ignore rules.
+                          description: |-
+                            ResourceCustomization is a per-GVK override for health, actions, and ignore rules
+                            (argocd-cm: resource.customizations.*).<group_kind> uses <group>_<kind>.
                           properties:
                             actions:
                               description: |-
@@ -968,20 +994,23 @@ spec:
                                 Migration: if non-nil, takes precedence over argocd-cm resource.customizations.actions.<group_kind> as a whole, including all child fields.
                               properties:
                                 definitions:
-                                  description: Definitions are named actions and their
-                                    Lua implementations.
+                                  description: |-
+                                    Definitions are named actions and their Lua implementations.
+                                    Migration: composite child of resource.customizations.actions.<group_kind>.
                                   items:
                                     description: ResourceActionDefinition is one named
                                       custom resource action.
                                     properties:
                                       actionLua:
-                                        description: 'ActionLua is the Lua script
-                                          that performs the action (legacy key: action.lua).'
+                                        description: |-
+                                          ActionLua is the Lua script that performs the action on the resource
+                                          (obj global; legacy key: action.lua / definitions[].action.lua).
                                         minLength: 1
                                         type: string
                                       name:
-                                        description: Name is the action identifier
-                                          shown in the UI / used in RBAC.
+                                        description: |-
+                                          Name is the action identifier shown in the UI and referenced in RBAC as
+                                          action/<group>/<kind>/<name> (legacy: definitions[].name).
                                         minLength: 1
                                         type: string
                                     required:
@@ -994,29 +1023,37 @@ spec:
                                   x-kubernetes-list-type: map
                                 discoveryLua:
                                   description: |-
-                                    DiscoveryLua is a Lua script that discovers which actions are available
-                                    (legacy key: discovery.lua).
+                                    DiscoveryLua is a Lua script that returns which actions are available
+                                    (and optional disabled flags) for the resource (legacy key: discovery.lua).
+                                    Migration: composite child of resource.customizations.actions.<group_kind>.
                                   type: string
                                 mergeBuiltinActions:
                                   description: |-
-                                    MergeBuiltinActions merges custom actions with built-in ones
-                                    (legacy key: mergeBuiltinActions).
+                                    MergeBuiltinActions merges custom actions with built-in ones instead of
+                                    replacing them (Argo CD ≥ 2.13; legacy key: mergeBuiltinActions).
+                                    Default false — custom actions replace built-ins.
+                                    Migration: composite child of resource.customizations.actions.<group_kind>.
                                   type: boolean
                               type: object
                             group:
-                              description: Group is the API group ("" for core, "*"
-                                for wildcard).
+                              description: |-
+                                Group is the API group ("" for core, "*" for wildcard).
+                                Legacy key prefix: resource.customizations.<type>.<group>_<kind>.
                               pattern: ^$|^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])$
                               type: string
                             healthLua:
                               description: |-
-                                HealthLua is a Lua script that overrides built-in health assessment for this GVK
-                                (argocd-cm: resource.customizations.health.<group_kind> / health.lua).
+                                HealthLua is a Lua script that overrides built-in health assessment for this GVK.
+                                Must return a table with status (Healthy/Progressing/Degraded/…) and optional message.
+                                When absent, default health is Progressing until a status is produced.
+                                Legacy: resource.customizations.health.<group_kind> or health.lua in the unified blob.
                                 Migration: if set, takes precedence over argocd-cm resource.customizations.health.<group_kind>.
                               type: string
                             ignoreDifferences:
-                              description: IgnoreDifferences are JSON Pointer / jq
-                                paths ignored during sync diff.
+                              description: |-
+                                IgnoreDifferences are JSON Pointer / jq paths / managedFields managers ignored
+                                during live vs desired sync diff.
+                                Legacy: resource.customizations.ignoreDifferences.<group_kind>.
                               properties:
                                 jqPathExpressions:
                                   description: JQPathExpressions are jq expressions
@@ -1026,20 +1063,23 @@ spec:
                                   type: array
                                 jsonPointers:
                                   description: JSONPointers are RFC 6901 JSON Pointers
-                                    to ignore.
+                                    to ignore (e.g. /spec/replicas).
                                   items:
                                     type: string
                                   type: array
                                 managedFieldsManagers:
-                                  description: ManagedFieldsManagers ignores fields
-                                    owned by these managedFields managers.
+                                  description: |-
+                                    ManagedFieldsManagers ignores fields owned by these managedFields managers
+                                    (they take precedence over desired state for those fields).
                                   items:
                                     type: string
                                   type: array
                               type: object
                             ignoreResourceUpdates:
-                              description: IgnoreResourceUpdates are paths whose changes
-                                should not trigger reconcile.
+                              description: |-
+                                IgnoreResourceUpdates are paths whose changes should not trigger application
+                                reconcile (requires ignoreResourceUpdatesEnabled).
+                                Legacy: resource.customizations.ignoreResourceUpdates.<group_kind>.
                               properties:
                                 jqPathExpressions:
                                   description: JQPathExpressions are jq expressions
@@ -1049,35 +1089,44 @@ spec:
                                   type: array
                                 jsonPointers:
                                   description: JSONPointers are RFC 6901 JSON Pointers
-                                    to ignore.
+                                    to ignore (e.g. /spec/replicas).
                                   items:
                                     type: string
                                   type: array
                                 managedFieldsManagers:
-                                  description: ManagedFieldsManagers ignores fields
-                                    owned by these managedFields managers.
+                                  description: |-
+                                    ManagedFieldsManagers ignores fields owned by these managedFields managers
+                                    (they take precedence over desired state for those fields).
                                   items:
                                     type: string
                                   type: array
                               type: object
                             kind:
-                              description: Kind is the Kubernetes Kind ("*" for wildcard).
+                              description: |-
+                                Kind is the Kubernetes Kind ("*" for wildcard). Required.
+                                Wildcards are only valid in the unified resource.customizations YAML blob,
+                                not in split ConfigMap keys.
                               pattern: ^([A-Z][A-Za-z0-9]*|[*])$
                               type: string
                             knownTypeFields:
-                              description: KnownTypeFields declares typed fields used
-                                for structured diff normalization.
+                              description: |-
+                                KnownTypeFields declares typed fields used for structured diff normalization
+                                (e.g. treating a nested object as core/v1/PodSpec).
+                                Legacy: resource.customizations.knownTypeFields.<group_kind>.
                               items:
                                 description: KnownTypeField names a field with a known
                                   Go/Kubernetes type for diffing.
                                 properties:
                                   field:
-                                    description: Field is the field path within the
-                                      resource.
+                                    description: |-
+                                      Field is the JSON path within the resource needing typed normalization
+                                      (e.g. "spec.template.spec"). Legacy: knownTypeFields[].field.
                                     type: string
                                   type:
-                                    description: Type is the known type name (e.g.
-                                      "core/v1/PodSpec").
+                                    description: |-
+                                      Type is the known Kubernetes type name for normalization
+                                      (e.g. "core/v1/PodSpec", "core/Quantity").
+                                      See util/argo/normalizers/diffing_known_types.txt in argo-cd.
                                     type: string
                                 type: object
                               type: array
@@ -1085,8 +1134,10 @@ spec:
                               - field
                               x-kubernetes-list-type: map
                             useOpenLibs:
-                              description: UseOpenLibs enables Lua open libraries
-                                for health/action scripts for this GVK.
+                              description: |-
+                                UseOpenLibs enables standard Lua libraries for health/action scripts for this GVK
+                                (disabled by default for security). Legacy: resource.customizations.useOpenLibs.<group_kind>
+                                or health.lua.useOpenLibs. Default false.
                               type: boolean
                           required:
                           - kind
@@ -1126,25 +1177,32 @@ spec:
                           the cluster watch cache (argocd-cm: resource.exclusions).
                           Migration: if present, takes precedence over argocd-cm resource.exclusions; replaces the whole collection.
                         items:
-                          description: FilteredResource selects resources by API group,
-                            kind, and/or cluster.
+                          description: |-
+                            FilteredResource selects resources by API group, kind, and/or cluster for
+                            resource.exclusions / resource.inclusions. Omitting a field matches all values
+                            for that dimension. events.k8s.io and metrics.k8s.io are excluded by default
+                            even when this list is empty.
                           properties:
                             apiGroups:
-                              description: APIGroups are API groups to match ("" for
-                                core, "*" for any).
+                              description: |-
+                                APIGroups are API groups to match ("" for core, "*" for any).
+                                Omitted = match all groups. Legacy: resource.exclusions/inclusions apiGroups.
                               items:
                                 pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])?$
                                 type: string
                               type: array
                             clusters:
-                              description: Clusters are cluster server URLs or names
-                                this filter applies to.
+                              description: |-
+                                Clusters are cluster server URLs or names this filter applies to
+                                (supports globs such as "*.local"). Omitted = all clusters.
+                                Legacy: resource.exclusions/inclusions clusters.
                               items:
                                 type: string
                               type: array
                             kinds:
-                              description: Kinds are Kubernetes Kind names to match
-                                ("*" for any).
+                              description: |-
+                                Kinds are Kubernetes Kind names to match ("*" for any).
+                                Omitted = match all kinds. Legacy: resource.exclusions/inclusions kinds.
                               items:
                                 pattern: ^([A-Z][A-Za-z0-9]*|[*])$
                                 type: string
@@ -1158,25 +1216,32 @@ spec:
                           filters (argocd-cm: resource.inclusions).
                           Migration: if present, takes precedence over argocd-cm resource.inclusions; replaces the whole collection.
                         items:
-                          description: FilteredResource selects resources by API group,
-                            kind, and/or cluster.
+                          description: |-
+                            FilteredResource selects resources by API group, kind, and/or cluster for
+                            resource.exclusions / resource.inclusions. Omitting a field matches all values
+                            for that dimension. events.k8s.io and metrics.k8s.io are excluded by default
+                            even when this list is empty.
                           properties:
                             apiGroups:
-                              description: APIGroups are API groups to match ("" for
-                                core, "*" for any).
+                              description: |-
+                                APIGroups are API groups to match ("" for core, "*" for any).
+                                Omitted = match all groups. Legacy: resource.exclusions/inclusions apiGroups.
                               items:
                                 pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])?$
                                 type: string
                               type: array
                             clusters:
-                              description: Clusters are cluster server URLs or names
-                                this filter applies to.
+                              description: |-
+                                Clusters are cluster server URLs or names this filter applies to
+                                (supports globs such as "*.local"). Omitted = all clusters.
+                                Legacy: resource.exclusions/inclusions clusters.
                               items:
                                 type: string
                               type: array
                             kinds:
-                              description: Kinds are Kubernetes Kind names to match
-                                ("*" for any).
+                              description: |-
+                                Kinds are Kubernetes Kind names to match ("*" for any).
+                                Omitted = match all kinds. Legacy: resource.exclusions/inclusions kinds.
                               items:
                                 pattern: ^([A-Z][A-Za-z0-9]*|[*])$
                                 type: string
@@ -1228,37 +1293,44 @@ spec:
                       backoff:
                         description: |-
                           Backoff configures exponential backoff between self-heal attempts
-                          (cmd-params: controller.self.heal.backoff.*).
+                          (cmd-params: controller.self.heal.backoff.*). Defaults in Argo CD:
+                          duration 2s, factor 3, maxDuration 300s.
                           Migration: if non-nil, takes precedence over argocd-cmd-params-cm controller.self.heal.backoff.* as a group (children apply from the CR; no merge with legacy siblings under that family).
                         properties:
                           duration:
                             description: |-
-                              Duration is the initial / base wait before the first retry
-                              (Application: backoff.duration; self-heal: backoff.timeout.seconds;
-                              k8s client: *.k8sclient.retry.base.backoff).
+                              Duration is the initial / base wait before the first retry.
+                              Self-heal: controller.self.heal.backoff.timeout.seconds (default 2s).
+                              K8s client: *.k8sclient.retry.base.backoff (default 100ms; doubles each
+                              retry up to an internal 10s cap — only Duration is used for k8s client).
+                              Application sync: backoff.duration.
                             type: string
                           factor:
                             description: |-
-                              Factor multiplies the wait after each failed attempt
-                              (Application: backoff.factor; self-heal: backoff.factor).
+                              Factor multiplies the wait after each failed attempt.
+                              Self-heal: controller.self.heal.backoff.factor (default 3).
+                              Unused for current k8s client retry (reserved for shape consistency).
                             format: int32
                             type: integer
                           maxDuration:
                             description: |-
-                              MaxDuration is the maximum wait between retries
-                              (Application: backoff.maxDuration; self-heal: backoff.cap.seconds).
+                              MaxDuration is the maximum wait between retries.
+                              Self-heal: controller.self.heal.backoff.cap.seconds (default 300s).
+                              Unused for current k8s client retry (hard-capped at 10s in code).
                             type: string
                         type: object
                       cooldown:
                         description: |-
-                          Cooldown is an additional wait after a self-heal attempt before backoff
-                          resumes (cmd-params: controller.self.heal.backoff.cooldown.seconds).
+                          Cooldown maps to controller.self.heal.backoff.cooldown.seconds.
+                          Deprecated in Argo CD: the CLI flag is marked deprecated and has no effect.
+                          Kept for ConfigMap round-trip compatibility only.
                           Migration: if set, takes precedence over argocd-cmd-params-cm controller.self.heal.backoff.cooldown.seconds.
                         type: string
                       timeout:
                         description: |-
                           Timeout is the minimum interval between self-heal attempts
-                          (cmd-params: controller.self.heal.timeout.seconds). Zero means no minimum.
+                          (cmd-params: controller.self.heal.timeout.seconds). Zero means no minimum
+                          (Argo CD default).
                           Migration: if set, takes precedence over argocd-cmd-params-cm controller.self.heal.timeout.seconds.
                         type: string
                     type: object
@@ -1850,24 +1922,32 @@ spec:
                           Migration: if set, takes precedence over argocd-cm kustomize.enable.
                         type: boolean
                       versions:
-                        description: Versions lists alternate Kustomize binaries and
-                          per-version build options.
+                        description: |-
+                          Versions lists alternate Kustomize binaries and per-version build options
+                          (argocd-cm: kustomize.path.* / kustomize.buildOptions.*).
+                          Applications select a version via source.kustomize.version.
                         items:
-                          description: KustomizeVersion names an alternate Kustomize
-                            binary.
+                          description: |-
+                            KustomizeVersion names an alternate Kustomize binary selectable via
+                            Application source.kustomize.version.
                           properties:
                             buildOptions:
-                              description: BuildOptions are `kustomize build` options
-                                specific to this version.
+                              description: |-
+                                BuildOptions are extra `kustomize build` flags specific to this version
+                                (argocd-cm: kustomize.buildOptions.<name>).
                               type: string
                             name:
-                              description: Name is the version identifier referenced
-                                by Applications (e.g. "v4.5.7").
+                              description: |-
+                                Name is the version identifier referenced by Applications
+                                (e.g. "v4.5.7"). Legacy: suffix of kustomize.path.<name> or deprecated
+                                kustomize.version.<name>.
                               minLength: 1
                               type: string
                             path:
-                              description: Path is the filesystem path to the kustomize
-                                binary for this version.
+                              description: |-
+                                Path is the filesystem path to the kustomize binary for this version
+                                (argocd-cm: kustomize.path.<name>; preferred over deprecated
+                                kustomize.version.<name>).
                               type: string
                           required:
                           - name
@@ -2039,13 +2119,18 @@ spec:
                       Migration: if non-nil, takes precedence over argocd-cmd-params-cm reposerver.tls.* as a group (children apply from the CR; no merge with legacy siblings under that family).
                     properties:
                       ciphers:
-                        description: Ciphers lists allowed TLS cipher suite names.
+                        description: |-
+                          Ciphers lists allowed TLS cipher suite names
+                          (cmd-params: *.tls.ciphers). Default typically
+                          TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384; use "list" with the Argo CD CLI
+                          to enumerate available ciphers.
                         items:
                           type: string
                         type: array
                       maxVersion:
-                        description: MaxVersion is the maximum accepted TLS version
-                          (e.g. "1.3").
+                        description: |-
+                          MaxVersion is the maximum accepted TLS version: "1.0", "1.1", "1.2", or "1.3"
+                          (cmd-params: *.tls.maxversion). Default "1.3".
                         enum:
                         - "1.0"
                         - "1.1"
@@ -2053,8 +2138,9 @@ spec:
                         - "1.3"
                         type: string
                       minVersion:
-                        description: MinVersion is the minimum accepted TLS version
-                          (e.g. "1.2").
+                        description: |-
+                          MinVersion is the minimum accepted TLS version: "1.0", "1.1", "1.2", or "1.3"
+                          (cmd-params: *.tls.minversion). Default "1.2".
                         enum:
                         - "1.0"
                         - "1.1"
@@ -2079,13 +2165,15 @@ spec:
                       Accounts configures local (non-SSO) user accounts and their capabilities.
                       Migration: if present, takes precedence over argocd-cm accounts.* / admin.enabled; replaces the whole collection.
                     items:
-                      description: AccountConfig configures a local (non-SSO) user
-                        account.
+                      description: |-
+                        AccountConfig configures a local (non-SSO) user account (argocd-cm: accounts.*).
+                        The built-in admin user is also represented here (legacy admin.enabled).
                       properties:
                         capabilities:
                           description: |-
-                            Capabilities is the set of actions the account may perform: "login" and/or "apiKey"
-                            (argocd-cm: accounts.<name>). Entries must be unique.
+                            Capabilities is the set of actions the account may perform: "login" (UI)
+                            and/or "apiKey" (generate tokens). Legacy: comma-separated value of
+                            accounts.<name> (e.g. "apiKey, login"). Entries must be unique.
                             Migration: if present, takes precedence over argocd-cm accounts.<name> capabilities; replaces the whole collection.
                           items:
                             enum:
@@ -2097,12 +2185,14 @@ spec:
                         enabled:
                           description: |-
                             Enabled enables or disables the account (argocd-cm: accounts.<name>.enabled
-                            or admin.enabled for the built-in admin user).
+                            or admin.enabled for the built-in admin user). Accounts are enabled by
+                            default when the accounts.<name> entry exists.
                             Migration: if set, takes precedence over argocd-cm accounts.
                           type: boolean
                         name:
-                          description: Name is the account username (e.g. "admin",
-                            "ci-bot").
+                          description: |-
+                            Name is the local account username (max 32 characters in Argo CD),
+                            e.g. "admin", "ci-bot". Legacy: suffix of accounts.<name>.
                           minLength: 1
                           type: string
                       required:
@@ -2199,34 +2289,38 @@ spec:
                     properties:
                       application:
                         description: |-
-                          Application links appear in the application details view
-                          (argocd-cm: application.links).
+                          Application links appear in the application summary tab
+                          (argocd-cm: application.links). Template context: app/application, cluster.
                           Migration: if present, takes precedence over argocd-cm application.links; replaces the whole collection.
                         items:
                           description: |-
                             DeepLink is one custom UI deep link. URLTemplate and ConditionExpr may use
-                            Go templates / expressions evaluated against application/project/resource context.
+                            Go templates / expr-lang expressions evaluated against application/project/resource context.
                           properties:
                             conditionExpr:
-                              description: ConditionExpr is the deep-link "if" expression;
-                                the link is shown only when true.
+                              description: |-
+                                ConditionExpr is an expr-lang expression; the link is shown only when true
+                                (legacy: if). Omitted = always show.
                               type: string
                             description:
-                              description: Description is optional explanatory text
-                                for the link.
+                              description: 'Description is optional explanatory text
+                                for the link (legacy: description).'
                               type: string
                             iconClass:
-                              description: IconClass is an optional CSS icon class
-                                for the link.
+                              description: |-
+                                IconClass is an optional Font Awesome CSS class for dropdown display
+                                (legacy: icon.class).
                               type: string
                             title:
-                              description: Title is the link text shown in the UI.
+                              description: 'Title is the link text / tag shown in
+                                the UI (legacy: title).'
                               minLength: 1
                               type: string
                             urlTemplate:
                               description: |-
-                                URLTemplate is the link target and may include Go template expressions
-                                (e.g. {{.app.metadata.name}}); not CEL-validated as a plain URL.
+                                URLTemplate is the link target and may include Go text/template expressions
+                                (e.g. {{.app.spec.destination.namespace}}); not CEL-validated as a plain URL.
+                                Legacy: <location>.links[].url.
                               minLength: 1
                               type: string
                           required:
@@ -2239,33 +2333,38 @@ spec:
                         x-kubernetes-list-type: map
                       project:
                         description: |-
-                          Project links appear in the project details view (argocd-cm: project.links).
+                          Project links appear in the project tab (argocd-cm: project.links).
+                          Template context: project.
                           Migration: if present, takes precedence over argocd-cm project.links; replaces the whole collection.
                         items:
                           description: |-
                             DeepLink is one custom UI deep link. URLTemplate and ConditionExpr may use
-                            Go templates / expressions evaluated against application/project/resource context.
+                            Go templates / expr-lang expressions evaluated against application/project/resource context.
                           properties:
                             conditionExpr:
-                              description: ConditionExpr is the deep-link "if" expression;
-                                the link is shown only when true.
+                              description: |-
+                                ConditionExpr is an expr-lang expression; the link is shown only when true
+                                (legacy: if). Omitted = always show.
                               type: string
                             description:
-                              description: Description is optional explanatory text
-                                for the link.
+                              description: 'Description is optional explanatory text
+                                for the link (legacy: description).'
                               type: string
                             iconClass:
-                              description: IconClass is an optional CSS icon class
-                                for the link.
+                              description: |-
+                                IconClass is an optional Font Awesome CSS class for dropdown display
+                                (legacy: icon.class).
                               type: string
                             title:
-                              description: Title is the link text shown in the UI.
+                              description: 'Title is the link text / tag shown in
+                                the UI (legacy: title).'
                               minLength: 1
                               type: string
                             urlTemplate:
                               description: |-
-                                URLTemplate is the link target and may include Go template expressions
-                                (e.g. {{.app.metadata.name}}); not CEL-validated as a plain URL.
+                                URLTemplate is the link target and may include Go text/template expressions
+                                (e.g. {{.app.spec.destination.namespace}}); not CEL-validated as a plain URL.
+                                Legacy: <location>.links[].url.
                               minLength: 1
                               type: string
                           required:
@@ -2278,33 +2377,39 @@ spec:
                         x-kubernetes-list-type: map
                       resource:
                         description: |-
-                          Resource links appear in the resource details view (argocd-cm: resource.links).
+                          Resource links appear in the resource summary tab (argocd-cm: resource.links).
+                          Template context: resource, application, cluster, project. Secret data fields
+                          are redacted but other fields remain accessible for templating.
                           Migration: if present, takes precedence over argocd-cm resource.links; replaces the whole collection.
                         items:
                           description: |-
                             DeepLink is one custom UI deep link. URLTemplate and ConditionExpr may use
-                            Go templates / expressions evaluated against application/project/resource context.
+                            Go templates / expr-lang expressions evaluated against application/project/resource context.
                           properties:
                             conditionExpr:
-                              description: ConditionExpr is the deep-link "if" expression;
-                                the link is shown only when true.
+                              description: |-
+                                ConditionExpr is an expr-lang expression; the link is shown only when true
+                                (legacy: if). Omitted = always show.
                               type: string
                             description:
-                              description: Description is optional explanatory text
-                                for the link.
+                              description: 'Description is optional explanatory text
+                                for the link (legacy: description).'
                               type: string
                             iconClass:
-                              description: IconClass is an optional CSS icon class
-                                for the link.
+                              description: |-
+                                IconClass is an optional Font Awesome CSS class for dropdown display
+                                (legacy: icon.class).
                               type: string
                             title:
-                              description: Title is the link text shown in the UI.
+                              description: 'Title is the link text / tag shown in
+                                the UI (legacy: title).'
                               minLength: 1
                               type: string
                             urlTemplate:
                               description: |-
-                                URLTemplate is the link target and may include Go template expressions
-                                (e.g. {{.app.metadata.name}}); not CEL-validated as a plain URL.
+                                URLTemplate is the link target and may include Go text/template expressions
+                                (e.g. {{.app.spec.destination.namespace}}); not CEL-validated as a plain URL.
+                                Legacy: <location>.links[].url.
                               minLength: 1
                               type: string
                           required:
@@ -2322,31 +2427,37 @@ spec:
                       Migration: if non-nil, takes precedence over argocd-cm dex.config as a whole, including all child fields.
                     properties:
                       connectors:
-                        description: Connectors is the list of Dex identity connectors
-                          (GitHub, OIDC, SAML, …).
+                        description: |-
+                          Connectors is the list of Dex identity connectors (GitHub, OIDC, SAML, LDAP, …).
+                          See https://dexidp.io/docs/connectors/. Migration: composite child of dex.config.
                         items:
                           description: DexConnector is one Dex identity connector
-                            entry.
+                            entry (dex.config connectors[]).
                           properties:
                             config:
                               description: |-
-                                Config is opaque Dex connector configuration ($string refs allowed).
+                                Config is opaque Dex connector configuration (client IDs, org filters, etc.).
+                                $string / $secret:key refs are allowed. Schema is owned by Dex, not Argo CD.
                                 When set from Go, Raw must be JSON bytes.
+                                Migration: composite child of dex.config (connectors[].config).
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                             id:
-                              description: ID is the connector's unique identifier
-                                within Dex.
+                              description: |-
+                                ID is the connector's unique identifier within Dex (login routing / internal use).
+                                Migration: composite child of dex.config (connectors[].id).
                               minLength: 1
                               type: string
                             name:
-                              description: Name is the human-readable connector name
-                                shown in the UI.
+                              description: |-
+                                Name is the human-readable connector name shown on the login page.
+                                Migration: composite child of dex.config (connectors[].name).
                               minLength: 1
                               type: string
                             type:
-                              description: Type is the Dex connector type (e.g. "github",
-                                "oidc", "saml").
+                              description: |-
+                                Type is the Dex connector type (e.g. "github", "oidc", "saml", "ldap").
+                                Migration: composite child of dex.config (connectors[].type).
                               minLength: 1
                               type: string
                           required:
@@ -2361,12 +2472,15 @@ spec:
                       extra:
                         description: |-
                           Extra holds any additional top-level Dex config keys not modeled above
-                          (e.g. issuer, storage). Opaque; preserved as-is.
+                          (e.g. issuer, storage). Opaque; preserved as-is from dex.config.
+                          Migration: composite child of dex.config (unmodeled root keys).
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
                       staticClients:
-                        description: StaticClients are Dex static OAuth clients (opaque
-                          Dex schema).
+                        description: |-
+                          StaticClients are additional Dex static OAuth clients for reuse with other
+                          services (e.g. Argo Workflows). Argo CD also injects its own static clients
+                          when Dex is enabled. Migration: composite child of dex.config (staticClients).
                         items:
                           type: object
                           x-kubernetes-preserve-unknown-fields: true
@@ -2423,31 +2537,39 @@ spec:
                       Extensions configures UI proxy extensions (argocd-cm: extension.config).
                       Migration: if present, takes precedence over argocd-cm extension.config; replaces the whole collection.
                     items:
-                      description: ExtensionConfig configures one UI proxy extension.
+                      description: |-
+                        ExtensionConfig configures one UI proxy extension (argocd-cm: extension.config).
+                        Requires server.proxyExtensionEnabled (cmd-params: server.enable.proxy.extension).
                       properties:
                         backend:
-                          description: Backend describes how the API server proxies
-                            to the extension service(s).
+                          description: |-
+                            Backend describes how the API server proxies to the extension service(s).
+                            Legacy: extension.config extensions[].backend.
                           properties:
                             services:
                               description: |-
                                 Services are upstream backends the proxy may forward to (optionally
-                                filtered by cluster).
+                                filtered by Application destination cluster).
+                                Legacy: extension.config extensions[].backend.services.
                               items:
                                 description: ExtensionService is one upstream URL
                                   for an extension backend.
                                 properties:
                                   cluster:
-                                    description: Cluster optionally restricts this
-                                      backend to a specific destination cluster.
+                                    description: |-
+                                      Cluster optionally restricts this backend to Applications whose destination
+                                      matches. Required when multiple services are configured; ignored when only
+                                      one service exists. Legacy: ...services[].cluster.
                                     properties:
                                       name:
-                                        description: Name is the Argo CD cluster name
-                                          to match.
+                                        description: |-
+                                          Name is the Argo CD cluster name to match against Application
+                                          destination.name (legacy: cluster.name).
                                         type: string
                                       serverURL:
-                                        description: ServerURL is the cluster API
-                                          server URL to match.
+                                        description: |-
+                                          ServerURL is the cluster API server URL to match against Application
+                                          destination.server (legacy: cluster.server).
                                         type: string
                                         x-kubernetes-validations:
                                         - message: must be an absolute URL
@@ -2455,19 +2577,23 @@ spec:
                                     type: object
                                   headers:
                                     description: |-
-                                      Headers are extra HTTP headers sent to the upstream. Values may use $string
-                                      for partial secret insertion.
+                                      Headers are extra HTTP headers injected on outgoing proxy requests
+                                      (override same-named incoming headers; reserved names are ignored).
+                                      Values may use $secret.key for argocd-secret lookup.
+                                      Legacy: ...services[].headers.
                                     items:
                                       description: ExtensionHeader is an HTTP header
                                         injected into extension proxy requests.
                                       properties:
                                         name:
-                                          description: Name is the HTTP header name.
+                                          description: 'Name is the HTTP header name
+                                            (legacy: headers[].name).'
                                           minLength: 1
                                           type: string
                                         value:
-                                          description: Value is the header value;
-                                            may include $string secret interpolation.
+                                          description: |-
+                                            Value is the header value; may include $secret.key interpolation
+                                            (legacy: headers[].value).
                                           type: string
                                       required:
                                       - name
@@ -2478,8 +2604,9 @@ spec:
                                     - name
                                     x-kubernetes-list-type: map
                                   url:
-                                    description: URL is the upstream extension service
-                                      base URL.
+                                    description: |-
+                                      URL is the upstream extension service base URL (mandatory).
+                                      Legacy: extension.config ...services[].url.
                                     type: string
                                     x-kubernetes-validations:
                                     - message: must be an absolute http(s) URL
@@ -2493,32 +2620,40 @@ spec:
                               - url
                               x-kubernetes-list-type: map
                             transport:
-                              description: Transport holds HTTP transport tuning for
-                                upstream connections.
+                              description: |-
+                                Transport holds HTTP transport tuning for upstream connections.
+                                Legacy: extension.config backend connectionTimeout / keepAlive /
+                                idleConnectionTimeout / maxIdleConnections (defaults 2s / 15s / 60s / 30).
                               properties:
                                 connectionTimeout:
-                                  description: ConnectionTimeout is the dial timeout
-                                    for upstream connections.
+                                  description: |-
+                                    ConnectionTimeout is the max dial time to the upstream extension server
+                                    (legacy: backend.connectionTimeout; default 2s).
                                   type: string
                                 idleConnectionTimeout:
-                                  description: IdleConnectionTimeout is how long idle
-                                    upstream connections are kept.
+                                  description: |-
+                                    IdleConnectionTimeout is how long idle upstream connections are kept
+                                    (legacy: backend.idleConnectionTimeout; default 60s).
                                   type: string
                                 keepAlive:
-                                  description: KeepAlive is the HTTP keep-alive period
-                                    for upstream connections.
+                                  description: |-
+                                    KeepAlive is the HTTP keep-alive probe interval for upstream connections
+                                    (legacy: backend.keepAlive; default 15s).
                                   type: string
                                 maxIdleConnections:
-                                  description: MaxIdleConnections is the max idle
-                                    connections in the upstream pool.
+                                  description: |-
+                                    MaxIdleConnections is the max idle connections in the upstream pool
+                                    (legacy: backend.maxIdleConnections; default 30).
                                   format: int32
                                   minimum: 0
                                   type: integer
                               type: object
                           type: object
                         name:
-                          description: Name is the extension identifier used in URLs
-                            and RBAC.
+                          description: |-
+                            Name is the extension identifier; registers the proxy route at
+                            <argocd-host>/api/v1/extensions/<name> and is used in RBAC.
+                            Legacy: extension.config extensions[].name.
                           minLength: 1
                           type: string
                       required:
@@ -2632,31 +2767,37 @@ spec:
                           backoff:
                             description: |-
                               Backoff is the wait between retries. Only Duration is used by current
-                              Argo CD cmd-params (*.k8sclient.retry.base.backoff); Factor/MaxDuration
-                              are reserved for a consistent BackoffConfig shape.
+                              Argo CD cmd-params (*.k8sclient.retry.base.backoff; default 100ms);
+                              Factor/MaxDuration are reserved for a consistent BackoffConfig shape.
+                              Delay doubles each retry and is hard-capped at 10s in Argo CD.
                               Migration: if non-nil, takes precedence over the component *.k8sclient.retry.base.backoff key via backoff.duration.
                             properties:
                               duration:
                                 description: |-
-                                  Duration is the initial / base wait before the first retry
-                                  (Application: backoff.duration; self-heal: backoff.timeout.seconds;
-                                  k8s client: *.k8sclient.retry.base.backoff).
+                                  Duration is the initial / base wait before the first retry.
+                                  Self-heal: controller.self.heal.backoff.timeout.seconds (default 2s).
+                                  K8s client: *.k8sclient.retry.base.backoff (default 100ms; doubles each
+                                  retry up to an internal 10s cap — only Duration is used for k8s client).
+                                  Application sync: backoff.duration.
                                 type: string
                               factor:
                                 description: |-
-                                  Factor multiplies the wait after each failed attempt
-                                  (Application: backoff.factor; self-heal: backoff.factor).
+                                  Factor multiplies the wait after each failed attempt.
+                                  Self-heal: controller.self.heal.backoff.factor (default 3).
+                                  Unused for current k8s client retry (reserved for shape consistency).
                                 format: int32
                                 type: integer
                               maxDuration:
                                 description: |-
-                                  MaxDuration is the maximum wait between retries
-                                  (Application: backoff.maxDuration; self-heal: backoff.cap.seconds).
+                                  MaxDuration is the maximum wait between retries.
+                                  Self-heal: controller.self.heal.backoff.cap.seconds (default 300s).
+                                  Unused for current k8s client retry (hard-capped at 10s in code).
                                 type: string
                             type: object
                           max:
                             description: |-
-                              Max is the maximum number of client retries (cmd-params: *.k8sclient.retry.max).
+                              Max is the maximum number of client retries
+                              (cmd-params: *.k8sclient.retry.max). Default 0 — only the initial attempt.
                               Migration: if set, takes precedence over the component *.k8sclient.retry.max key.
                             format: int32
                             minimum: 0
@@ -2770,19 +2911,25 @@ spec:
                       not the oidc.config blob — it is nested here for discoverability.
                     properties:
                       allowedAudiences:
-                        description: AllowedAudiences are accepted JWT aud values
-                          for tokens presented to Argo CD.
+                        description: |-
+                          AllowedAudiences are accepted JWT aud values for tokens presented to Argo CD
+                          (oidc.config allowedAudiences). When omitted/empty, defaults to
+                          [clientID, cliClientID].
+                          Migration: composite child of oidc.config.
                         items:
                           type: string
                         type: array
                       azure:
-                        description: Azure holds Azure AD–specific OIDC options (workload
-                          identity, group overage).
+                        description: |-
+                          Azure holds Azure AD / Entra ID–specific OIDC options (workload identity,
+                          group overage). Migration: composite child of oidc.config (azure).
                         properties:
                           graphAPIEndpointURL:
                             description: |-
-                              GraphAPIEndpointURL overrides the Microsoft Graph API endpoint
-                              (useful for national clouds).
+                              GraphAPIEndpointURL overrides the Microsoft Graph API base URL for sovereign
+                              clouds (oidc.config azure.graphApiEndpoint).
+                              Default https://graph.microsoft.com/v1.0.
+                              Migration: composite child of oidc.config.
                             type: string
                             x-kubernetes-validations:
                             - message: must be an absolute http(s) URL
@@ -2790,38 +2937,49 @@ spec:
                                 in ['http', 'https'])
                           useWorkloadIdentity:
                             description: |-
-                              UseWorkloadIdentity authenticates to Azure AD using Kubernetes workload identity
-                              instead of a client secret.
+                              UseWorkloadIdentity authenticates to Azure AD using Kubernetes workload
+                              identity instead of a client secret (oidc.config azure.useWorkloadIdentity).
+                              Default false. Migration: composite child of oidc.config.
                             type: boolean
                           userGroupOverageClaim:
                             description: |-
-                              UserGroupOverageClaim resolves Azure AD group overage via Microsoft Graph when the
-                              token indicates the user has more groups than fit in the token.
+                              UserGroupOverageClaim resolves Azure AD group overage (>200 groups) via
+                              Microsoft Graph when the token indicates groups were truncated.
+                              Migration: composite child of oidc.config.
                             properties:
                               cacheExpiration:
                                 description: |-
-                                  CacheExpiration is the cache TTL for Graph group lookups
-                                  (oidc.config azure userGroupOverageClaimCacheExpiration).
+                                  CacheExpiration is the cache TTL for Graph-resolved group IDs
+                                  (oidc.config azure.userGroupOverageClaimCacheExpiration).
+                                  When unset (0), falls back to token expiry.
+                                  Migration: composite child of oidc.config.
                                 type: string
                               enabled:
-                                description: Enabled resolves group overage via Microsoft
-                                  Graph (oidc.config azure enableUserGroupOverageClaim).
+                                description: |-
+                                  Enabled resolves group overage via Microsoft Graph
+                                  (oidc.config azure.enableUserGroupOverageClaim). Default false.
+                                  Migration: composite child of oidc.config.
                                 type: boolean
                             type: object
                         type: object
                       cliClientID:
-                        description: CLIClientID is an optional separate OAuth client
-                          ID used by the Argo CD CLI.
+                        description: |-
+                          CLIClientID is a separate OAuth client ID for the Argo CD CLI (localhost
+                          callback). When omitted, the CLI reuses ClientID (oidc.config cliClientID).
+                          Migration: composite child of oidc.config.
                         type: string
                       clientID:
-                        description: ClientID is the OAuth client ID registered with
-                          the IdP.
+                        description: |-
+                          ClientID is the OAuth 2.0 client ID registered with the IdP for the Argo CD
+                          server callback (/auth/callback) (oidc.config clientID).
+                          Migration: composite child of oidc.config.
                         type: string
                       clientSecretRef:
                         description: |-
                           ClientSecretRef references the OIDC client secret in a Kubernetes Secret.
                           Raw secrets and $string refs are not accepted here — use a SecretKeySelector.
-                          Migration from argocd-cm $oidc.clientSecret-style values must become an explicit secret ref.
+                          Legacy oidc.config clientSecret ($secret:key in argocd-cm) must become an
+                          explicit secret ref. Migration: composite child of oidc.config.
                         properties:
                           key:
                             description: The key of the secret to select from.  Must
@@ -2845,20 +3003,24 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                       domainHint:
-                        description: DomainHint is a domain hint passed to the IdP
-                          (e.g. Azure AD login_hint / domain_hint).
+                        description: |-
+                          DomainHint is sent to the IdP as the domain_hint authorization parameter
+                          (common with Microsoft Entra ID) (oidc.config domainHint). Empty = not sent.
+                          Migration: composite child of oidc.config.
                         type: string
                       insecureSkipVerify:
                         description: |-
                           InsecureSkipVerify skips TLS certificate verification when talking to the
-                          OIDC provider or Dex (argocd-cm: oidc.tls.insecure.skip.verify).
+                          OIDC provider or bundled Dex (argocd-cm: oidc.tls.insecure.skip.verify).
                           This is a separate legacy key from oidc.config; nested under oidc for
                           discoverability. Pointer so it can migrate independently of the composite blob.
-                          Migration: if set, takes precedence over argocd-cm oidc.tls.insecure.skip.verify.
+                          Default false. Migration: if set, takes precedence over argocd-cm oidc.tls.insecure.skip.verify.
                         type: boolean
                       issuerURL:
-                        description: IssuerURL is the OIDC issuer URL (oidc.config
-                          issuer).
+                        description: |-
+                          IssuerURL is the OIDC issuer URL that must expose
+                          .well-known/openid-configuration (oidc.config issuer).
+                          Migration: composite child of oidc.config.
                         type: string
                         x-kubernetes-validations:
                         - message: must be an absolute http(s) URL
@@ -2866,71 +3028,93 @@ spec:
                             in ['http', 'https'])
                       logoutURL:
                         description: |-
-                          LogoutURL is an optional custom logout redirect URL. May include
-                          {{token}} and {{logoutRedirectURL}} placeholders.
+                          LogoutURL is an optional IdP logout URL. May include {{token}} and
+                          {{logoutRedirectURL}} placeholders (oidc.config logoutURL).
+                          Migration: composite child of oidc.config.
                         type: string
                         x-kubernetes-validations:
                         - message: must be an absolute URL
                           rule: self == '' || isURL(self)
                       name:
-                        description: Name is the provider display name shown on the
-                          login button.
+                        description: |-
+                          Name is the provider display name shown on the SSO login button
+                          (oidc.config name). Migration: composite child of oidc.config.
                         type: string
                       pkceAuthenticationEnabled:
-                        description: PKCEAuthenticationEnabled enables PKCE for the
-                          OIDC authorization code flow.
+                        description: |-
+                          PKCEAuthenticationEnabled enables PKCE for the authorization code flow
+                          (oidc.config enablePKCEAuthentication). Default false.
+                          Migration: composite child of oidc.config.
                         type: boolean
                       refreshTokenThreshold:
-                        description: RefreshTokenThreshold refreshes the ID token
-                          this long before expiry.
+                        description: |-
+                          RefreshTokenThreshold refreshes the ID token this long before expiry using
+                          the refresh token (oidc.config refreshTokenThreshold). Default 0s refreshes
+                          only after expiry; must be shorter than token lifetime.
+                          Migration: composite child of oidc.config.
                         type: string
                       requestedIDTokenClaims:
                         additionalProperties:
                           description: OIDCClaim describes a requested ID token claim
-                            (OIDC "claims" request).
+                            (OIDC Claims Parameter).
                           properties:
                             essential:
-                              description: Essential marks the claim as required by
-                                the RP.
+                              description: |-
+                                Essential marks the claim as essential in the OIDC claims request
+                                (oidc.config requestedIDTokenClaims.<claim>.essential).
+                                Migration: composite child of oidc.config.
                               type: boolean
                             value:
-                              description: Value requests a single specific claim
-                                value.
+                              description: |-
+                                Value requests a single specific claim value
+                                (oidc.config requestedIDTokenClaims.<claim>.value).
+                                Migration: composite child of oidc.config.
                               type: string
                             values:
-                              description: Values requests one of several allowed
-                                claim values.
+                              description: |-
+                                Values requests that the claim match one of several allowed values
+                                (oidc.config requestedIDTokenClaims.<claim>.values).
+                                Migration: composite child of oidc.config.
                               items:
                                 type: string
                               type: array
                           type: object
                         description: |-
-                          RequestedIDTokenClaims requests additional claims in the ID token
-                          (OIDC claims parameter).
+                          RequestedIDTokenClaims requests additional claims via the OIDC Claims
+                          Parameter on the ID token (e.g. groups) (oidc.config requestedIDTokenClaims).
+                          Migration: composite child of oidc.config.
                         type: object
                       requestedScopes:
-                        description: RequestedScopes are OIDC scopes requested at
-                          login (default openid/profile/email/groups).
+                        description: |-
+                          RequestedScopes are OIDC scopes requested at login (oidc.config requestedScopes).
+                          When omitted, Argo CD defaults to ["openid", "profile", "email", "groups"].
+                          Migration: composite child of oidc.config.
                         items:
                           type: string
                         type: array
                       rootCA:
-                        description: RootCA is a PEM-encoded root CA used to verify
-                          the OIDC provider's TLS certificate.
+                        description: |-
+                          RootCA is a PEM-encoded root CA used to verify the OIDC provider's TLS
+                          certificate when it is not signed by a well-known CA (oidc.config rootCA).
+                          Migration: composite child of oidc.config.
                         type: string
                       skipAudienceCheckWhenTokenHasNoAudience:
                         description: |-
                           SkipAudienceCheckWhenTokenHasNoAudience accepts tokens that omit the aud
-                          claim when true.
+                          claim when true (oidc.config skipAudienceCheckWhenTokenHasNoAudience).
+                          Default false for direct OIDC (Argo CD ≥ 2.6).
+                          Migration: composite child of oidc.config.
                         type: boolean
                       userInfo:
-                        description: UserInfo holds UserInfo endpoint settings for
-                          group membership lookup.
+                        description: |-
+                          UserInfo holds UserInfo endpoint settings for group membership lookup when
+                          groups are absent from the ID token. Migration: composite child of oidc.config.
                         properties:
                           baseURL:
                             description: |-
                               BaseURL overrides the UserInfo endpoint base URL when it differs from the issuer
-                              (oidc.config userInfoBaseURL).
+                              (oidc.config userInfoBaseURL). Empty uses the issuer URL.
+                              Migration: composite child of oidc.config.
                             type: string
                             x-kubernetes-validations:
                             - message: must be an absolute http(s) URL
@@ -2939,17 +3123,21 @@ spec:
                           cacheExpiration:
                             description: |-
                               CacheExpiration is how long cached UserInfo group results are kept
-                              (oidc.config userInfoCacheExpiration).
+                              (oidc.config userInfoCacheExpiration). Zero falls back to ID token lifetime.
+                              Migration: composite child of oidc.config.
                             type: string
                           groupsEnabled:
                             description: |-
                               GroupsEnabled fetches group membership from the UserInfo endpoint when groups
-                              are absent from the ID token (oidc.config enableUserInfoGroups).
+                              are absent from the ID token (oidc.config enableUserInfoGroups). Default false.
+                              Migration: composite child of oidc.config.
                             type: boolean
                           path:
                             description: |-
-                              Path is the UserInfo path appended to BaseURL (default "/userinfo")
-                              (oidc.config userInfoPath).
+                              Path is the UserInfo path appended to BaseURL or the issuer URL
+                              (oidc.config userInfoPath). Must be set (with GroupsEnabled) to enable
+                              UserInfo lookup; there is no hardcoded default in Argo CD.
+                              Migration: composite child of oidc.config.
                             type: string
                         type: object
                     type: object
@@ -3003,16 +3191,18 @@ spec:
                           after the main policy (argocd-rbac-cm: policy.<name>.csv).
                           Migration: if present, takes precedence over argocd-rbac-cm policy.<name>.csv; replaces the whole collection.
                         items:
-                          description: RBACPolicyOverlay is a named extra policy.csv
-                            fragment.
+                          description: |-
+                            RBACPolicyOverlay is a named extra policy.csv fragment concatenated after the
+                            main policy (argocd-rbac-cm: policy.<name>.csv).
                           properties:
                             csv:
-                              description: CSV is the Casbin CSV policy content for
-                                this overlay.
+                              description: |-
+                                CSV is the Casbin CSV policy content for this overlay (roles, bindings,
+                                and resource rules). Maps to argocd-rbac-cm policy.<name>.csv.
                               type: string
                             name:
                               description: Name is the overlay identifier (maps to
-                                policy.<name>.csv).
+                                policy.<name>.csv in argocd-rbac-cm).
                               minLength: 1
                               type: string
                           required:
@@ -3077,13 +3267,18 @@ spec:
                       Migration: if non-nil, takes precedence over argocd-cmd-params-cm server.tls.* as a group (children apply from the CR; no merge with legacy siblings under that family).
                     properties:
                       ciphers:
-                        description: Ciphers lists allowed TLS cipher suite names.
+                        description: |-
+                          Ciphers lists allowed TLS cipher suite names
+                          (cmd-params: *.tls.ciphers). Default typically
+                          TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384; use "list" with the Argo CD CLI
+                          to enumerate available ciphers.
                         items:
                           type: string
                         type: array
                       maxVersion:
-                        description: MaxVersion is the maximum accepted TLS version
-                          (e.g. "1.3").
+                        description: |-
+                          MaxVersion is the maximum accepted TLS version: "1.0", "1.1", "1.2", or "1.3"
+                          (cmd-params: *.tls.maxversion). Default "1.3".
                         enum:
                         - "1.0"
                         - "1.1"
@@ -3091,8 +3286,9 @@ spec:
                         - "1.3"
                         type: string
                       minVersion:
-                        description: MinVersion is the minimum accepted TLS version
-                          (e.g. "1.2").
+                        description: |-
+                          MinVersion is the minimum accepted TLS version: "1.0", "1.1", "1.2", or "1.3"
+                          (cmd-params: *.tls.minversion). Default "1.2".
                         enum:
                         - "1.0"
                         - "1.1"
