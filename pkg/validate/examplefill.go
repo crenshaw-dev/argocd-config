@@ -427,18 +427,18 @@ func exampleMapEntry(mapType reflect.Type, ctx fillContext) (key, val string) {
 func enumValue(jsonPath, fieldName, jsonName string) (string, bool) {
 	key := jsonPath + "/" + jsonName
 	enums := map[string]string{
-		"spec.server.compression/compression":                          "gzip",
-		"spec.server.rbac.matchMode/matchMode":                         "glob",
-		"spec.controller.resource.respectRBAC/respectRBAC":             "strict",
+		"spec.server.compression/compression":                                                     "gzip",
+		"spec.server.rbac.matchMode/matchMode":                                                    "glob",
+		"spec.controller.resource.respectRBAC/respectRBAC":                                        "strict",
 		"spec.controller.diff.compareOptions.ignoreResourceStatusField/ignoreResourceStatusField": "crd",
-		"spec.controller.sync.impersonation.mode/mode":                 "optional",
-		"spec.controller.resourceTrackingMethod/resourceTrackingMethod": "annotation",
-		"spec.controller.sharding.algorithm/algorithm":                 "legacy",
-		"spec.applicationSet.policy/policy":                            "sync",
-		"spec.redis.compression/compression":                           "gzip",
-		"spec.server.log.format/format":                                "json",
-		"spec.server.log.level/level":                                "info",
-		"spec.server.ui.banner.position/position":                    "top",
+		"spec.controller.sync.impersonation.mode/mode":                                            "optional",
+		"spec.controller.resourceTrackingMethod/resourceTrackingMethod":                           "annotation",
+		"spec.controller.sharding.algorithm/algorithm":                                            "legacy",
+		"spec.applicationSet.policy/policy":                                                       "sync",
+		"spec.redis.compression/compression":                                                      "gzip",
+		"spec.server.log.format/format":                                                           "json",
+		"spec.server.log.level/level":                                                             "info",
+		"spec.server.ui.banner.position/position":                                                 "top",
 	}
 	if v, ok := enums[key]; ok {
 		return v, true
@@ -447,7 +447,7 @@ func enumValue(jsonPath, fieldName, jsonName string) (string, bool) {
 }
 
 type jsonTagInfo struct {
-	name     string
+	name      string
 	omitEmpty bool
 }
 
