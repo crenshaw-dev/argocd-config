@@ -426,7 +426,7 @@ spec:
 			t.Fatalf("ExitCode = %d, want 1", code)
 		}
 	})
-	if !strings.Contains(stderr, "metadata.name") {
+	if !strings.Contains(stderr, "argocd-config") {
 		t.Fatalf("stderr missing name diagnostic: %s", stderr)
 	}
 }

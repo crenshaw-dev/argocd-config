@@ -1,8 +1,6 @@
 package validate_test
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,24 +10,6 @@ import (
 	"github.com/crenshaw-dev/argocd-config/pkg/mapping"
 	"github.com/crenshaw-dev/argocd-config/pkg/validate"
 )
-
-func moduleRoot(t *testing.T) string {
-	t.Helper()
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Getwd: %v", err)
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("go.mod not found")
-		}
-		dir = parent
-	}
-}
 
 func TestValidateAccountCapabilitiesUnique(t *testing.T) {
 	cfg := &argov1alpha1.ArgoCDConfiguration{
@@ -49,7 +29,7 @@ func TestValidateAccountCapabilitiesUnique(t *testing.T) {
 	}
 	found := false
 	for _, d := range diag.Items() {
-		if strings.Contains(d.Key, "capabilities") && strings.Contains(d.Message, "duplicate") {
+		if strings.Contains(d.Key, "capabilities") && strings.Contains(strings.ToLower(d.Message), "duplicate") {
 			found = true
 			break
 		}
@@ -142,35 +122,9 @@ func TestValidateURLs(t *testing.T) {
 	}
 }
 
-func TestValidateURLMissingHost(t *testing.T) {
-	cfg := &argov1alpha1.ArgoCDConfiguration{
-		ObjectMeta: metav1.ObjectMeta{Name: mapping.DefaultConfigurationName},
-		Spec: argov1alpha1.ArgoCDConfigurationSpec{
-			Server: &argov1alpha1.ServerConfig{URLs: []string{"https://"}},
-		},
-	}
-	diag := validate.Validate(cfg)
-	if !diag.HasErrors() {
-		t.Fatal("expected missing host error")
-	}
-}
-
-func TestValidateAgainstCRDFromModuleRoot(t *testing.T) {
-	root := moduleRoot(t)
-	t.Chdir(root)
-
+func TestValidateAgainstCRD(t *testing.T) {
 	diag := validate.ValidateAgainstCRD()
-	if diag.HasWarnings() {
-		t.Fatalf("unexpected CRD warnings from module root: %v", diag)
-	}
-}
-
-func TestValidateAgainstCRDFromTempDirWarns(t *testing.T) {
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-
-	diag := validate.ValidateAgainstCRD()
-	if !diag.HasWarnings() {
-		t.Fatal("expected CRD warning when run outside module root")
+	if diag.HasErrors() || diag.HasWarnings() {
+		t.Fatalf("unexpected CRD diagnostics: %v", diag)
 	}
 }

@@ -280,6 +280,6 @@ Categories Argo CD may expose but **this prototype does not map** (honest partia
 | **Repository / cluster Secrets** | Repo URLs, cluster credentials | Out of scope |
 | **Account passwords** | `accounts.<name>.password` | Lives in secrets, not CRD |
 | **Rare / deprecated CM keys** | Keys removed or added in newer Argo CD releases without a mapping PR | Inventory is grep-based, not upstream-complete |
-| **Full CEL offline validation** | All CRD `XValidation` rules | CLI `validate` mirrors name + http(s) URLs only; cluster admission required for full CEL |
+| **Full CEL offline validation** | All CRD `XValidation` rules | CLI `validate` runs OpenAPI + CEL + list-type via `apiextensions-apiserver` against the embedded CRD |
 
 When adding mappings, update this file and `pkg/mapping` together.

@@ -1,33 +1,48 @@
 package validate
 
 import (
+	"context"
 	"fmt"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strings"
+	"sync"
+
+	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/cel"
+	structurallisttype "k8s.io/apiextensions-apiserver/pkg/apiserver/schema/listtype"
+	apiservervalidation "k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	celconfig "k8s.io/apiserver/pkg/apis/cel"
+	"sigs.k8s.io/yaml"
 
 	argov1alpha1 "github.com/crenshaw-dev/argocd-config/api/v1alpha1"
+	"github.com/crenshaw-dev/argocd-config/config/crd/bases"
 	"github.com/crenshaw-dev/argocd-config/pkg/mapping"
 )
 
-const crdRelativePath = "config/crd/bases/argo.crenshaw.dev_argocdconfigurations.yaml"
+// crdVersion is the hub schema version used for offline OpenAPI/CEL validation.
+const crdVersion = "v1alpha1"
 
-// Validate performs offline structural checks on an ArgoCDConfiguration.
-//
-// This mirrors a subset of CRD OpenAPI/CEL rules (singleton name, http(s) URLs).
-// Full CEL evaluation against the CRD schema requires a Kubernetes apiserver or
-// envtest; ValidateAgainstCRD loads the embedded CRD manifest for sanity checks only.
+type crdValidators struct {
+	structural *structuralschema.Structural
+	schema     apiservervalidation.SchemaValidator
+	cel        *cel.Validator
+}
+
+var (
+	validatorsOnce sync.Once
+	validators     *crdValidators
+	validatorsErr  error
+)
+
+// Validate performs offline OpenAPI + CEL + list-type validation against the
+// embedded ArgoCDConfiguration CRD schema (same libraries the apiserver uses).
 func Validate(cfg *argov1alpha1.ArgoCDConfiguration) *mapping.Diagnostics {
 	diag := &mapping.Diagnostics{}
 	if cfg == nil {
 		diag.Error("", "metadata", "configuration is nil")
 		return diag
-	}
-
-	if cfg.Name != mapping.DefaultConfigurationName {
-		diag.Error("", "metadata.name",
-			fmt.Sprintf("name must be %q, got %q", mapping.DefaultConfigurationName, cfg.Name))
 	}
 
 	if cfg.Kind != "" && cfg.Kind != "ArgoCDConfiguration" {
@@ -42,97 +57,102 @@ func Validate(cfg *argov1alpha1.ArgoCDConfiguration) *mapping.Diagnostics {
 			fmt.Sprintf("expected apiVersion %q or v1beta1 spoke, got %q", argov1alpha1.GroupVersion.String(), cfg.APIVersion))
 	}
 
-	if s := cfg.Spec.Server; s != nil {
-		for i, u := range s.URLs {
-			validateHTTPURL(diag, fmt.Sprintf("spec.server.urls[%d]", i), u)
-		}
-		for i, a := range s.Accounts {
-			validateUniqueStrings(diag, fmt.Sprintf("spec.server.accounts[%d].capabilities", i), a.Capabilities)
-		}
+	v, err := loadValidators()
+	if err != nil {
+		diag.Error("", "crd", fmt.Sprintf("failed to load CRD validators: %v", err))
+		return diag
 	}
 
+	obj, err := toUnstructured(cfg)
+	if err != nil {
+		diag.Error("", "object", fmt.Sprintf("failed to convert to unstructured: %v", err))
+		return diag
+	}
+
+	var errs field.ErrorList
+	errs = append(errs, apiservervalidation.ValidateCustomResource(nil, obj, v.schema)...)
+	errs = append(errs, structurallisttype.ValidateListSetsAndMaps(nil, v.structural, obj)...)
+	if v.cel != nil && !hasBlockingErr(errs) {
+		celErrs, _ := v.cel.Validate(context.Background(), nil, v.structural, obj, nil, celconfig.RuntimeCELCostBudget)
+		errs = append(errs, celErrs...)
+	}
+
+	for _, e := range errs {
+		path := e.Field
+		diag.Error("", path, e.Error())
+	}
 	return diag
 }
 
-func validateUniqueStrings(diag *mapping.Diagnostics, path string, values []string) {
-	seen := make(map[string]struct{}, len(values))
-	for _, v := range values {
-		if _, ok := seen[v]; ok {
-			diag.Error("", path, fmt.Sprintf("duplicate value %q (must be a set)", v))
-			continue
-		}
-		seen[v] = struct{}{}
-	}
-}
-
-// ValidateAgainstCRD verifies the CRD manifest is present and readable.
-// Offline validation does not evaluate CEL rules from the CRD; use a cluster for that.
+// ValidateAgainstCRD verifies the embedded CRD can be compiled into validators.
 func ValidateAgainstCRD() *mapping.Diagnostics {
 	diag := &mapping.Diagnostics{}
-	path, err := locateCRD()
-	if err != nil {
-		diag.Warn("", "crd", fmt.Sprintf("CRD manifest not found: %v", err))
-		return diag
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		diag.Warn("", "crd", fmt.Sprintf("cannot stat CRD at %q: %v", path, err))
-		return diag
-	}
-	if info.Size() == 0 {
-		diag.Warn("", "crd", fmt.Sprintf("CRD at %q is empty", path))
+	if _, err := loadValidators(); err != nil {
+		diag.Error("", "crd", err.Error())
 	}
 	return diag
 }
 
-func validateHTTPURL(diag *mapping.Diagnostics, field, raw string) {
-	if raw == "" {
-		return
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		diag.Error("", field, fmt.Sprintf("invalid URL %q: %v", raw, err))
-		return
-	}
-	scheme := strings.ToLower(u.Scheme)
-	if scheme != "http" && scheme != "https" {
-		diag.Error("", field, fmt.Sprintf("URL must start with http:// or https://, got %q", raw))
-	}
-	if u.Host == "" {
-		diag.Error("", field, fmt.Sprintf("URL must include a host, got %q", raw))
-	}
+func loadValidators() (*crdValidators, error) {
+	validatorsOnce.Do(func() {
+		validators, validatorsErr = newValidators(bases.ArgoCDConfigurationCRD)
+	})
+	return validators, validatorsErr
 }
 
-func locateCRD() (string, error) {
-	candidates := []string{
-		crdRelativePath,
-		filepath.Join("..", crdRelativePath),
-		filepath.Join("..", "..", crdRelativePath),
+func newValidators(crdYAML []byte) (*crdValidators, error) {
+	var v1crd apiextensionsv1.CustomResourceDefinition
+	if err := yaml.Unmarshal(crdYAML, &v1crd); err != nil {
+		return nil, fmt.Errorf("decode CRD: %w", err)
 	}
-	if modRoot := moduleRoot(); modRoot != "" {
-		candidates = append([]string{filepath.Join(modRoot, crdRelativePath)}, candidates...)
+
+	var internal apiextensionsinternal.CustomResourceDefinition
+	if err := apiextensionsv1.Convert_v1_CustomResourceDefinition_To_apiextensions_CustomResourceDefinition(&v1crd, &internal, nil); err != nil {
+		return nil, fmt.Errorf("convert CRD to internal: %w", err)
 	}
-	for _, p := range candidates {
-		if _, err := os.Stat(p); err == nil {
-			return p, nil
-		}
+
+	schema, err := apiextensionsinternal.GetSchemaForVersion(&internal, crdVersion)
+	if err != nil {
+		return nil, err
 	}
-	return "", fmt.Errorf("could not find %s from working directory", crdRelativePath)
+	if schema == nil || schema.OpenAPIV3Schema == nil {
+		return nil, fmt.Errorf("CRD version %q has no OpenAPI schema", crdVersion)
+	}
+
+	structural, err := structuralschema.NewStructural(schema.OpenAPIV3Schema)
+	if err != nil {
+		return nil, fmt.Errorf("structural schema: %w", err)
+	}
+
+	schemaValidator, _, err := apiservervalidation.NewSchemaValidator(schema.OpenAPIV3Schema)
+	if err != nil {
+		return nil, fmt.Errorf("schema validator: %w", err)
+	}
+
+	return &crdValidators{
+		structural: structural,
+		schema:     schemaValidator,
+		cel:        cel.NewValidator(structural, true /* isResourceRoot */, celconfig.PerCallLimit),
+	}, nil
 }
 
-func moduleRoot() string {
-	dir, err := os.Getwd()
-	if err != nil {
-		return ""
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
+func toUnstructured(cfg *argov1alpha1.ArgoCDConfiguration) (map[string]interface{}, error) {
+	cp := cfg.DeepCopy()
+	cp.SetGroupVersionKind(argov1alpha1.GroupVersion.WithKind("ArgoCDConfiguration"))
+	return runtime.DefaultUnstructuredConverter.ToUnstructured(cp)
+}
+
+// hasBlockingErr mirrors apiserver customresource strategy: skip CEL when the
+// object is too malformed for expression evaluation.
+func hasBlockingErr(errs field.ErrorList) bool {
+	for _, err := range errs {
+		if err.Type == field.ErrorTypeNotSupported ||
+			err.Type == field.ErrorTypeRequired ||
+			err.Type == field.ErrorTypeTooLong ||
+			err.Type == field.ErrorTypeTooMany ||
+			err.Type == field.ErrorTypeTypeInvalid {
+			return true
 		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return ""
-		}
-		dir = parent
 	}
+	return false
 }

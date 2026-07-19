@@ -57,7 +57,7 @@ Convert sample ConfigMaps to a CR, validate, round-trip back, and exercise apiVe
   --rbac testdata/sample-cms/argocd-rbac-cm.yaml \
   -o /tmp/acc.yaml
 
-# Validate (name + mirrored URL rules; not full apiserver CEL)
+# Validate (OpenAPI + CEL from embedded CRD)
 ./bin/argocd-config validate -f /tmp/acc.yaml
 
 # CRD YAML → ConfigMaps
@@ -96,7 +96,7 @@ Round-trip conversion is **best-effort**. Known lossy cases include:
 - **YAML formatting** — re-emitted ConfigMap values may differ in whitespace or key order.
 - **Split keys** — `controller.repo.server.*` vs `server.repo.server.*` collapse to one CR field (warning emitted when both differ).
 - **v1beta1 spoke** — converts only `spec.server.urls[0]` ↔ `spec.url`; all other fields are dropped in spoke form (conversion demo only).
-- **Offline validate** — checks singleton name and http(s) URLs; full CRD CEL requires cluster admission or envtest.
+- **Offline validate** — OpenAPI + CEL + list-type checks against the embedded CRD schema (same `apiextensions-apiserver` libraries the apiserver uses).
 
 See [PHASE_P_EVAL.md](PHASE_P_EVAL.md) for deferred scope (trust stores, secrets, notifications-cm content).
 
