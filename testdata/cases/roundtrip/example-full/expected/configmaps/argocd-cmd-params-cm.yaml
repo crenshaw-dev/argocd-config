@@ -49,6 +49,7 @@ data:
   controller.diff.server.side: "true"
   controller.grpc.enable.txt.service.config: "true"
   controller.hydration.processors: "10"
+  controller.ignore.normalizer.jq.timeout: 1h0m0s
   controller.k8s.client.burst: "10"
   controller.k8s.client.max.idle.connections: "1"
   controller.k8s.client.qps: "50"
@@ -76,6 +77,7 @@ data:
   controller.repo.server.timeout.seconds: "3600"
   controller.resource.health.persist: "true"
   controller.self.heal.backoff.cap.seconds: "3600"
+  controller.self.heal.backoff.cooldown.seconds: "3600"
   controller.self.heal.backoff.factor: "2"
   controller.self.heal.backoff.timeout.seconds: "3600"
   controller.self.heal.timeout.seconds: "3600"
@@ -104,6 +106,7 @@ data:
   otlp.sample.ratio: example-sampleRatio
   redis.compression: gzip
   redis.db: "0"
+  redis.key.prefix: example-keyPrefix
   redis.sentinel.hosts: redis-sentinel:26379
   redis.sentinel.master: mymaster
   redis.server: example-server
@@ -111,6 +114,7 @@ data:
   reposerver.allow.oob.symlinks: "true"
   reposerver.client.ca.path: /example/clientCAPath
   reposerver.default.cache.expiration: 1h0m0s
+  reposerver.disable.helm.manifest.max.extracted.size: "false"
   reposerver.disable.oci.manifest.max.extracted.size: "false"
   reposerver.disable.tls: "false"
   reposerver.enable.builtin.git.config: "true"
@@ -118,6 +122,9 @@ data:
   reposerver.git.lsremote.parallelism.limit: "10"
   reposerver.git.request.timeout: 1h0m0s
   reposerver.grpc.enable.txt.service.config: "true"
+  reposerver.grpc.max.size: "10"
+  reposerver.helm.manifest.max.extracted.size: 10M
+  reposerver.helm.user.agent: example-userAgent
   reposerver.include.hidden.directories: "true"
   reposerver.listen.address: example.local:8080
   reposerver.log.format: json
@@ -131,6 +138,7 @@ data:
   reposerver.plugin.use.manifest.generate.paths: "true"
   reposerver.profile.enabled: "true"
   reposerver.repo.cache.expiration: 1h0m0s
+  reposerver.revision.cache.lock.timeout: 1h0m0s
   reposerver.streamed.manifest.max.extracted.size: 10M
   reposerver.streamed.manifest.max.tar.size: 10M
   reposerver.tls.ciphers: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
@@ -140,6 +148,7 @@ data:
   server.app.state.cache.expiration: 1h0m0s
   server.basehref: /argo-cd
   server.connection.status.cache.expiration: 1h0m0s
+  server.content.security.policy: example-contentSecurityPolicy
   server.default.cache.expiration: 1h0m0s
   server.dex.server: example.local:8080
   server.dex.server.plaintext: "false"
@@ -149,6 +158,7 @@ data:
   server.enable.proxy.extension: "true"
   server.glob.cache.size: "1"
   server.grpc.enable.txt.service.config: "true"
+  server.http.cookie.maxnumber: "10"
   server.insecure: "false"
   server.k8s.client.burst: "10"
   server.k8s.client.max.idle.connections: "1"

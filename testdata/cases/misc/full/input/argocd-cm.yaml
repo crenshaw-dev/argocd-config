@@ -20,6 +20,7 @@ data:
   commit.author.name: Argo CD
   commit.author.email: argo-cd@example.com
   timeout.reconciliation: 120s
+  timeout.hard.reconciliation: 24h
   timeout.reconciliation.jitter: 60s
   jsonnet.enable: "true"
   installationID: my-unique-id

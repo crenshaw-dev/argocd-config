@@ -104,7 +104,12 @@ func fillStruct(v reflect.Value, ctx fillContext) {
 		return
 	}
 	if t == reflect.TypeOf(resource.Quantity{}) {
-		v.Set(reflect.ValueOf(resource.MustParse(exampleQuantity)))
+		qty := exampleQuantity
+		// reposerver.grpc.max.size is historically an integer binary-MB count.
+		if strings.EqualFold(ctx.fieldName, "GRPCMaxSize") || strings.HasSuffix(ctx.jsonPath, "grpcMaxSize") {
+			qty = "10Mi"
+		}
+		v.Set(reflect.ValueOf(resource.MustParse(qty)))
 		return
 	}
 	if t == reflect.TypeOf(corev1.SecretKeySelector{}) {
@@ -166,7 +171,11 @@ func setScalar(v reflect.Value, jsonName string, ctx fillContext) {
 			_ = d.UnmarshalJSON([]byte(`"` + exampleDuration + `"`))
 			v.Set(reflect.ValueOf(d))
 		case reflect.TypeOf(resource.Quantity{}):
-			q := resource.MustParse(exampleQuantity)
+			qty := exampleQuantity
+			if strings.EqualFold(jsonName, "grpcMaxSize") {
+				qty = "10Mi"
+			}
+			q := resource.MustParse(qty)
 			v.Set(reflect.ValueOf(q))
 		case reflect.TypeOf(runtime.RawExtension{}):
 			v.Set(reflect.ValueOf(runtime.RawExtension{Raw: []byte(`{"example":true}`)}))

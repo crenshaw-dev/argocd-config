@@ -17,7 +17,13 @@ spec:
       lsRemoteParallelismLimit: 8
       requestTimeout: 15s
       submoduleEnabled: true
+    grpcMaxSize: 100Mi
     grpcTXTServiceConfigEnabled: true
+    helm:
+      manifest:
+        maxExtractedSize: 1G
+        maxExtractedSizeEnabled: true
+      userAgent: ArgoCD-RepoServer
     includeHiddenDirectories: true
     listen:
       address: 0.0.0.0
@@ -41,6 +47,7 @@ spec:
       - node_modules
       useManifestGeneratePaths: true
     profileEnabled: true
+    revisionCacheLockTimeout: 10s
     streamedManifest:
       maxExtractedSize: 1G
       maxTarSize: 100M

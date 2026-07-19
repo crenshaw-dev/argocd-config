@@ -16,6 +16,7 @@ data:
     git clone {{ .RepoURL }}
   statusbadge.enabled: "true"
   statusbadge.url: https://cd-status.apps.argoproj.io/
+  timeout.hard.reconciliation: 24h0m0s
   timeout.reconciliation: 2m0s
   timeout.reconciliation.jitter: 1m0s
   webhook.maxPayloadSizeMB: "50"

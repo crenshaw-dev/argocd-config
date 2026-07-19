@@ -3,6 +3,7 @@ data:
   reposerver.allow.oob.symlinks: "false"
   reposerver.client.ca.path: /app/config/tls/ca.crt
   reposerver.default.cache.expiration: 24h0m0s
+  reposerver.disable.helm.manifest.max.extracted.size: "false"
   reposerver.disable.oci.manifest.max.extracted.size: "false"
   reposerver.disable.tls: "false"
   reposerver.enable.builtin.git.config: "true"
@@ -10,6 +11,9 @@ data:
   reposerver.git.lsremote.parallelism.limit: "8"
   reposerver.git.request.timeout: 15s
   reposerver.grpc.enable.txt.service.config: "true"
+  reposerver.grpc.max.size: "100"
+  reposerver.helm.manifest.max.extracted.size: 1G
+  reposerver.helm.user.agent: ArgoCD-RepoServer
   reposerver.include.hidden.directories: "true"
   reposerver.listen.address: 0.0.0.0
   reposerver.log.format: json
@@ -23,6 +27,7 @@ data:
   reposerver.plugin.use.manifest.generate.paths: "true"
   reposerver.profile.enabled: "true"
   reposerver.repo.cache.expiration: 12h0m0s
+  reposerver.revision.cache.lock.timeout: 10s
   reposerver.streamed.manifest.max.extracted.size: 1G
   reposerver.streamed.manifest.max.tar.size: 100M
   reposerver.tls.ciphers: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384

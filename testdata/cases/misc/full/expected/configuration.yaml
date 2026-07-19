@@ -11,6 +11,7 @@ spec:
         name: Argo CD
   controller:
     reconciliation:
+      hardTimeout: 24h0m0s
       jitter: 1m0s
       timeout: 2m0s
     sourceHydrator:

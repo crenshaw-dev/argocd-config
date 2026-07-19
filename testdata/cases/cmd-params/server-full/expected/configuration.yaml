@@ -23,11 +23,13 @@ spec:
       globCacheSize: 10000
       oidcExpiration: 3m0s
     compression: gzip
+    contentSecurityPolicy: frame-ancestors 'self'
     dexServer:
       address: https://argocd-dex-server:5556
       insecureSkipVerify: false
       tlsEnabled: true
     grpcTXTServiceConfigEnabled: true
+    httpCookieMaxNumber: 50
     k8sClient:
       burst: 100
       maxIdleConnections: 500

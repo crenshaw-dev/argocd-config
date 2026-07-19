@@ -7,6 +7,7 @@ data:
   server.app.state.cache.expiration: 1h0m0s
   server.basehref: /argo
   server.connection.status.cache.expiration: 1h0m0s
+  server.content.security.policy: frame-ancestors 'self'
   server.default.cache.expiration: 24h0m0s
   server.dex.server: https://argocd-dex-server:5556
   server.dex.server.plaintext: "false"
@@ -16,6 +17,7 @@ data:
   server.enable.proxy.extension: "true"
   server.glob.cache.size: "10000"
   server.grpc.enable.txt.service.config: "true"
+  server.http.cookie.maxnumber: "50"
   server.insecure: "false"
   server.k8s.client.burst: "100"
   server.k8s.client.max.idle.connections: "500"

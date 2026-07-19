@@ -14,11 +14,13 @@ data:
   controller.resource.health.persist: "true"
   controller.kubectl.parallelism.limit: "25"
   controller.diff.server.side: "true"
+  controller.ignore.normalizer.jq.timeout: 5s
   controller.metrics.cache.expiration: 24h
   controller.metrics.application.labels: team,env
   controller.metrics.application.conditions: OrphanedResourceWarning,ComparisonError
   controller.metrics.cluster.labels: environment,region
   controller.self.heal.timeout.seconds: "5"
+  controller.self.heal.backoff.cooldown.seconds: "10"
   controller.self.heal.backoff.timeout.seconds: "2"
   controller.self.heal.backoff.factor: "3"
   controller.self.heal.backoff.cap.seconds: "300"

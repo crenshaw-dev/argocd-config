@@ -1338,6 +1338,13 @@ func mapMisc(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *D
 			ctrl.Reconciliation.Timeout = d
 		}
 	}
+	if v, ok := kt.get("timeout.hard.reconciliation"); ok {
+		ctrl := ensureController(spec)
+		if ctrl.Reconciliation == nil {
+			ctrl.Reconciliation = &argov1alpha1.ReconciliationConfig{}
+		}
+		ctrl.Reconciliation.HardTimeout, _ = parseDurationPtr(diag, "timeout.hard.reconciliation", v)
+	}
 	if v, ok := kt.get("timeout.reconciliation.jitter"); ok {
 		ctrl := ensureController(spec)
 		if ctrl.Reconciliation == nil {
@@ -1496,6 +1503,9 @@ func mapControllerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurati
 		b := strings.EqualFold(v, "true")
 		ensureControllerDiff(c).ServerSide = &argov1alpha1.DiffServerSideConfig{Enabled: &b}
 	}
+	if v, ok := kt.get("controller.ignore.normalizer.jq.timeout"); ok {
+		ensureControllerDiff(c).IgnoreNormalizerJQTimeout, _ = parseDurationPtr(diag, "controller.ignore.normalizer.jq.timeout", v)
+	}
 
 	metricsChanged := false
 	m := &argov1alpha1.ControllerMetricsConfig{}
@@ -1532,6 +1542,10 @@ func mapControllerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurati
 	sh := &argov1alpha1.SelfHealConfig{}
 	if v, ok := kt.get("controller.self.heal.timeout.seconds"); ok {
 		sh.Timeout, _ = secondsDurationPtr(diag, "controller.self.heal.timeout.seconds", v)
+		selfChanged = true
+	}
+	if v, ok := kt.get("controller.self.heal.backoff.cooldown.seconds"); ok {
+		sh.Cooldown, _ = secondsDurationPtr(diag, "controller.self.heal.backoff.cooldown.seconds", v)
 		selfChanged = true
 	}
 	boChanged := false
@@ -1626,6 +1640,9 @@ func unmapControllerCmdParams(c *argov1alpha1.ControllerConfig, data map[string]
 		if ss := d.ServerSide; ss != nil && ss.Enabled != nil {
 			data["controller.diff.server.side"] = strconv.FormatBool(*ss.Enabled)
 		}
+		if s := durationString(d.IgnoreNormalizerJQTimeout); s != "" {
+			data["controller.ignore.normalizer.jq.timeout"] = s
+		}
 	}
 	if m := c.Metrics; m != nil {
 		if s := durationString(m.CacheExpiration); s != "" {
@@ -1646,6 +1663,9 @@ func unmapControllerCmdParams(c *argov1alpha1.ControllerConfig, data map[string]
 	if sh := c.SelfHeal; sh != nil {
 		if sh.Timeout != nil {
 			data["controller.self.heal.timeout.seconds"] = strconv.Itoa(int(sh.Timeout.Duration.Seconds()))
+		}
+		if sh.Cooldown != nil {
+			data["controller.self.heal.backoff.cooldown.seconds"] = strconv.Itoa(int(sh.Cooldown.Duration.Seconds()))
 		}
 		if bo := sh.Backoff; bo != nil {
 			if bo.Duration != nil {
@@ -1714,6 +1734,10 @@ func mapRedis(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *
 	}
 	if v, ok := kt.get("redis.db"); ok {
 		r.DB = v
+		changed = true
+	}
+	if v, ok := kt.get("redis.key.prefix"); ok {
+		r.KeyPrefix = v
 		changed = true
 	}
 	if changed {
@@ -2498,6 +2522,9 @@ func unmapTopMisc(spec *argov1alpha1.ArgoCDConfigurationSpec, data map[string]st
 			if rec.Timeout != nil {
 				data["timeout.reconciliation"] = rec.Timeout.Duration.String()
 			}
+			if rec.HardTimeout != nil {
+				data["timeout.hard.reconciliation"] = rec.HardTimeout.Duration.String()
+			}
 			if rec.Jitter != nil {
 				data["timeout.reconciliation.jitter"] = rec.Jitter.Duration.String()
 			}
@@ -2588,6 +2615,9 @@ func unmapRedis(r *argov1alpha1.RedisConfig, data map[string]string) {
 	}
 	if r.DB != "" {
 		data["redis.db"] = r.DB
+	}
+	if r.KeyPrefix != "" {
+		data["redis.key.prefix"] = r.KeyPrefix
 	}
 }
 

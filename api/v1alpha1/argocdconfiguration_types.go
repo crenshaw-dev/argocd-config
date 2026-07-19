@@ -119,6 +119,12 @@ type ArgoCDConfigurationSpec struct {
 	// Migration: if set, takes precedence over argocd-cm installationID.
 	// +optional
 	InstallationID string `json:"installationID,omitempty"`
+	// ExecTimeout is the shared timeout for forked commands (git, helm, kustomize,
+	// CMP, GPG, …) via util/exec (env: ARGOCD_EXEC_TIMEOUT; default 90s).
+	// This is not the UI pod-terminal feature under server.exec.
+	// Migration: if set, takes precedence over env ARGOCD_EXEC_TIMEOUT. Does not round-trip through ConfigMaps.
+	// +optional
+	ExecTimeout *metav1.Duration `json:"execTimeout,omitempty"`
 	// DexServer holds Dex server process runtime settings (cmd-params: dexserver.*).
 	// Migration: component group; no legacy key — see child fields.
 	// +optional
@@ -170,12 +176,12 @@ type ServerConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm server.staticassets.
 	// +optional
 	StaticAssetsPath string `json:"staticAssetsPath,omitempty"`
-	// Listen holds API server and metrics listen addresses
-	// (cmd-params: server.listen.address, server.metrics.listen.address).
-	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm server.listen.address /
-	// server.metrics.listen.address as a group (children apply from the CR).
+	// Listen holds API server listen host/port and metrics listen host/port
+	// (cmd-params: server.listen.address, server.metrics.listen.address;
+	// flags: --port, --metrics-port).
+	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
-	Listen *ListenConfig `json:"listen,omitempty"`
+	Listen *ServerListenConfig `json:"listen,omitempty"`
 	// AuthEnabled controls API authentication (cmd-params: server.disable.auth —
 	// inverted: disable.auth=true means authEnabled=false). Auth is on by default.
 	// Migration: if set, takes precedence over argocd-cmd-params-cm server.disable.auth (inverted).
@@ -208,6 +214,24 @@ type ServerConfig struct {
 	// Migration: if present, takes precedence over argocd-cmd-params-cm server.api.content.types; replaces the whole collection.
 	// +optional
 	APIContentTypes []string `json:"apiContentTypes,omitempty"`
+	// ContentSecurityPolicy sets the Content-Security-Policy HTTP header
+	// (cmd-params: server.content.security.policy).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm server.content.security.policy.
+	// +optional
+	ContentSecurityPolicy string `json:"contentSecurityPolicy,omitempty"`
+	// HTTPCookieMaxNumber caps the number of cookies the API server will accept
+	// (cmd-params: server.http.cookie.maxnumber).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm server.http.cookie.maxnumber.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	HTTPCookieMaxNumber *int32 `json:"httpCookieMaxNumber,omitempty"`
+	// ApplicationTreeShardSize is the max number of resources stored in one
+	// application-tree cache shard (env: ARGOCD_APPLICATION_TREE_SHARD_SIZE).
+	// Migration: if set, takes precedence over env ARGOCD_APPLICATION_TREE_SHARD_SIZE. Does not round-trip through ConfigMaps.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1000
+	ApplicationTreeShardSize *int32 `json:"applicationTreeShardSize,omitempty"`
 	// ProfileEnabled enables pprof profiling endpoints (cmd-params: server.profile.enabled).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm server.profile.enabled.
 	// +optional
@@ -768,6 +792,11 @@ type SelfHealConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.self.heal.timeout.seconds.
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
+	// Cooldown is an additional wait after a self-heal attempt before backoff
+	// resumes (cmd-params: controller.self.heal.backoff.cooldown.seconds).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.self.heal.backoff.cooldown.seconds.
+	// +optional
+	Cooldown *metav1.Duration `json:"cooldown,omitempty"`
 	// Backoff configures exponential backoff between self-heal attempts
 	// (cmd-params: controller.self.heal.backoff.*).
 	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm controller.self.heal.backoff.* as a group (children apply from the CR; no merge with legacy siblings under that family).
@@ -894,6 +923,11 @@ type ControllerConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.profile.enabled.
 	// +optional
 	ProfileEnabled *bool `json:"profileEnabled,omitempty"`
+	// ProfilerFilePath enables the Go profiler and writes profiles to this path
+	// (env: ARGOCD_ENABLE_PROFILER_FILE_PATH).
+	// Migration: if set, takes precedence over env ARGOCD_ENABLE_PROFILER_FILE_PATH. Does not round-trip through ConfigMaps.
+	// +optional
+	ProfilerFilePath string `json:"profilerFilePath,omitempty"`
 	// GRPCTXTServiceConfigEnabled enables gRPC TXT service config
 	// (cmd-params: controller.grpc.enable.txt.service.config).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.grpc.enable.txt.service.config.
@@ -971,6 +1005,11 @@ type ControllerDiffConfig struct {
 	// Migration: if set, takes precedence over argocd-cm resource.ignoreResourceUpdatesEnabled.
 	// +optional
 	IgnoreResourceUpdatesEnabled *bool `json:"ignoreResourceUpdatesEnabled,omitempty"`
+	// IgnoreNormalizerJQTimeout is the max time to evaluate a JQPathExpression
+	// ignore-differences rule (cmd-params: controller.ignore.normalizer.jq.timeout).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm controller.ignore.normalizer.jq.timeout.
+	// +optional
+	IgnoreNormalizerJQTimeout *metav1.Duration `json:"ignoreNormalizerJQTimeout,omitempty"`
 }
 
 // DiffServerSideConfig holds server-side diff enablement.
@@ -989,6 +1028,11 @@ type ReconciliationConfig struct {
 	// Migration: if set, takes precedence over argocd-cm timeout.reconciliation.
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
+	// HardTimeout is the hard resync interval that forces reconciliation even when
+	// the repo has not changed (argocd-cm: timeout.hard.reconciliation).
+	// Migration: if set, takes precedence over argocd-cm timeout.hard.reconciliation.
+	// +optional
+	HardTimeout *metav1.Duration `json:"hardTimeout,omitempty"`
 	// Jitter is random additional delay added to reconciliation (argocd-cm: timeout.reconciliation.jitter).
 	// Migration: if set, takes precedence over argocd-cm timeout.reconciliation.jitter.
 	// +optional
@@ -1127,6 +1171,16 @@ type RepoServerConfig struct {
 	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
 	OCI *RepoServerOCIConfig `json:"oci,omitempty"`
+	// GRPCMaxSize caps gRPC response message size for the repo-server
+	// (cmd-params: reposerver.grpc.max.size; historically an integer megabyte count).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.grpc.max.size.
+	// +optional
+	GRPCMaxSize *resource.Quantity `json:"grpcMaxSize,omitempty"`
+	// RevisionCacheLockTimeout is how long to wait for the revision-cache lock
+	// (cmd-params: reposerver.revision.cache.lock.timeout).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.revision.cache.lock.timeout.
+	// +optional
+	RevisionCacheLockTimeout *metav1.Duration `json:"revisionCacheLockTimeout,omitempty"`
 	// Jsonnet holds Jsonnet tool enablement (argocd-cm: jsonnet.enable).
 	// Migration: if non-nil, takes precedence over argocd-cm jsonnet.* as a group (children apply from the CR; no merge with legacy siblings under that family).
 	// +optional
@@ -1139,8 +1193,8 @@ type RepoServerConfig struct {
 	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
 	Kustomize *KustomizeConfig `json:"kustomize,omitempty"`
-	// Helm holds Helm enablement and values-file scheme allowlisting.
-	// Migration: if non-nil, takes precedence over argocd-cm helm.* as a group (children apply from the CR; no merge with legacy siblings under that family).
+	// Helm holds Helm enablement, values-file schemes, and repo-server Helm limits.
+	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
 	Helm *HelmConfig `json:"helm,omitempty"`
 }
@@ -1153,12 +1207,12 @@ type RepoServerGitConfig struct {
 	// +optional
 	SubmoduleEnabled *bool `json:"submoduleEnabled,omitempty"`
 	// RequestTimeout is the timeout for git network operations
-	// (cmd-params: reposerver.git.request.timeout).
+	// (cmd-params: reposerver.git.request.timeout; also env ARGOCD_GIT_REQUEST_TIMEOUT).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.git.request.timeout.
 	// +optional
 	RequestTimeout *metav1.Duration `json:"requestTimeout,omitempty"`
 	// LSRemoteParallelismLimit caps concurrent git ls-remote calls
-	// (cmd-params: reposerver.git.lsremote.parallelism.limit).
+	// (cmd-params: reposerver.git.lsremote.parallelism.limit; also env ARGOCD_GIT_LS_REMOTE_PARALLELISM_LIMIT).
 	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.git.lsremote.parallelism.limit.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
@@ -1403,6 +1457,33 @@ type ApplicationSetConfig struct {
 	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
 	RepoServer *MTLSCertConfig `json:"repoServer,omitempty"`
+	// Metrics holds ApplicationSet Prometheus metrics listen settings
+	// (flags: --metrics-addr, --metrics-applicationset-labels).
+	// Migration: if non-nil, takes precedence over ApplicationSet --metrics-addr /
+	// --metrics-applicationset-labels as a group. Does not round-trip through ConfigMaps.
+	// +optional
+	Metrics *ApplicationSetMetricsConfig `json:"metrics,omitempty"`
+	// ProbeAddr is the health/readiness probe listen address (flag: --probe-addr).
+	// Migration: if set, takes precedence over ApplicationSet --probe-addr. Does not round-trip through ConfigMaps.
+	// +optional
+	ProbeAddr string `json:"probeAddr,omitempty"`
+	// WebhookAddr is the webhook listen address (flag: --webhook-addr).
+	// Migration: if set, takes precedence over ApplicationSet --webhook-addr. Does not round-trip through ConfigMaps.
+	// +optional
+	WebhookAddr string `json:"webhookAddr,omitempty"`
+}
+
+// ApplicationSetMetricsConfig holds ApplicationSet metrics listen settings (flag-only).
+type ApplicationSetMetricsConfig struct {
+	// Address is the metrics listen address (flag: --metrics-addr).
+	// Migration: if set, takes precedence over ApplicationSet --metrics-addr. Does not round-trip through ConfigMaps.
+	// +optional
+	Address string `json:"address,omitempty"`
+	// ApplicationSetLabels are ApplicationSet label keys exported as Prometheus labels
+	// (flag: --metrics-applicationset-labels).
+	// Migration: if present, takes precedence over ApplicationSet --metrics-applicationset-labels; replaces the whole collection. Does not round-trip through ConfigMaps.
+	// +optional
+	ApplicationSetLabels []string `json:"applicationSetLabels,omitempty"`
 }
 
 // ProgressiveSyncsConfig holds ApplicationSet progressive syncs settings.
@@ -1450,6 +1531,10 @@ type RedisConfig struct {
 	// Migration: if set, takes precedence over argocd-cmd-params-cm redis.db.
 	// +optional
 	DB string `json:"db,omitempty"`
+	// KeyPrefix is prepended to Redis keys (cmd-params: redis.key.prefix).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm redis.key.prefix.
+	// +optional
+	KeyPrefix string `json:"keyPrefix,omitempty"`
 }
 
 // RedisSentinelConfig holds Redis Sentinel connection settings.
@@ -1548,7 +1633,8 @@ type KustomizeVersion struct {
 	BuildOptions string `json:"buildOptions,omitempty"`
 }
 
-// HelmConfig holds Helm tool settings (argocd-cm: helm.*).
+// HelmConfig holds Helm tool settings (argocd-cm: helm.* and cmd-params: reposerver.helm.*).
+// Organizational subgroup: children migrate independently.
 type HelmConfig struct {
 	// Enabled enables Helm as a manifest source tool (argocd-cm: helm.enable).
 	// Migration: if set, takes precedence over argocd-cm helm.enable.
@@ -1559,6 +1645,30 @@ type HelmConfig struct {
 	// Migration: if present, takes precedence over argocd-cm helm.valuesFileSchemes; replaces the whole collection.
 	// +optional
 	ValuesFileSchemes []string `json:"valuesFileSchemes,omitempty"`
+	// UserAgent is the User-Agent header for Helm registry/HTTP requests
+	// (cmd-params: reposerver.helm.user.agent).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.helm.user.agent.
+	// +optional
+	UserAgent string `json:"userAgent,omitempty"`
+	// Manifest holds Helm chart extracted-size limits (cmd-params: reposerver.helm.manifest.max.*).
+	// Migration: if non-nil, takes precedence over argocd-cmd-params-cm reposerver.helm.manifest.max.* as a group.
+	// +optional
+	Manifest *HelmManifestConfig `json:"manifest,omitempty"`
+}
+
+// HelmManifestConfig holds Helm chart extracted-size limits.
+type HelmManifestConfig struct {
+	// MaxExtractedSize caps extracted Helm chart size
+	// (cmd-params: reposerver.helm.manifest.max.extracted.size).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.helm.manifest.max.extracted.size.
+	// +optional
+	MaxExtractedSize *resource.Quantity `json:"maxExtractedSize,omitempty"`
+	// MaxExtractedSizeEnabled controls the extracted size limit
+	// (cmd-params: reposerver.disable.helm.manifest.max.extracted.size —
+	// inverted: disable...=true means enabled=false). Limit is on by default.
+	// Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.disable.helm.manifest.max.extracted.size (inverted).
+	// +optional
+	MaxExtractedSizeEnabled *bool `json:"maxExtractedSizeEnabled,omitempty"`
 }
 
 // UIConfig holds web UI customization (argocd-cm: ui.*).
@@ -2002,16 +2112,43 @@ type TLSVersionConfig struct {
 	Ciphers []string `json:"ciphers,omitempty"`
 }
 
-// ListenConfig holds HTTP listen and metrics listen addresses.
+// ListenConfig holds HTTP listen and metrics listen host addresses
+// (cmd-params: *.listen.address / *.metrics.listen.address). Bind host only —
+// not host:port. Server listen ports live on ServerListenConfig.
 type ListenConfig struct {
-	// Address is the primary listen address (cmd-params: *.listen.address).
+	// Address is the primary listen host (cmd-params: *.listen.address), e.g. "0.0.0.0".
 	// Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.listen.address key.
 	// +optional
 	Address string `json:"address,omitempty"`
-	// MetricsAddress is the metrics listen address (cmd-params: *.metrics.listen.address).
+	// MetricsAddress is the metrics listen host (cmd-params: *.metrics.listen.address).
 	// Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.metrics.listen.address key.
 	// +optional
 	MetricsAddress string `json:"metricsAddress,omitempty"`
+}
+
+// ServerListenConfig holds argocd-server listen host and port settings.
+// Organizational subgroup: children migrate independently (cmd-params hosts vs flag ports).
+type ServerListenConfig struct {
+	// Address is the API server listen host (cmd-params: server.listen.address), e.g. "0.0.0.0".
+	// Migration: if set, takes precedence over argocd-cmd-params-cm server.listen.address.
+	// +optional
+	Address string `json:"address,omitempty"`
+	// Port is the API server listen port (flag: --port).
+	// Migration: if set, takes precedence over server --port. Does not round-trip through ConfigMaps.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port *int32 `json:"port,omitempty"`
+	// MetricsAddress is the metrics listen host (cmd-params: server.metrics.listen.address).
+	// Migration: if set, takes precedence over argocd-cmd-params-cm server.metrics.listen.address.
+	// +optional
+	MetricsAddress string `json:"metricsAddress,omitempty"`
+	// MetricsPort is the metrics listen port (flag: --metrics-port).
+	// Migration: if set, takes precedence over server --metrics-port. Does not round-trip through ConfigMaps.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	MetricsPort *int32 `json:"metricsPort,omitempty"`
 }
 
 // K8sClientConfig holds Kubernetes API client tuning shared by components.
@@ -2178,4 +2315,33 @@ type NotificationsConfig struct {
 	// Migration: organizational subgroup; no legacy key — see child fields.
 	// +optional
 	RepoServer *MTLSCertConfig `json:"repoServer,omitempty"`
+	// AppLabelSelector restricts which Applications the notifications controller watches
+	// (flag: --app-label-selector).
+	// Migration: if set, takes precedence over notifications --app-label-selector. Does not round-trip through ConfigMaps.
+	// +optional
+	AppLabelSelector string `json:"appLabelSelector,omitempty"`
+	// RepoServerAddress is the repo-server host:port
+	// (flag: --argocd-repo-server).
+	// Migration: if set, takes precedence over notifications --argocd-repo-server. Does not round-trip through ConfigMaps.
+	// +optional
+	RepoServerAddress string `json:"repoServerAddress,omitempty"`
+	// RepoServerStrictTLS requires a verified TLS connection to the repo-server
+	// (flag: --argocd-repo-server-strict-tls).
+	// Migration: if set, takes precedence over notifications --argocd-repo-server-strict-tls. Does not round-trip through ConfigMaps.
+	// +optional
+	RepoServerStrictTLS *bool `json:"repoServerStrictTLS,omitempty"`
+	// ConfigMapName is the notifications ConfigMap name (flag: --config-map-name).
+	// Migration: if set, takes precedence over notifications --config-map-name. Does not round-trip through ConfigMaps.
+	// +optional
+	ConfigMapName string `json:"configMapName,omitempty"`
+	// SecretName is the notifications Secret name (flag: --secret-name).
+	// Migration: if set, takes precedence over notifications --secret-name. Does not round-trip through ConfigMaps.
+	// +optional
+	SecretName string `json:"secretName,omitempty"`
+	// MetricsPort is the metrics listen port (flag: --metrics-port).
+	// Migration: if set, takes precedence over notifications --metrics-port. Does not round-trip through ConfigMaps.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	MetricsPort *int32 `json:"metricsPort,omitempty"`
 }

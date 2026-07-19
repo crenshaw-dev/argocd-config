@@ -173,6 +173,7 @@ data:
   sourceHydrator.readmeMessageTemplate: '{{.metadata.name}}'
   statusbadge.enabled: "true"
   statusbadge.url: https://example.com
+  timeout.hard.reconciliation: 1h0m0s
   timeout.reconciliation: 1h0m0s
   timeout.reconciliation.jitter: 1h0m0s
   ui.bannercontent: Example banner

@@ -83,6 +83,7 @@ spec:
         ignoreAggregatedRoles: true
         ignoreDifferencesOnResourceUpdates: true
         ignoreResourceStatusField: crd
+      ignoreNormalizerJQTimeout: 1h0m0s
       ignoreResourceUpdatesEnabled: true
       serverSide:
         enabled: true
@@ -131,6 +132,7 @@ spec:
       status: 10
     profileEnabled: true
     reconciliation:
+      hardTimeout: 1h0m0s
       jitter: 1h0m0s
       timeout: 1h0m0s
     repoErrorGracePeriod: 1h0m0s
@@ -194,6 +196,7 @@ spec:
         duration: 1h0m0s
         factor: 2
         maxDuration: 1h0m0s
+      cooldown: 1h0m0s
       timeout: 1h0m0s
     sharding:
       algorithm: legacy
@@ -239,6 +242,7 @@ spec:
   redis:
     compression: gzip
     db: "0"
+    keyPrefix: example-keyPrefix
     sentinel:
       hosts:
       - redis-sentinel:26379
@@ -264,9 +268,14 @@ spec:
       lsRemoteParallelismLimit: 10
       requestTimeout: 1h0m0s
       submoduleEnabled: true
+    grpcMaxSize: 10Mi
     grpcTXTServiceConfigEnabled: true
     helm:
       enabled: true
+      manifest:
+        maxExtractedSize: 10M
+        maxExtractedSizeEnabled: true
+      userAgent: example-userAgent
       valuesFileSchemes:
       - example-valuesFileSchemes
     includeHiddenDirectories: true
@@ -298,6 +307,7 @@ spec:
       - example-tarExclusionGlobs
       useManifestGeneratePaths: true
     profileEnabled: true
+    revisionCacheLockTimeout: 1h0m0s
     streamedManifest:
       maxExtractedSize: 10M
       maxTarSize: 10M
@@ -322,6 +332,7 @@ spec:
       globCacheSize: 1
       oidcExpiration: 1h0m0s
     compression: gzip
+    contentSecurityPolicy: example-contentSecurityPolicy
     deepLinks:
       application:
       - conditionExpr: example-conditionExpr
@@ -386,6 +397,7 @@ spec:
       chat:
         text: example-text
         url: https://example.com
+    httpCookieMaxNumber: 10
     k8sClient:
       burst: 10
       maxIdleConnections: 1

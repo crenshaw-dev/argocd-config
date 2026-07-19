@@ -248,6 +248,27 @@ spec:
                         - error
                         type: string
                     type: object
+                  metrics:
+                    description: |-
+                      Metrics holds ApplicationSet Prometheus metrics listen settings
+                      (flags: --metrics-addr, --metrics-applicationset-labels).
+                      Migration: if non-nil, takes precedence over ApplicationSet --metrics-addr /
+                      --metrics-applicationset-labels as a group. Does not round-trip through ConfigMaps.
+                    properties:
+                      address:
+                        description: |-
+                          Address is the metrics listen address (flag: --metrics-addr).
+                          Migration: if set, takes precedence over ApplicationSet --metrics-addr. Does not round-trip through ConfigMaps.
+                        type: string
+                      applicationSetLabels:
+                        description: |-
+                          ApplicationSetLabels are ApplicationSet label keys exported as Prometheus labels
+                          (flag: --metrics-applicationset-labels).
+                          Migration: if present, takes precedence over ApplicationSet --metrics-applicationset-labels; replaces the whole collection. Does not round-trip through ConfigMaps.
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   namespaceGlobs:
                     description: |-
                       NamespaceGlobs are additional namespaces where ApplicationSets may live
@@ -280,6 +301,11 @@ spec:
                       (cmd-params: applicationsetcontroller.enable.policy.override).
                       Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.policy.override.
                     type: boolean
+                  probeAddr:
+                    description: |-
+                      ProbeAddr is the health/readiness probe listen address (flag: --probe-addr).
+                      Migration: if set, takes precedence over ApplicationSet --probe-addr. Does not round-trip through ConfigMaps.
+                    type: string
                   profileEnabled:
                     description: |-
                       ProfileEnabled enables pprof profiling endpoints
@@ -364,6 +390,11 @@ spec:
                       (cmd-params: applicationsetcontroller.enable.tokenref.strict.mode).
                       Migration: if set, takes precedence over argocd-cmd-params-cm applicationsetcontroller.enable.tokenref.strict.mode.
                     type: boolean
+                  webhookAddr:
+                    description: |-
+                      WebhookAddr is the webhook listen address (flag: --webhook-addr).
+                      Migration: if set, takes precedence over ApplicationSet --webhook-addr. Does not round-trip through ConfigMaps.
+                    type: string
                   webhookParallelismLimit:
                     description: |-
                       WebhookParallelismLimit caps concurrent webhook processing
@@ -433,12 +464,12 @@ spec:
                     properties:
                       address:
                         description: |-
-                          Address is the primary listen address (cmd-params: *.listen.address).
+                          Address is the primary listen host (cmd-params: *.listen.address), e.g. "0.0.0.0".
                           Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.listen.address key.
                         type: string
                       metricsAddress:
                         description: |-
-                          MetricsAddress is the metrics listen address (cmd-params: *.metrics.listen.address).
+                          MetricsAddress is the metrics listen host (cmd-params: *.metrics.listen.address).
                           Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.metrics.listen.address key.
                         type: string
                     type: object
@@ -549,6 +580,12 @@ spec:
                             - none
                             type: string
                         type: object
+                      ignoreNormalizerJQTimeout:
+                        description: |-
+                          IgnoreNormalizerJQTimeout is the max time to evaluate a JQPathExpression
+                          ignore-differences rule (cmd-params: controller.ignore.normalizer.jq.timeout).
+                          Migration: if set, takes precedence over argocd-cmd-params-cm controller.ignore.normalizer.jq.timeout.
+                        type: string
                       ignoreResourceUpdatesEnabled:
                         description: |-
                           IgnoreResourceUpdatesEnabled is the master switch for ignoreResourceUpdates
@@ -859,12 +896,24 @@ spec:
                       (cmd-params: controller.profile.enabled).
                       Migration: if set, takes precedence over argocd-cmd-params-cm controller.profile.enabled.
                     type: boolean
+                  profilerFilePath:
+                    description: |-
+                      ProfilerFilePath enables the Go profiler and writes profiles to this path
+                      (env: ARGOCD_ENABLE_PROFILER_FILE_PATH).
+                      Migration: if set, takes precedence over env ARGOCD_ENABLE_PROFILER_FILE_PATH. Does not round-trip through ConfigMaps.
+                    type: string
                   reconciliation:
                     description: |-
                       Reconciliation holds periodic app reconciliation / git poll timing
                       (argocd-cm: timeout.reconciliation, timeout.reconciliation.jitter).
                       Migration: if non-nil, takes precedence over argocd-cm timeout.reconciliation* as a group.
                     properties:
+                      hardTimeout:
+                        description: |-
+                          HardTimeout is the hard resync interval that forces reconciliation even when
+                          the repo has not changed (argocd-cm: timeout.hard.reconciliation).
+                          Migration: if set, takes precedence over argocd-cm timeout.hard.reconciliation.
+                        type: string
                       jitter:
                         description: |-
                           Jitter is random additional delay added to reconciliation (argocd-cm: timeout.reconciliation.jitter).
@@ -1195,6 +1244,12 @@ spec:
                               (Application: backoff.maxDuration; self-heal: backoff.cap.seconds).
                             type: string
                         type: object
+                      cooldown:
+                        description: |-
+                          Cooldown is an additional wait after a self-heal attempt before backoff
+                          resumes (cmd-params: controller.self.heal.backoff.cooldown.seconds).
+                          Migration: if set, takes precedence over argocd-cmd-params-cm controller.self.heal.backoff.cooldown.seconds.
+                        type: string
                       timeout:
                         description: |-
                           Timeout is the minimum interval between self-heal attempts
@@ -1335,6 +1390,13 @@ spec:
                       Migration: if set, takes precedence over argocd-cmd-params-cm dexserver.disable.tls (inverted).
                     type: boolean
                 type: object
+              execTimeout:
+                description: |-
+                  ExecTimeout is the shared timeout for forked commands (git, helm, kustomize,
+                  CMP, GPG, …) via util/exec (env: ARGOCD_EXEC_TIMEOUT; default 90s).
+                  This is not the UI pod-terminal feature under server.exec.
+                  Migration: if set, takes precedence over env ARGOCD_EXEC_TIMEOUT. Does not round-trip through ConfigMaps.
+                type: string
               installationID:
                 description: |-
                   InstallationID uniquely identifies this Argo CD installation for resource
@@ -1360,6 +1422,17 @@ spec:
                   (cmd-params: notificationscontroller.*).
                   Migration: component group; no legacy key — see child fields.
                 properties:
+                  appLabelSelector:
+                    description: |-
+                      AppLabelSelector restricts which Applications the notifications controller watches
+                      (flag: --app-label-selector).
+                      Migration: if set, takes precedence over notifications --app-label-selector. Does not round-trip through ConfigMaps.
+                    type: string
+                  configMapName:
+                    description: |-
+                      ConfigMapName is the notifications ConfigMap name (flag: --config-map-name).
+                      Migration: if set, takes precedence over notifications --config-map-name. Does not round-trip through ConfigMaps.
+                    type: string
                   log:
                     description: |-
                       Log holds notifications-controller log format and level
@@ -1385,6 +1458,14 @@ spec:
                         - error
                         type: string
                     type: object
+                  metricsPort:
+                    description: |-
+                      MetricsPort is the metrics listen port (flag: --metrics-port).
+                      Migration: if set, takes precedence over notifications --metrics-port. Does not round-trip through ConfigMaps.
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
                   processorsCount:
                     description: |-
                       ProcessorsCount is the number of notification processors
@@ -1418,6 +1499,23 @@ spec:
                           Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.repo.server.client.cert.path.
                         type: string
                     type: object
+                  repoServerAddress:
+                    description: |-
+                      RepoServerAddress is the repo-server host:port
+                      (flag: --argocd-repo-server).
+                      Migration: if set, takes precedence over notifications --argocd-repo-server. Does not round-trip through ConfigMaps.
+                    type: string
+                  repoServerStrictTLS:
+                    description: |-
+                      RepoServerStrictTLS requires a verified TLS connection to the repo-server
+                      (flag: --argocd-repo-server-strict-tls).
+                      Migration: if set, takes precedence over notifications --argocd-repo-server-strict-tls. Does not round-trip through ConfigMaps.
+                    type: boolean
+                  secretName:
+                    description: |-
+                      SecretName is the notifications Secret name (flag: --secret-name).
+                      Migration: if set, takes precedence over notifications --secret-name. Does not round-trip through ConfigMaps.
+                    type: string
                   selfServiceEnabled:
                     description: |-
                       SelfServiceEnabled enables notifications self-service
@@ -1489,6 +1587,11 @@ spec:
                     description: |-
                       DB is the Redis database number (cmd-params: redis.db).
                       Migration: if set, takes precedence over argocd-cmd-params-cm redis.db.
+                    type: string
+                  keyPrefix:
+                    description: |-
+                      KeyPrefix is prepended to Redis keys (cmd-params: redis.key.prefix).
+                      Migration: if set, takes precedence over argocd-cmd-params-cm redis.key.prefix.
                     type: string
                   sentinel:
                     description: |-
@@ -1620,7 +1723,7 @@ spec:
                       lsRemoteParallelismLimit:
                         description: |-
                           LSRemoteParallelismLimit caps concurrent git ls-remote calls
-                          (cmd-params: reposerver.git.lsremote.parallelism.limit).
+                          (cmd-params: reposerver.git.lsremote.parallelism.limit; also env ARGOCD_GIT_LS_REMOTE_PARALLELISM_LIMIT).
                           Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.git.lsremote.parallelism.limit.
                         format: int32
                         minimum: 1
@@ -1628,7 +1731,7 @@ spec:
                       requestTimeout:
                         description: |-
                           RequestTimeout is the timeout for git network operations
-                          (cmd-params: reposerver.git.request.timeout).
+                          (cmd-params: reposerver.git.request.timeout; also env ARGOCD_GIT_REQUEST_TIMEOUT).
                           Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.git.request.timeout.
                         type: string
                       submoduleEnabled:
@@ -1638,6 +1741,16 @@ spec:
                           Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.enable.git.submodule.
                         type: boolean
                     type: object
+                  grpcMaxSize:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: |-
+                      GRPCMaxSize caps gRPC response message size for the repo-server
+                      (cmd-params: reposerver.grpc.max.size; historically an integer megabyte count).
+                      Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.grpc.max.size.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
                   grpcTXTServiceConfigEnabled:
                     description: |-
                       GRPCTXTServiceConfigEnabled enables gRPC TXT service config
@@ -1646,14 +1759,43 @@ spec:
                     type: boolean
                   helm:
                     description: |-
-                      Helm holds Helm enablement and values-file scheme allowlisting.
-                      Migration: if non-nil, takes precedence over argocd-cm helm.* as a group (children apply from the CR; no merge with legacy siblings under that family).
+                      Helm holds Helm enablement, values-file schemes, and repo-server Helm limits.
+                      Migration: organizational subgroup; no legacy key — see child fields.
                     properties:
                       enabled:
                         description: |-
                           Enabled enables Helm as a manifest source tool (argocd-cm: helm.enable).
                           Migration: if set, takes precedence over argocd-cm helm.enable.
                         type: boolean
+                      manifest:
+                        description: |-
+                          Manifest holds Helm chart extracted-size limits (cmd-params: reposerver.helm.manifest.max.*).
+                          Migration: if non-nil, takes precedence over argocd-cmd-params-cm reposerver.helm.manifest.max.* as a group.
+                        properties:
+                          maxExtractedSize:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              MaxExtractedSize caps extracted Helm chart size
+                              (cmd-params: reposerver.helm.manifest.max.extracted.size).
+                              Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.helm.manifest.max.extracted.size.
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          maxExtractedSizeEnabled:
+                            description: |-
+                              MaxExtractedSizeEnabled controls the extracted size limit
+                              (cmd-params: reposerver.disable.helm.manifest.max.extracted.size —
+                              inverted: disable...=true means enabled=false). Limit is on by default.
+                              Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.disable.helm.manifest.max.extracted.size (inverted).
+                            type: boolean
+                        type: object
+                      userAgent:
+                        description: |-
+                          UserAgent is the User-Agent header for Helm registry/HTTP requests
+                          (cmd-params: reposerver.helm.user.agent).
+                          Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.helm.user.agent.
+                        type: string
                       valuesFileSchemes:
                         description: |-
                           ValuesFileSchemes are URI schemes allowed for remote Helm values files
@@ -1733,12 +1875,12 @@ spec:
                     properties:
                       address:
                         description: |-
-                          Address is the primary listen address (cmd-params: *.listen.address).
+                          Address is the primary listen host (cmd-params: *.listen.address), e.g. "0.0.0.0".
                           Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.listen.address key.
                         type: string
                       metricsAddress:
                         description: |-
-                          MetricsAddress is the metrics listen address (cmd-params: *.metrics.listen.address).
+                          MetricsAddress is the metrics listen host (cmd-params: *.metrics.listen.address).
                           Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.metrics.listen.address key.
                         type: string
                     type: object
@@ -1847,6 +1989,12 @@ spec:
                       (cmd-params: reposerver.profile.enabled).
                       Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.profile.enabled.
                     type: boolean
+                  revisionCacheLockTimeout:
+                    description: |-
+                      RevisionCacheLockTimeout is how long to wait for the revision-cache lock
+                      (cmd-params: reposerver.revision.cache.lock.timeout).
+                      Migration: if set, takes precedence over argocd-cmd-params-cm reposerver.revision.cache.lock.timeout.
+                    type: string
                   streamedManifest:
                     description: |-
                       StreamedManifest caps streamed manifest tar and extracted sizes
@@ -1951,6 +2099,15 @@ spec:
                     items:
                       type: string
                     type: array
+                  applicationTreeShardSize:
+                    description: |-
+                      ApplicationTreeShardSize is the max number of resources stored in one
+                      application-tree cache shard (env: ARGOCD_APPLICATION_TREE_SHARD_SIZE).
+                      Migration: if set, takes precedence over env ARGOCD_APPLICATION_TREE_SHARD_SIZE. Does not round-trip through ConfigMaps.
+                    format: int32
+                    maximum: 1000
+                    minimum: 0
+                    type: integer
                   authEnabled:
                     description: |-
                       AuthEnabled controls API authentication (cmd-params: server.disable.auth —
@@ -2006,6 +2163,12 @@ spec:
                     enum:
                     - disabled
                     - gzip
+                    type: string
+                  contentSecurityPolicy:
+                    description: |-
+                      ContentSecurityPolicy sets the Content-Security-Policy HTTP header
+                      (cmd-params: server.content.security.policy).
+                      Migration: if set, takes precedence over argocd-cmd-params-cm server.content.security.policy.
                     type: string
                   deepLinks:
                     description: |-
@@ -2402,6 +2565,14 @@ spec:
                                 in ['http', 'https'])
                         type: object
                     type: object
+                  httpCookieMaxNumber:
+                    description: |-
+                      HTTPCookieMaxNumber caps the number of cookies the API server will accept
+                      (cmd-params: server.http.cookie.maxnumber).
+                      Migration: if set, takes precedence over argocd-cmd-params-cm server.http.cookie.maxnumber.
+                    format: int32
+                    minimum: 0
+                    type: integer
                   k8sClient:
                     description: |-
                       K8sClient holds Kubernetes client tuning for the API server
@@ -2497,21 +2668,37 @@ spec:
                     type: object
                   listen:
                     description: |-
-                      Listen holds API server and metrics listen addresses
-                      (cmd-params: server.listen.address, server.metrics.listen.address).
-                      Migration: if non-nil, takes precedence over argocd-cmd-params-cm server.listen.address /
-                      server.metrics.listen.address as a group (children apply from the CR).
+                      Listen holds API server listen host/port and metrics listen host/port
+                      (cmd-params: server.listen.address, server.metrics.listen.address;
+                      flags: --port, --metrics-port).
+                      Migration: organizational subgroup; no legacy key — see child fields.
                     properties:
                       address:
                         description: |-
-                          Address is the primary listen address (cmd-params: *.listen.address).
-                          Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.listen.address key.
+                          Address is the API server listen host (cmd-params: server.listen.address), e.g. "0.0.0.0".
+                          Migration: if set, takes precedence over argocd-cmd-params-cm server.listen.address.
                         type: string
                       metricsAddress:
                         description: |-
-                          MetricsAddress is the metrics listen address (cmd-params: *.metrics.listen.address).
-                          Migration: if set, takes precedence over the component's argocd-cmd-params-cm *.metrics.listen.address key.
+                          MetricsAddress is the metrics listen host (cmd-params: server.metrics.listen.address).
+                          Migration: if set, takes precedence over argocd-cmd-params-cm server.metrics.listen.address.
                         type: string
+                      metricsPort:
+                        description: |-
+                          MetricsPort is the metrics listen port (flag: --metrics-port).
+                          Migration: if set, takes precedence over server --metrics-port. Does not round-trip through ConfigMaps.
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                      port:
+                        description: |-
+                          Port is the API server listen port (flag: --port).
+                          Migration: if set, takes precedence over server --port. Does not round-trip through ConfigMaps.
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
                     type: object
                   log:
                     description: |-

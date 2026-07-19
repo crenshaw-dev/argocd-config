@@ -102,6 +102,7 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `commit.author.name` | ✅ | `spec.commitServer.commit.author.name` | |
 | `commit.author.email` | ✅ | `spec.commitServer.commit.author.email` | |
 | `timeout.reconciliation` | ✅ | `spec.controller.reconciliation.timeout` | Also cmd-params |
+| `timeout.hard.reconciliation` | ✅ | `spec.controller.reconciliation.hardTimeout` | |
 | `timeout.reconciliation.jitter` | ✅ | `spec.controller.reconciliation.jitter` | |
 | `installationID` | ✅ | `spec.installationID` | |
 | `server.rbac.disableApplicationFineGrainedRBACInheritance` | ✅ | `spec.server.rbac.applicationFineGrainedInheritanceEnabled` | Inverted |
@@ -121,6 +122,7 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `redis.sentinel.hosts` | ✅ | `spec.redis.sentinel.hosts` | |
 | `redis.sentinel.master` | ✅ | `spec.redis.sentinel.master` | |
 | `redis.db` | ✅ | `spec.redis.db` | |
+| `redis.key.prefix` | ✅ | `spec.redis.keyPrefix` | |
 | `otlp.address` | ✅ | `spec.otlp.address` | |
 | `otlp.insecure` | ✅ | `spec.otlp.tlsEnabled` | Inverted |
 | `otlp.headers` | ✅ | `spec.otlp.headers` | |
@@ -140,6 +142,8 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `server.sync.replace.allowed` | ✅ | `spec.server.syncReplaceAllowed` | |
 | `server.x.frame.options` | ✅ | `spec.server.xFrameOptions` | |
 | `server.api.content.types` | ✅ | `spec.server.apiContentTypes` | |
+| `server.content.security.policy` | ✅ | `spec.server.contentSecurityPolicy` | |
+| `server.http.cookie.maxnumber` | ✅ | `spec.server.httpCookieMaxNumber` | |
 | `server.profile.enabled` | ✅ | `spec.server.profileEnabled` | |
 | `server.grpc.enable.txt.service.config` | ✅ | `spec.server.grpcTXTServiceConfigEnabled` | |
 | `server.dex.server` | ✅ | `spec.server.dexServer.address` | |
@@ -182,6 +186,11 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `reposerver.oci.manifest.max.extracted.size` | ✅ | `spec.repoServer.oci.manifest.maxExtractedSize` | |
 | `reposerver.disable.oci.manifest.max.extracted.size` | ✅ | `spec.repoServer.oci.manifest.maxExtractedSizeEnabled` | Inverted |
 | `reposerver.oci.layer.media.types` | ✅ | `spec.repoServer.oci.layerMediaTypes` | |
+| `reposerver.helm.manifest.max.extracted.size` | ✅ | `spec.repoServer.helm.manifest.maxExtractedSize` | |
+| `reposerver.disable.helm.manifest.max.extracted.size` | ✅ | `spec.repoServer.helm.manifest.maxExtractedSizeEnabled` | Inverted |
+| `reposerver.helm.user.agent` | ✅ | `spec.repoServer.helm.userAgent` | |
+| `reposerver.grpc.max.size` | ✅ | `spec.repoServer.grpcMaxSize` | Integer MB in CM |
+| `reposerver.revision.cache.lock.timeout` | ✅ | `spec.repoServer.revisionCacheLockTimeout` | |
 | `reposerver.plugin.tar.exclusions` | ✅ | `spec.repoServer.plugin.tarExclusionGlobs` | `;` separator |
 | `commitserver.log.format` | ✅ | `spec.commitServer.log.format` | |
 | `commitserver.log.level` | ✅ | `spec.commitServer.log.level` | |
@@ -208,9 +217,11 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `controller.metrics.application.conditions` | ✅ | `spec.controller.metrics.application.conditions` | |
 | `controller.metrics.cluster.labels` | ✅ | `spec.controller.metrics.cluster.labelKeys` | |
 | `controller.self.heal.timeout.seconds` | ✅ | `spec.controller.selfHeal.timeout` | |
+| `controller.self.heal.backoff.cooldown.seconds` | ✅ | `spec.controller.selfHeal.cooldown` | |
 | `controller.self.heal.backoff.timeout.seconds` | ✅ | `spec.controller.selfHeal.backoff.duration` | |
 | `controller.self.heal.backoff.factor` | ✅ | `spec.controller.selfHeal.backoff.factor` | |
 | `controller.self.heal.backoff.cap.seconds` | ✅ | `spec.controller.selfHeal.backoff.maxDuration` | |
+| `controller.ignore.normalizer.jq.timeout` | ✅ | `spec.controller.diff.ignoreNormalizerJQTimeout` | |
 | `controller.sync.timeout.seconds` | ✅ | `spec.controller.sync.timeout` | |
 | `controller.sync.wave.delay.seconds` | ✅ | `spec.controller.sync.wave.delay` | |
 | `controller.profile.enabled` | ✅ | `spec.controller.profileEnabled` | |
@@ -276,10 +287,25 @@ Categories Argo CD may expose but **this prototype does not map** (honest partia
 | --- | --- | --- |
 | **Secrets** | `argocd-secret` (`server.secretkey`, webhook HMAC, TLS keys, repo creds) | By design; use `SecretKeySelector` only where CR owns shape |
 | **Trust-store ConfigMaps** | SSH known hosts, TLS cert bundles, GPG keys | Deferred per [PHASE_P_EVAL.md](../PHASE_P_EVAL.md) |
-| **Notifications content** | `argocd-notifications-cm` templates/triggers | Only cmd-params for notifications *controller* wired |
+| **Notifications content** | `argocd-notifications-cm` templates/triggers | Only cmd-params + process flags for notifications *controller* wired |
 | **Repository / cluster Secrets** | Repo URLs, cluster credentials | Out of scope |
 | **Account passwords** | `accounts.<name>.password` | Lives in secrets, not CRD |
-| **Rare / deprecated CM keys** | Keys removed or added in newer Argo CD releases without a mapping PR | Inventory is grep-based, not upstream-complete |
+| **Env `AZURE_ARM_TOKEN_RESOURCE`** | Azure ARM audience | Explicitly excluded from CRD |
+| **Rare / deprecated CM keys** | Keys removed or added in newer Argo CD releases without a mapping PR | Prefer `docs/operator-manual/config-registry.md` in argo-cd |
 | **Full CEL offline validation** | All CRD `XValidation` rules | CLI `validate` runs OpenAPI + CEL + list-type via `apiextensions-apiserver` against the embedded CRD |
+
+### Env / flag-only CR fields (no ConfigMap round-trip)
+
+| Source | CR field |
+| --- | --- |
+| `ARGOCD_EXEC_TIMEOUT` | `spec.execTimeout` |
+| `ARGOCD_APPLICATION_TREE_SHARD_SIZE` | `spec.server.applicationTreeShardSize` |
+| `ARGOCD_ENABLE_PROFILER_FILE_PATH` | `spec.controller.profilerFilePath` |
+| `ARGOCD_GIT_REQUEST_TIMEOUT` | covered by `spec.repoServer.git.requestTimeout` (same env as cmd-params) |
+| `ARGOCD_GIT_LS_REMOTE_PARALLELISM_LIMIT` | covered by `spec.repoServer.git.lsRemoteParallelismLimit` |
+| ApplicationSet `--metrics-addr` / `--metrics-applicationset-labels` | `spec.applicationSet.metrics.*` |
+| ApplicationSet `--probe-addr` / `--webhook-addr` | `spec.applicationSet.probeAddr` / `webhookAddr` |
+| Notifications process flags | `spec.notifications.appLabelSelector`, `repoServerAddress`, `repoServerStrictTLS`, `configMapName`, `secretName`, `metricsPort` |
+| Server `--port` / `--metrics-port` | `spec.server.listen.port` / `spec.server.listen.metricsPort` |
 
 When adding mappings, update this file and `pkg/mapping` together.

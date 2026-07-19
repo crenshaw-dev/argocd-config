@@ -37,11 +37,16 @@ spec:
     log:
       format: json
       level: info
+    metrics:
+      address: example.local:8080
+      applicationSetLabels:
+      - example-applicationSetLabels
     namespaceGlobs:
     - team-*
     newGitFileGlobbingEnabled: true
     policy: sync
     policyOverrideEnabled: true
+    probeAddr: example-probeAddr
     profileEnabled: true
     progressiveSyncs:
       enabled: true
@@ -55,6 +60,7 @@ spec:
     scmRootCAPath: /example/scmRootCAPath
     statusMaxResourcesCount: 1
     tokenRefStrictModeEnabled: true
+    webhookAddr: example-webhookAddr
     webhookParallelismLimit: 10
   cluster:
     inClusterEnabled: true
@@ -85,6 +91,7 @@ spec:
         ignoreAggregatedRoles: true
         ignoreDifferencesOnResourceUpdates: true
         ignoreResourceStatusField: crd
+      ignoreNormalizerJQTimeout: 1h0m0s
       ignoreResourceUpdatesEnabled: true
       serverSide:
         enabled: true
@@ -134,7 +141,9 @@ spec:
       operation: 10
       status: 10
     profileEnabled: true
+    profilerFilePath: /example/profilerFilePath
     reconciliation:
+      hardTimeout: 1h0m0s
       jitter: 1h0m0s
       timeout: 1h0m0s
     repoErrorGracePeriod: 1h0m0s
@@ -198,6 +207,7 @@ spec:
         duration: 1h0m0s
         factor: 2
         maxDuration: 1h0m0s
+      cooldown: 1h0m0s
       timeout: 1h0m0s
     sharding:
       algorithm: legacy
@@ -218,18 +228,25 @@ spec:
       format: json
       level: info
     tlsEnabled: true
+  execTimeout: 1h0m0s
   installationID: example-installation-id
   logging:
     formatTimestamp: example-formatTimestamp
   notifications:
+    appLabelSelector: example-appLabelSelector
+    configMapName: example-configMapName
     log:
       format: json
       level: info
+    metricsPort: 10
     processorsCount: 10
     repoServer:
       caCertPath: /example/caCertPath
       clientCertKeyPath: /example/clientCertKeyPath
       clientCertPath: /example/clientCertPath
+    repoServerAddress: example.local:8080
+    repoServerStrictTLS: true
+    secretName: example-secretName
     selfServiceEnabled: true
     tlsEnabled: true
   otlp:
@@ -243,6 +260,7 @@ spec:
   redis:
     compression: gzip
     db: "0"
+    keyPrefix: example-keyPrefix
     sentinel:
       hosts:
       - redis-sentinel:26379
@@ -268,9 +286,14 @@ spec:
       lsRemoteParallelismLimit: 10
       requestTimeout: 1h0m0s
       submoduleEnabled: true
+    grpcMaxSize: 10Mi
     grpcTXTServiceConfigEnabled: true
     helm:
       enabled: true
+      manifest:
+        maxExtractedSize: 10M
+        maxExtractedSizeEnabled: true
+      userAgent: example-userAgent
       valuesFileSchemes:
       - example-valuesFileSchemes
     includeHiddenDirectories: true
@@ -302,6 +325,7 @@ spec:
       - example-tarExclusionGlobs
       useManifestGeneratePaths: true
     profileEnabled: true
+    revisionCacheLockTimeout: 1h0m0s
     streamedManifest:
       maxExtractedSize: 10M
       maxTarSize: 10M
@@ -319,6 +343,7 @@ spec:
       name: admin
     apiContentTypes:
     - example-apiContentTypes
+    applicationTreeShardSize: 10
     authEnabled: true
     baseHref: /argo-cd
     cache:
@@ -328,6 +353,7 @@ spec:
       globCacheSize: 1
       oidcExpiration: 1h0m0s
     compression: gzip
+    contentSecurityPolicy: example-contentSecurityPolicy
     deepLinks:
       application:
       - conditionExpr: example-conditionExpr
@@ -392,6 +418,7 @@ spec:
       chat:
         text: example-text
         url: https://example.com
+    httpCookieMaxNumber: 10
     k8sClient:
       burst: 10
       maxIdleConnections: 1
@@ -410,6 +437,8 @@ spec:
     listen:
       address: example.local:8080
       metricsAddress: example.local:8080
+      metricsPort: 10
+      port: 10
     log:
       format: json
       level: info

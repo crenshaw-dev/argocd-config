@@ -23,7 +23,7 @@ func mapServerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSp
 	if v, ok := kt.get("server.staticassets"); ok {
 		s.StaticAssetsPath = v
 	}
-	if listen := mapListen(kt, "server"); listen != nil {
+	if listen := mapServerListen(kt); listen != nil {
 		s.Listen = listen
 	}
 	setBoolPtrInverted(kt, "server.disable.auth", &s.AuthEnabled)
@@ -41,6 +41,15 @@ func mapServerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSp
 	}
 	if v, ok := kt.get("server.api.content.types"); ok && v != "" {
 		s.APIContentTypes = splitCSV(v)
+	}
+	if v, ok := kt.get("server.content.security.policy"); ok {
+		s.ContentSecurityPolicy = v
+	}
+	if v, ok := kt.get("server.http.cookie.maxnumber"); ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			i := int32(n)
+			s.HTTPCookieMaxNumber = &i
+		}
 	}
 	setBoolPtr(kt, "server.profile.enabled", &s.ProfileEnabled)
 	setBoolPtr(kt, "server.grpc.enable.txt.service.config", &s.GRPCTXTServiceConfigEnabled)
@@ -129,7 +138,7 @@ func unmapServerCmdParams(s *argov1alpha1.ServerConfig, data map[string]string) 
 	setStr(data, "server.basehref", s.BaseHref)
 	setStr(data, "server.rootpath", s.RootPath)
 	setStr(data, "server.staticassets", s.StaticAssetsPath)
-	unmapListen(s.Listen, data, "server")
+	unmapServerListen(s.Listen, data)
 	setBoolKeyInverted(data, "server.disable.auth", s.AuthEnabled)
 	switch s.Compression {
 	case "gzip":
@@ -142,6 +151,10 @@ func unmapServerCmdParams(s *argov1alpha1.ServerConfig, data map[string]string) 
 	setStr(data, "server.x.frame.options", s.XFrameOptions)
 	if len(s.APIContentTypes) > 0 {
 		data["server.api.content.types"] = strings.Join(s.APIContentTypes, ",")
+	}
+	setStr(data, "server.content.security.policy", s.ContentSecurityPolicy)
+	if s.HTTPCookieMaxNumber != nil {
+		data["server.http.cookie.maxnumber"] = strconv.Itoa(int(*s.HTTPCookieMaxNumber))
 	}
 	setBoolKey(data, "server.profile.enabled", s.ProfileEnabled)
 	setBoolKey(data, "server.grpc.enable.txt.service.config", s.GRPCTXTServiceConfigEnabled)
@@ -291,6 +304,39 @@ func mapRepoServerCmdParams(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurati
 	if ociChanged {
 		r.OCI = oci
 	}
+
+	if v, ok := kt.get("reposerver.grpc.max.size"); ok {
+		r.GRPCMaxSize, _ = parseGRPCMaxSizeMB(diag, "reposerver.grpc.max.size", v)
+	}
+	if v, ok := kt.get("reposerver.revision.cache.lock.timeout"); ok {
+		r.RevisionCacheLockTimeout, _ = parseDurationPtr(diag, "reposerver.revision.cache.lock.timeout", v)
+	}
+
+	helmChanged := false
+	helm := &argov1alpha1.HelmConfig{}
+	if r.Helm != nil {
+		*helm = *r.Helm
+	}
+	if v, ok := kt.get("reposerver.helm.user.agent"); ok {
+		helm.UserAgent = v
+		helmChanged = true
+	}
+	hmChanged := false
+	hm := &argov1alpha1.HelmManifestConfig{}
+	if v, ok := kt.get("reposerver.helm.manifest.max.extracted.size"); ok {
+		hm.MaxExtractedSize, _ = parseQuantityPtr(diag, "reposerver.helm.manifest.max.extracted.size", v)
+		hmChanged = true
+	}
+	if setBoolPtrInverted(kt, "reposerver.disable.helm.manifest.max.extracted.size", &hm.MaxExtractedSizeEnabled) {
+		hmChanged = true
+	}
+	if hmChanged {
+		helm.Manifest = hm
+		helmChanged = true
+	}
+	if helmChanged {
+		r.Helm = helm
+	}
 }
 
 func unmapRepoServerCmdParams(r *argov1alpha1.RepoServerConfig, data map[string]string) {
@@ -341,6 +387,17 @@ func unmapRepoServerCmdParams(r *argov1alpha1.RepoServerConfig, data map[string]
 		}
 		if len(o.LayerMediaTypes) > 0 {
 			data["reposerver.oci.layer.media.types"] = strings.Join(o.LayerMediaTypes, ",")
+		}
+	}
+	setGRPCMaxSizeMBKey(data, "reposerver.grpc.max.size", r.GRPCMaxSize)
+	if s := durationString(r.RevisionCacheLockTimeout); s != "" {
+		data["reposerver.revision.cache.lock.timeout"] = s
+	}
+	if h := r.Helm; h != nil {
+		setStr(data, "reposerver.helm.user.agent", h.UserAgent)
+		if m := h.Manifest; m != nil {
+			setQuantityKey(data, "reposerver.helm.manifest.max.extracted.size", m.MaxExtractedSize)
+			setBoolKeyInverted(data, "reposerver.disable.helm.manifest.max.extracted.size", m.MaxExtractedSizeEnabled)
 		}
 	}
 }
@@ -690,6 +747,31 @@ func unmapListen(listen *argov1alpha1.ListenConfig, data map[string]string, pref
 	setStr(data, prefix+".metrics.listen.address", listen.MetricsAddress)
 }
 
+func mapServerListen(kt *keyTracker) *argov1alpha1.ServerListenConfig {
+	listen := &argov1alpha1.ServerListenConfig{}
+	changed := false
+	if v, ok := kt.get("server.listen.address"); ok {
+		listen.Address = v
+		changed = true
+	}
+	if v, ok := kt.get("server.metrics.listen.address"); ok {
+		listen.MetricsAddress = v
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	return listen
+}
+
+func unmapServerListen(listen *argov1alpha1.ServerListenConfig, data map[string]string) {
+	if listen == nil {
+		return
+	}
+	setStr(data, "server.listen.address", listen.Address)
+	setStr(data, "server.metrics.listen.address", listen.MetricsAddress)
+}
+
 func mapTLSVersion(kt *keyTracker, diag *Diagnostics, prefix string) *argov1alpha1.TLSVersionConfig {
 	tls := &argov1alpha1.TLSVersionConfig{}
 	changed := false
@@ -925,5 +1007,32 @@ func parseQuantityPtr(diag *Diagnostics, key, s string) (*resource.Quantity, err
 func setQuantityKey(data map[string]string, key string, q *resource.Quantity) {
 	if q != nil {
 		data[key] = q.String()
+	}
+}
+
+// parseGRPCMaxSizeMB parses reposerver.grpc.max.size, which is historically an
+// integer megabyte count (ARGOCD_GRPC_MAX_SIZE_MB). Bare integers are treated as
+// binary megabytes; other strings go through resource.ParseQuantity.
+func parseGRPCMaxSizeMB(diag *Diagnostics, key, s string) (*resource.Quantity, error) {
+	if s == "" {
+		return nil, nil
+	}
+	if n, err := strconv.Atoi(s); err == nil {
+		q := resource.MustParse(fmt.Sprintf("%dMi", n))
+		return &q, nil
+	}
+	return parseQuantityPtr(diag, key, s)
+}
+
+func setGRPCMaxSizeMBKey(data map[string]string, key string, q *resource.Quantity) {
+	if q == nil {
+		return
+	}
+	mb := int(q.Value() / (1024 * 1024))
+	if mb < 1 && q.Value() > 0 {
+		mb = 1
+	}
+	if mb > 0 {
+		data[key] = strconv.Itoa(mb)
 	}
 }

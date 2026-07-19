@@ -9,6 +9,7 @@ spec:
   redis:
     compression: gzip
     db: "0"
+    keyPrefix: argocd
     sentinel:
       hosts:
       - argocd-redis-ha-announce-0:26379
