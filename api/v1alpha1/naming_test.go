@@ -8,8 +8,12 @@ import (
 )
 
 // commonInitialisms follows Go CodeReviewComments (and Kubernetes API conventions
-// where they agree). When adding a field whose name contains a new acronym, add it
-// here so the casing check catches regressions.
+// where they agree). JSON field names use these with a CRD-user-facing rule:
+// leading initialisms are fully lowercased (grpcMaxSize, not gRPCMaxSize);
+// non-leading initialisms stay all-caps (issuerURL, grpcTXTServiceConfigEnabled).
+//
+// When adding a field whose name contains a new acronym, add it here so the
+// casing check catches regressions.
 //
 // See: https://go.dev/wiki/CodeReviewComments#initialisms
 var commonInitialisms = map[string]bool{
@@ -44,14 +48,14 @@ var commonInitialisms = map[string]bool{
 func TestExportedFieldInitialisms(t *testing.T) {
 	seen := map[reflect.Type]bool{}
 	var bad []string
-	checkType(t, reflect.TypeOf(ArgoCDConfiguration{}), seen, &bad)
+	checkType(t, reflect.TypeOf(ArgoCDConfiguration{}), "", seen, &bad)
 	if len(bad) > 0 {
-		t.Fatalf("initialism casing violations (Go/K8s style — see CONTRIBUTING.md):\n  %s",
+		t.Fatalf("JSON field initialism casing violations (CRD/YAML names — see CONTRIBUTING.md):\n  %s",
 			strings.Join(bad, "\n  "))
 	}
 }
 
-func checkType(t *testing.T, typ reflect.Type, seen map[reflect.Type]bool, bad *[]string) {
+func checkType(t *testing.T, typ reflect.Type, jsonPath string, seen map[reflect.Type]bool, bad *[]string) {
 	t.Helper()
 	for typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
@@ -69,37 +73,69 @@ func checkType(t *testing.T, typ reflect.Type, seen map[reflect.Type]bool, bad *
 		if sf.PkgPath != "" {
 			continue // unexported
 		}
-		if sugg := suggestInitialismFix(sf.Name); sugg != "" && sugg != sf.Name {
-			*bad = append(*bad, typ.String()+"."+sf.Name+" → want "+sugg)
+		jsonName, skip := jsonFieldName(sf)
+		if skip {
+			continue
+		}
+		path := jsonName
+		if jsonPath != "" {
+			path = jsonPath + "." + jsonName
+		}
+		if sugg := suggestJSONInitialismFix(jsonName); sugg != "" && sugg != jsonName {
+			*bad = append(*bad, path+" → want "+sugg)
 		}
 		ft := sf.Type
 		for ft.Kind() == reflect.Pointer || ft.Kind() == reflect.Slice || ft.Kind() == reflect.Array || ft.Kind() == reflect.Map {
 			if ft.Kind() == reflect.Map {
-				checkType(t, ft.Key(), seen, bad)
+				checkType(t, ft.Key(), path, seen, bad)
 			}
 			ft = ft.Elem()
 		}
 		if ft.PkgPath() == typ.PkgPath() || strings.HasPrefix(ft.PkgPath(), "github.com/crenshaw-dev/argocd-config/api/") {
-			checkType(t, ft, seen, bad)
+			checkType(t, ft, path, seen, bad)
 		}
 	}
 }
 
-// suggestInitialismFix returns the correctly-cased name when an initialism
-// appears with wrong casing, or "" if the name is fine / has no known initialisms.
-func suggestInitialismFix(name string) string {
-	// Split into CamelCase words (runs of capitals count as one word except the last capital
-	// starts the next word when followed by lowercase — standard Go splitting).
-	words := splitCamel(name)
+func jsonFieldName(sf reflect.StructField) (name string, skip bool) {
+	tag := sf.Tag.Get("json")
+	if tag == "-" {
+		return "", true
+	}
+	if tag == "" {
+		// Inline / no tag: not a serialized CRD field name.
+		if sf.Anonymous {
+			return "", true
+		}
+		return strings.ToLower(sf.Name[:1]) + sf.Name[1:], false
+	}
+	name = strings.Split(tag, ",")[0]
+	if name == "" || name == "-" {
+		return "", true
+	}
+	return name, false
+}
+
+// suggestJSONInitialismFix returns the correctly-cased JSON name when an
+// initialism appears with wrong casing, or "" if the name is fine.
+func suggestJSONInitialismFix(name string) string {
+	words := splitJSONCamel(name)
 	changed := false
 	for i, w := range words {
 		upper := strings.ToUpper(w)
 		if !commonInitialisms[upper] {
 			continue
 		}
-		// Initialism must be all-caps (URL, not Url / url when mid-identifier).
-		if w != upper {
-			words[i] = upper
+		var want string
+		if i == 0 {
+			// Leading initialism: fully lowercase in JSON (grpcMaxSize, tlsEnabled).
+			want = strings.ToLower(upper)
+		} else {
+			// Non-leading: all-caps (issuerURL, grpcTXTServiceConfigEnabled).
+			want = upper
+		}
+		if w != want {
+			words[i] = want
 			changed = true
 		}
 	}
@@ -109,7 +145,9 @@ func suggestInitialismFix(name string) string {
 	return strings.Join(words, "")
 }
 
-func splitCamel(name string) []string {
+// splitJSONCamel splits a JSON camelCase name into words. Leading runes may be
+// lowercase (grpcMaxSize → ["grpc","Max","Size"]).
+func splitJSONCamel(name string) []string {
 	if name == "" {
 		return nil
 	}
@@ -118,7 +156,6 @@ func splitCamel(name string) []string {
 	start := 0
 	for i := 1; i < len(runes); i++ {
 		prev, cur := runes[i-1], runes[i]
-		// Boundary: lower→Upper, or Upper→Upper+lower (HTTPServer → HTTP, Server)
 		if unicode.IsUpper(cur) {
 			if !unicode.IsUpper(prev) {
 				words = append(words, string(runes[start:i]))

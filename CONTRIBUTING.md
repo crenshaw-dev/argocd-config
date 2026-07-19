@@ -15,10 +15,19 @@ make generate manifests build test
 - **`make generate`** — regenerate DeepCopy code under `api/`
 - **`make manifests`** — regenerate CRD YAML under `config/crd/bases/`
 - **`make api-docs`** — regenerate [docs/api-reference.md](docs/api-reference.md) from Go types (`crd-ref-docs`)
+- **`make example-docs`** — regenerate [docs/examples/](docs/examples/) from `testdata/cases/` (browseable MkDocs pages)
+- **`make docs`** — `api-docs` + `example-docs`
 - **`make build`** — build `bin/argocd-config`
 - **`make test`** — run unit tests with race detector
 
-Run `make fmt` before submitting changes. After changing field docs or API types, run `make api-docs` and commit the updated reference.
+Run `make fmt` before submitting changes. After changing field docs or API types, run `make api-docs` and commit the updated reference. After adding or changing a golden case, run `make example-docs` (or `make docs`) and commit the updated example pages. Preview the site locally:
+
+```bash
+python3 -m venv .venv-docs
+source .venv-docs/bin/activate
+pip install -r requirements-docs.txt
+make docs-serve
+```
 
 ## Adding a golden test case
 
@@ -180,7 +189,7 @@ When you add a new nested struct, pick deliberately — don’t default to setti
 
 ### 2. Name the field
 
-1. Use clear Go / JSON names (`issuerURL`, not `issuer`). Follow **Go initialism rules** ([CodeReviewComments](https://go.dev/wiki/CodeReviewComments#initialisms)): acronyms stay all-caps in Go identifiers (`URL`, `HTTP`, `API`, `ID`, `TLS`, `QPS`, `OIDC`, `OTLP`, `RBAC`, `SCM`, `OCI`, `GRPC`, `TXT`, `TCP`, `DB`). JSON tags are the Go name with the first letter lowercased (`issuerURL`, `grpcMaxSize`). See `api/v1alpha1/naming_test.go` for the enforced list — add new initialisms there when needed.
+1. Name fields for **CRD/YAML users** first (`issuerURL`, not `issuer`). Initialisms follow the Kubernetes/Go acronym list (`URL`, `HTTP`, `API`, `ID`, `TLS`, `QPS`, `OIDC`, `OTLP`, `RBAC`, `SCM`, `OCI`, `GRPC`, `TXT`, `TCP`, `DB`): in JSON tags, a **leading** initialism is fully lowercased (`grpcMaxSize`, `tlsEnabled`); a **non-leading** initialism stays all-caps (`issuerURL`, `grpcTXTServiceConfigEnabled`). Go identifiers keep all-caps initialisms (`GRPCMaxSize`, `IssuerURL`). `api/v1alpha1/naming_test.go` enforces the JSON form — add new initialisms there when needed.
 2. Apply a **suffix** when the value’s language matters:
 
 | Suffix | Meaning | Do / don’t |

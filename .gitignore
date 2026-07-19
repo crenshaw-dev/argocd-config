@@ -1,6 +1,8 @@
 # Ignore build artifacts
 /bin/
 /dist/
+/site/
+.venv-docs/
 *.exe
 *.test
 coverage.out

@@ -1,0 +1,65 @@
+site_name: ArgoCDConfiguration
+site_description: Structured CRD and CLI for Argo CD ConfigMaps
+site_url: https://argocd-config.readthedocs.io/
+repo_url: https://github.com/crenshaw-dev/argocd-config
+repo_name: crenshaw-dev/argocd-config
+edit_uri: edit/main/docs/
+docs_dir: docs
+
+# Literate-nav control file — not a published page.
+exclude_docs: |
+  examples/SUMMARY.md
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - literate-nav:
+      nav_file: SUMMARY.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Examples: examples/
+  - API reference: api-reference.md
+  - Coverage matrix: coverage-matrix.md
+  - Design:
+      - Scope: scope.md
+      - "ADR: Singleton name": adr/001-singleton-name.md

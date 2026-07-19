@@ -8,6 +8,19 @@ Manage Argo CD settings as a single typed resource (`ArgoCDConfiguration`) inste
 
 For a manifest that exercises every CRD field (useful as a schema reference), see [EXAMPLE.yaml](EXAMPLE.yaml). Completeness + CEL checks live in `pkg/validate/example_test.go`; the CR→CM→CR→CM round-trip with golden ConfigMaps is `testdata/cases/roundtrip/example-full`. Field-level API reference (generated from Go godoc): [docs/api-reference.md](docs/api-reference.md) (`make api-docs`).
 
+## Documentation
+
+Browse the MkDocs site (API reference, coverage matrix, and every golden case as an example):
+
+```bash
+python3 -m venv .venv-docs
+source .venv-docs/bin/activate
+pip install -r requirements-docs.txt
+make docs-serve
+```
+
+Regenerate generated Markdown after API or case changes: `make docs`. The site is also configured for [Read the Docs](.readthedocs.yaml) (connect the GitHub repo in the RTD UI).
+
 ## Install the CLI
 
 Requires a recent Go toolchain (see `go` version in [go.mod](go.mod)):

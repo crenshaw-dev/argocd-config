@@ -2,29 +2,29 @@
 
 This inventory lists legacy ConfigMap / cmd-params keys that **are mapped** in `pkg/mapping` (plus patterns exercised in `testdata/sample-cms`). It is **not** a complete scrape of upstream [argoproj/argo-cd](https://github.com/argoproj/argo-cd) operator-manual keys — only what this prototype implements.
 
-See [PHASE_P_EVAL.md](../PHASE_P_EVAL.md) for prototype scope and deferred items.
+See [Scope](scope.md) for prototype scope and deferred items.
 
 **Legend:** Mapped = ✅ when `pkg/mapping` reads/writes the key (or prefix pattern).
 
 ## Covered by (golden cases)
 
-Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` unless noted). Roundtrip cases also assert readable `expected/configuration.yaml`.
+Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` unless noted). Roundtrip cases also assert readable `expected/configuration.yaml`. Browseable copies live under [Examples](examples/index.md).
 
 | Subsystem | Cases |
 | --- | --- |
-| OIDC / Dex / auth TLS | `oidc/full-config`, `oidc/clientsecret-dollar-ref`, `dex/full-config`, `dex/github-connector`, `auth/oidc-tls-skip-verify-and-additional-urls`; `to/oidc-secret-custom-name` (error diagnostic) |
-| Resource filters | `resource/full-filters`, `resource/compareoptions-off` |
-| Resource customizations | `resource-customizations/split-keys-full`, `resource-customizations/monolithic-full`, `resource-customizations/split-keys-actions`, `resource-customizations/monolithic-blob` |
-| Controller cmd-params | `cmd-params/controller-full` |
-| Server / repo-server cmd-params | `cmd-params/server-full`, `cmd-params/reposerver-full`, `cmd-params/server-cache-tls`, `cmd-params/k8s-client-and-quantity` |
-| AppSet / commit / dex / notifications | `cmd-params/applicationset-full`, `cmd-params/applicationset-flags`, `cmd-params/commit-dex-notifications`, `cmd-params/logging-and-commit` |
-| Redis / OTLP / repo client | `redis/full`, `otlp/headers-and-attrs`, `repo-server-client/dual-prefix-collapse` |
-| Application / users / misc | `application/product-config`, `users/full`, `misc/full`, `misc/ga-exec-statusbadge`, `to/full-server` |
-| Extensions / deep links / UI / help | `extensions/multi-service`, `extensions/backend-services`, `deep-links/application-project`, `ui/banner-and-css`, `help/download-bins` |
-| Helm / kustomize / accounts / webhook | `helm/enable-and-schemes`, `kustomize/versions-and-options`, `accounts/admin-and-robot`, `webhook/max-payload-mb` |
-| RBAC | `rbac/full`, `rbac/scopes-csv`, `rbac/policy-overlays` |
-| Regressions | `regressions/unknown-key-warn`, `regressions/bad-duration`, `regressions/bad-seconds-duration`, `regressions/empty-quantity` |
-| Broad sample | `roundtrip/sample-cms`, `global-projects/basic`, `to/minimal-server-url` |
+| OIDC / Dex / auth TLS | [oidc/full-config](examples/oidc/full-config.md), [oidc/clientsecret-dollar-ref](examples/oidc/clientsecret-dollar-ref.md), [dex/full-config](examples/dex/full-config.md), [dex/github-connector](examples/dex/github-connector.md), [auth/oidc-tls-skip-verify-and-additional-urls](examples/auth/oidc-tls-skip-verify-and-additional-urls.md); [to/oidc-secret-custom-name](examples/to/oidc-secret-custom-name.md) (error diagnostic) |
+| Resource filters | [resource/full-filters](examples/resource/full-filters.md), [resource/compareoptions-off](examples/resource/compareoptions-off.md) |
+| Resource customizations | [resource-customizations/split-keys-full](examples/resource-customizations/split-keys-full.md), [resource-customizations/monolithic-full](examples/resource-customizations/monolithic-full.md), [resource-customizations/split-keys-actions](examples/resource-customizations/split-keys-actions.md), [resource-customizations/monolithic-blob](examples/resource-customizations/monolithic-blob.md) |
+| Controller cmd-params | [cmd-params/controller-full](examples/cmd-params/controller-full.md) |
+| Server / repo-server cmd-params | [cmd-params/server-full](examples/cmd-params/server-full.md), [cmd-params/reposerver-full](examples/cmd-params/reposerver-full.md), [cmd-params/server-cache-tls](examples/cmd-params/server-cache-tls.md), [cmd-params/k8s-client-and-quantity](examples/cmd-params/k8s-client-and-quantity.md) |
+| AppSet / commit / dex / notifications | [cmd-params/applicationset-full](examples/cmd-params/applicationset-full.md), [cmd-params/applicationset-flags](examples/cmd-params/applicationset-flags.md), [cmd-params/commit-dex-notifications](examples/cmd-params/commit-dex-notifications.md), [cmd-params/logging-and-commit](examples/cmd-params/logging-and-commit.md) |
+| Redis / OTLP / repo client | [redis/full](examples/redis/full.md), [otlp/headers-and-attrs](examples/otlp/headers-and-attrs.md), [repo-server-client/dual-prefix-collapse](examples/repo-server-client/dual-prefix-collapse.md) |
+| Application / users / misc | [application/product-config](examples/application/product-config.md), [users/full](examples/users/full.md), [misc/full](examples/misc/full.md), [misc/ga-exec-statusbadge](examples/misc/ga-exec-statusbadge.md), [to/full-server](examples/to/full-server.md) |
+| Extensions / deep links / UI / help | [extensions/multi-service](examples/extensions/multi-service.md), [extensions/backend-services](examples/extensions/backend-services.md), [deep-links/application-project](examples/deep-links/application-project.md), [ui/banner-and-css](examples/ui/banner-and-css.md), [help/download-bins](examples/help/download-bins.md) |
+| Helm / kustomize / accounts / webhook | [helm/enable-and-schemes](examples/helm/enable-and-schemes.md), [kustomize/versions-and-options](examples/kustomize/versions-and-options.md), [accounts/admin-and-robot](examples/accounts/admin-and-robot.md), [webhook/max-payload-mb](examples/webhook/max-payload-mb.md) |
+| RBAC | [rbac/full](examples/rbac/full.md), [rbac/scopes-csv](examples/rbac/scopes-csv.md), [rbac/policy-overlays](examples/rbac/policy-overlays.md) |
+| Regressions | [regressions/unknown-key-warn](examples/regressions/unknown-key-warn.md), [regressions/bad-duration](examples/regressions/bad-duration.md), [regressions/bad-seconds-duration](examples/regressions/bad-seconds-duration.md), [regressions/empty-quantity](examples/regressions/empty-quantity.md) |
+| Broad sample | [roundtrip/sample-cms](examples/roundtrip/sample-cms.md), [global-projects/basic](examples/global-projects/basic.md), [to/minimal-server-url](examples/to/minimal-server-url.md) |
 
 ---
 
@@ -286,7 +286,7 @@ Categories Argo CD may expose but **this prototype does not map** (honest partia
 | Category | Examples | Notes |
 | --- | --- | --- |
 | **Secrets** | `argocd-secret` (`server.secretkey`, webhook HMAC, TLS keys, repo creds) | By design; use `SecretKeySelector` only where CR owns shape |
-| **Trust-store ConfigMaps** | SSH known hosts, TLS cert bundles, GPG keys | Deferred per [PHASE_P_EVAL.md](../PHASE_P_EVAL.md) |
+| **Trust-store ConfigMaps** | SSH known hosts, TLS cert bundles, GPG keys | Deferred per [Scope](scope.md) |
 | **Notifications content** | `argocd-notifications-cm` templates/triggers | Only cmd-params + process flags for notifications *controller* wired |
 | **Repository / cluster Secrets** | Repo URLs, cluster credentials | Out of scope |
 | **Account passwords** | `accounts.<name>.password` | Lives in secrets, not CRD |
