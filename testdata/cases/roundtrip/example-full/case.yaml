@@ -1,0 +1,6 @@
+description: "Full EXAMPLE.yaml CR→CM→CR→CM with CEL validation, strict decode, and golden ConfigMaps"
+direction: to-roundtrip
+name: argocd-config
+namespace: argocd
+validate: true
+strictDecode: true

@@ -919,6 +919,7 @@ func mapHelp(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *D
 	const prefix = "help.download."
 	for k, v := range kt.source {
 		if strings.HasPrefix(k, prefix) {
+			kt.use(k)
 			bins[strings.TrimPrefix(k, prefix)] = v
 			changed = true
 		}

@@ -1,0 +1,503 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  applicationNamespaceGlobs:
+  - team-*
+  applicationSet:
+    allowedSCMProviderURLs:
+    - https://example.com
+    dryRun: true
+    gitHubAPIMetricsEnabled: true
+    gitSubmoduleEnabled: true
+    globalPreserved:
+      annotationKeys:
+      - app.kubernetes.io/name
+      labelKeys:
+      - app.kubernetes.io/name
+    grpcTXTServiceConfigEnabled: true
+    k8sClient:
+      burst: 10
+      maxIdleConnections: 1
+      qps: "50"
+      retry:
+        backoff:
+          duration: 1h0m0s
+          factor: 2
+          maxDuration: 1h0m0s
+        max: 1
+      tcp:
+        idleTimeout: 1h0m0s
+        keepAlive: 1h0m0s
+        timeout: 1h0m0s
+      tlsHandshakeTimeout: 1h0m0s
+    leaderElectionEnabled: true
+    log:
+      format: json
+      level: info
+    namespaceGlobs:
+    - team-*
+    newGitFileGlobbingEnabled: true
+    policy: sync
+    policyOverrideEnabled: true
+    profileEnabled: true
+    progressiveSyncs:
+      enabled: true
+    reconciliationsParallelismLimit: 10
+    repoServer:
+      caCertPath: /example/caCertPath
+      clientCertKeyPath: /example/clientCertKeyPath
+      clientCertPath: /example/clientCertPath
+    requeueAfter: 1h0m0s
+    scmProvidersEnabled: true
+    scmRootCAPath: /example/scmRootCAPath
+    statusMaxResourcesCount: 1
+    tokenRefStrictModeEnabled: true
+    webhookParallelismLimit: 10
+  cluster:
+    inClusterEnabled: true
+  commitServer:
+    address: example.local:8080
+    commit:
+      author:
+        email: argo-cd@example.com
+        name: Argo CD
+    grpcTXTServiceConfigEnabled: true
+    listen:
+      address: example.local:8080
+      metricsAddress: example.local:8080
+    log:
+      format: json
+      level: info
+  controller:
+    allowedNodeLabelKeys:
+    - app.kubernetes.io/name
+    cache:
+      appStateExpiration: 1h0m0s
+      defaultExpiration: 1h0m0s
+    clusterCache:
+      batchEventsProcessing: true
+      eventsProcessingInterval: 1h0m0s
+    diff:
+      compareOptions:
+        ignoreAggregatedRoles: true
+        ignoreDifferencesOnResourceUpdates: true
+        ignoreResourceStatusField: crd
+      ignoreResourceUpdatesEnabled: true
+      serverSide:
+        enabled: true
+    globalProjects:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - example
+        matchLabels:
+          example-key: example-matchLabels
+      projectName: global
+    grpcTXTServiceConfigEnabled: true
+    instanceLabelKey: app.kubernetes.io/instance
+    k8sClient:
+      burst: 10
+      maxIdleConnections: 1
+      qps: "50"
+      retry:
+        backoff:
+          duration: 1h0m0s
+          factor: 2
+          maxDuration: 1h0m0s
+        max: 1
+      tcp:
+        idleTimeout: 1h0m0s
+        keepAlive: 1h0m0s
+        timeout: 1h0m0s
+      tlsHandshakeTimeout: 1h0m0s
+    kubectlParallelismLimit: 10
+    log:
+      format: json
+      level: info
+    metrics:
+      application:
+        conditions:
+        - Synced
+        labelKeys:
+        - app.kubernetes.io/name
+      cacheExpiration: 1h0m0s
+      cluster:
+        labelKeys:
+        - app.kubernetes.io/name
+    processors:
+      hydration: 10
+      operation: 10
+      status: 10
+    profileEnabled: true
+    reconciliation:
+      jitter: 1h0m0s
+      timeout: 1h0m0s
+    repoErrorGracePeriod: 1h0m0s
+    resource:
+      customLabelKeys:
+      - app.kubernetes.io/name
+      customizations:
+      - actions:
+          definitions:
+          - actionLua: return true
+            name: example
+          discoveryLua: return true
+          mergeBuiltinActions: true
+        group: apps
+        healthLua: return true
+        ignoreDifferences:
+          jqPathExpressions:
+          - example-jqPathExpressions
+          jsonPointers:
+          - example-jsonPointers
+          managedFieldsManagers:
+          - example-managedFieldsManagers
+        ignoreResourceUpdates:
+          jqPathExpressions:
+          - example-jqPathExpressions
+          jsonPointers:
+          - example-jsonPointers
+          managedFieldsManagers:
+          - example-managedFieldsManagers
+        kind: Deployment
+        knownTypeFields:
+        - field: spec.template
+          type: core/v1/PodSpec
+        useOpenLibs: true
+      eventLabels:
+        excludeKeyGlobs:
+        - example-excludeKeyGlobs
+        includeKeyGlobs:
+        - example-includeKeyGlobs
+      exclusions:
+      - apiGroups:
+        - apps
+        clusters:
+        - https://kubernetes.default.svc
+        kinds:
+        - Deployment
+      inclusions:
+      - apiGroups:
+        - apps
+        clusters:
+        - https://kubernetes.default.svc
+        kinds:
+        - Deployment
+      respectRBAC: strict
+      sensitiveMaskAnnotationKeys:
+      - app.kubernetes.io/name
+    resourceHealthPersist: true
+    resourceTrackingMethod: annotation
+    selfHeal:
+      backoff:
+        duration: 1h0m0s
+        factor: 2
+        maxDuration: 1h0m0s
+      timeout: 1h0m0s
+    sharding:
+      algorithm: legacy
+    sourceHydrator:
+      commitMessageTemplate: '{{.metadata.name}}'
+      enabled: true
+      readmeMessageTemplate: '{{.metadata.name}}'
+    sync:
+      impersonation:
+        mode: optional
+      requireOverridePrivilegeForRevisionSync: true
+      timeout: 1h0m0s
+      wave:
+        delay: 1h0m0s
+  dexServer:
+    connectorFailureContinue: true
+    log:
+      format: json
+      level: info
+    tlsEnabled: true
+  installationID: example-installation-id
+  logging:
+    formatTimestamp: example-formatTimestamp
+  notifications:
+    log:
+      format: json
+      level: info
+    processorsCount: 10
+    repoServer:
+      caCertPath: /example/caCertPath
+      clientCertKeyPath: /example/clientCertKeyPath
+      clientCertPath: /example/clientCertPath
+    selfServiceEnabled: true
+    tlsEnabled: true
+  otlp:
+    address: example.local:8080
+    attrs:
+      x-example: example-attrs
+    headers:
+      Authorization: example-headers
+    sampleRatio: example-sampleRatio
+    tlsEnabled: true
+  redis:
+    compression: gzip
+    db: "0"
+    sentinel:
+      hosts:
+      - redis-sentinel:26379
+      master: mymaster
+    server: example-server
+  repoServer:
+    address: example.local:8080
+    allowOOBSymlinks: true
+    cache:
+      defaultExpiration: 1h0m0s
+      repoExpiration: 1h0m0s
+    client:
+      insecureSkipVerify: true
+      mtls:
+        caCertPath: /example/caCertPath
+        clientCertKeyPath: /example/clientCertKeyPath
+        clientCertPath: /example/clientCertPath
+      timeout: 1h0m0s
+      tlsEnabled: true
+    clientCAPath: /example/clientCAPath
+    git:
+      builtinConfigEnabled: true
+      lsRemoteParallelismLimit: 10
+      requestTimeout: 1h0m0s
+      submoduleEnabled: true
+    grpcTXTServiceConfigEnabled: true
+    helm:
+      enabled: true
+      valuesFileSchemes:
+      - example-valuesFileSchemes
+    includeHiddenDirectories: true
+    jsonnet:
+      enabled: true
+    kustomize:
+      buildOptions: example-buildOptions
+      enabled: true
+      versions:
+      - buildOptions: example-buildOptions
+        name: v5.0.0
+        path: /userinfo
+    listen:
+      address: example.local:8080
+      metricsAddress: example.local:8080
+    log:
+      format: json
+      level: info
+    maxCombinedDirectoryManifestsSize: 10M
+    oci:
+      layerMediaTypes:
+      - example-layerMediaTypes
+      manifest:
+        maxExtractedSize: 10M
+        maxExtractedSizeEnabled: true
+    parallelismLimit: 10
+    plugin:
+      tarExclusionGlobs:
+      - example-tarExclusionGlobs
+      useManifestGeneratePaths: true
+    profileEnabled: true
+    streamedManifest:
+      maxExtractedSize: 10M
+      maxTarSize: 10M
+    tls:
+      ciphers:
+      - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+      maxVersion: example-maxVersion
+      minVersion: "1.2"
+    tlsEnabled: true
+  server:
+    accounts:
+    - capabilities:
+      - login
+      enabled: true
+      name: admin
+    apiContentTypes:
+    - example-apiContentTypes
+    authEnabled: true
+    baseHref: /argo-cd
+    cache:
+      appStateExpiration: 1h0m0s
+      connectionStatusExpiration: 1h0m0s
+      defaultExpiration: 1h0m0s
+      globCacheSize: 1
+      oidcExpiration: 1h0m0s
+    compression: gzip
+    deepLinks:
+      application:
+      - conditionExpr: example-conditionExpr
+        description: Example description
+        iconClass: example-iconClass
+        title: Example Link
+        urlTemplate: https://example.com/{{.app.metadata.name}}
+      project:
+      - conditionExpr: example-conditionExpr
+        description: Example description
+        iconClass: example-iconClass
+        title: Example Link
+        urlTemplate: https://example.com/{{.app.metadata.name}}
+      resource:
+      - conditionExpr: example-conditionExpr
+        description: Example description
+        iconClass: example-iconClass
+        title: Example Link
+        urlTemplate: https://example.com/{{.app.metadata.name}}
+    dex:
+      connectors:
+      - config:
+          example: true
+        id: github
+        name: GitHub
+        type: github
+      extra:
+        example: true
+      staticClients:
+      - example: true
+    dexServer:
+      address: example.local:8080
+      insecureSkipVerify: true
+      tlsEnabled: true
+    exec:
+      enabled: true
+      shells:
+      - bash
+    extensions:
+    - backend:
+        services:
+        - cluster:
+            name: example-extension
+            serverURL: https://example.com
+          headers:
+          - name: example-extension
+            value: example-value
+          url: https://example.com
+        transport:
+          connectionTimeout: 1h0m0s
+          idleConnectionTimeout: 1h0m0s
+          keepAlive: 1h0m0s
+          maxIdleConnections: 1
+      name: example-extension
+    googleAnalytics:
+      anonymizeUsers: true
+      trackingID: example-trackingID
+    grpcTXTServiceConfigEnabled: true
+    help:
+      binaryURLs:
+        darwin-arm64: https://example.com
+      chat:
+        text: example-text
+        url: https://example.com
+    k8sClient:
+      burst: 10
+      maxIdleConnections: 1
+      qps: "50"
+      retry:
+        backoff:
+          duration: 1h0m0s
+          factor: 2
+          maxDuration: 1h0m0s
+        max: 1
+      tcp:
+        idleTimeout: 1h0m0s
+        keepAlive: 1h0m0s
+        timeout: 1h0m0s
+      tlsHandshakeTimeout: 1h0m0s
+    listen:
+      address: example.local:8080
+      metricsAddress: example.local:8080
+    log:
+      format: json
+      level: info
+    logs:
+      maxPodsToRender: 10
+    oidc:
+      allowedAudiences:
+      - example-allowedAudiences
+      azure:
+        graphAPIEndpointURL: https://example.com
+        useWorkloadIdentity: true
+        userGroupOverageClaim:
+          cacheExpiration: 1h0m0s
+          enabled: true
+      cliClientID: example-cliClientID
+      clientID: example-clientID
+      clientSecretRef:
+        key: oidc.clientSecret
+        name: argocd-secret
+        optional: true
+      domainHint: example-domainHint
+      issuerURL: https://example.com
+      logoutURL: https://example.com
+      name: example
+      pkceAuthenticationEnabled: true
+      refreshTokenThreshold: 1h0m0s
+      requestedIDTokenClaims:
+        groups:
+          essential: true
+          value: example-value
+          values:
+          - example
+      requestedScopes:
+      - example-requestedScopes
+      rootCA: |-
+        -----BEGIN CERTIFICATE-----
+        EXAMPLE
+        -----END CERTIFICATE-----
+      skipAudienceCheckWhenTokenHasNoAudience: true
+      userInfo:
+        baseURL: https://example.com
+        cacheExpiration: 1h0m0s
+        groupsEnabled: true
+        path: /userinfo
+    oidcInsecureSkipVerify: true
+    profileEnabled: true
+    proxyExtensionEnabled: true
+    rbac:
+      applicationFineGrainedInheritanceEnabled: true
+      default: role:readonly
+      matchMode: glob
+      policyCSV: p, role:example, applications, get, */*, allow
+      policyOverlays:
+      - csv: p, role:example, applications, get, */*, allow
+        name: overlay
+      scopes:
+      - groups
+    rootPath: /argo-cd
+    staticAssetsPath: /shared/app
+    statusBadge:
+      enabled: true
+      url: https://example.com
+    syncReplaceAllowed: true
+    tls:
+      ciphers:
+      - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+      maxVersion: example-maxVersion
+      minVersion: "1.2"
+    tlsEnabled: true
+    ui:
+      banner:
+        content: Example banner
+        permanent: true
+        position: top
+        url: https://example.com
+      cssURL: /shared/app/custom.css
+      loginButtonText: Log in via SSO
+    urls:
+    - https://example.com
+    users:
+      anonymousEnabled: true
+      passwordRegex: ^.{8,32}$
+      sessionDuration: 1h0m0s
+    webhook:
+      maxPayloadSize: 10M
+      parallelismLimit: 10
+      refresh:
+        jitter: 1h0m0s
+        jitterThreshold: 1
+        workers: 10
+    xFrameOptions: sameorigin

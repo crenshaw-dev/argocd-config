@@ -1,0 +1,193 @@
+apiVersion: v1
+data:
+  admin.enabled: "true"
+  application.allowedNodeLabels: app.kubernetes.io/name
+  application.instanceLabelKey: app.kubernetes.io/instance
+  application.links: |
+    - description: Example description
+      icon.class: example-iconClass
+      if: example-conditionExpr
+      title: Example Link
+      url: https://example.com/{{.app.metadata.name}}
+  application.resourceTrackingMethod: annotation
+  application.sync.impersonation.enabled: "true"
+  application.sync.impersonation.enforced: "false"
+  application.sync.requireOverridePrivilegeForRevisionSync: "true"
+  cluster.inClusterEnabled: "true"
+  commit.author.email: argo-cd@example.com
+  commit.author.name: Argo CD
+  dex.config: |
+    connectors:
+    - config:
+        example: true
+      id: github
+      name: GitHub
+      type: github
+    example: true
+    staticClients:
+    - example: true
+  exec.enabled: "true"
+  exec.shells: bash
+  extension.config: |
+    extensions:
+    - Backend:
+        services:
+        - cluster:
+            name: example-extension
+            server: https://example.com
+          headers:
+          - name: example-extension
+            value: example-value
+          url: https://example.com
+        transport:
+          connectionTimeout: 1h0m0s
+          idleConnectionTimeout: 1h0m0s
+          keepAlive: 1h0m0s
+          maxIdleConnections: 1
+      Name: example-extension
+  ga.anonymizeusers: "true"
+  ga.trackingid: example-trackingID
+  globalProjects: |
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - example
+        matchLabels:
+          example-key: example-matchLabels
+      projectName: global
+  helm.enable: "true"
+  helm.valuesFileSchemes: example-valuesFileSchemes
+  help.chatText: example-text
+  help.chatUrl: https://example.com
+  help.download.darwin-arm64: https://example.com
+  installationID: example-installation-id
+  jsonnet.enable: "true"
+  kustomize.buildOptions: example-buildOptions
+  kustomize.buildOptions.v5.0.0: example-buildOptions
+  kustomize.enable: "true"
+  kustomize.path.v5.0.0: /userinfo
+  oidc.config: |
+    allowedAudiences:
+    - example-allowedAudiences
+    azure:
+      graphApiEndpoint: https://example.com
+      useWorkloadIdentity: true
+      userGroupOverageClaim:
+        cacheExpiration: 1h0m0s
+        enabled: true
+    cliClientID: example-cliClientID
+    clientID: example-clientID
+    clientSecret: $oidc.clientSecret
+    domainHint: example-domainHint
+    enablePKCEAuthentication: true
+    issuer: https://example.com
+    logoutURL: https://example.com
+    name: example
+    refreshTokenThreshold: 1h0m0s
+    requestedIDTokenClaims:
+      groups:
+        essential: true
+        value: example-value
+        values:
+        - example
+    requestedScopes:
+    - example-requestedScopes
+    rootCA: |-
+      -----BEGIN CERTIFICATE-----
+      EXAMPLE
+      -----END CERTIFICATE-----
+    skipAudienceCheckWhenTokenHasNoAudience: true
+    userInfo:
+      baseURL: https://example.com
+      cacheExpiration: 1h0m0s
+      groupsEnabled: true
+      path: /userinfo
+  oidc.tls.insecure.skip.verify: "true"
+  passwordPattern: ^.{8,32}$
+  project.links: |
+    - description: Example description
+      icon.class: example-iconClass
+      if: example-conditionExpr
+      title: Example Link
+      url: https://example.com/{{.app.metadata.name}}
+  resource.compareoptions: |
+    ignoreAggregatedRoles: true
+    ignoreDifferencesOnResourceUpdates: true
+    ignoreResourceStatusField: crd
+  resource.customLabels: app.kubernetes.io/name
+  resource.customizations.actions.apps_Deployment: |
+    definitions:
+    - action.lua: return true
+      name: example
+    discovery.lua: return true
+    mergeBuiltinActions: true
+  resource.customizations.health.apps_Deployment: return true
+  resource.customizations.ignoreDifferences.apps_Deployment: |
+    jqPathExpressions:
+    - example-jqPathExpressions
+    jsonPointers:
+    - example-jsonPointers
+    managedFieldsManagers:
+    - example-managedFieldsManagers
+  resource.customizations.ignoreResourceUpdates.apps_Deployment: |
+    jqPathExpressions:
+    - example-jqPathExpressions
+    jsonPointers:
+    - example-jsonPointers
+    managedFieldsManagers:
+    - example-managedFieldsManagers
+  resource.customizations.knownTypeFields.apps_Deployment: |
+    - field: spec.template
+      type: core/v1/PodSpec
+  resource.customizations.useOpenLibs.apps_Deployment: "true"
+  resource.excludeEventLabelKeys: example-excludeKeyGlobs
+  resource.exclusions: |
+    - apiGroups:
+      - apps
+      clusters:
+      - https://kubernetes.default.svc
+      kinds:
+      - Deployment
+  resource.ignoreResourceUpdatesEnabled: "true"
+  resource.includeEventLabelKeys: example-includeKeyGlobs
+  resource.inclusions: |
+    - apiGroups:
+      - apps
+      clusters:
+      - https://kubernetes.default.svc
+      kinds:
+      - Deployment
+  resource.links: |
+    - description: Example description
+      icon.class: example-iconClass
+      if: example-conditionExpr
+      title: Example Link
+      url: https://example.com/{{.app.metadata.name}}
+  resource.respectRBAC: strict
+  resource.sensitive.mask.annotations: app.kubernetes.io/name
+  server.maxPodLogsToRender: "10"
+  server.rbac.disableApplicationFineGrainedRBACInheritance: "false"
+  sourceHydrator.commitMessageTemplate: '{{.metadata.name}}'
+  sourceHydrator.readmeMessageTemplate: '{{.metadata.name}}'
+  statusbadge.enabled: "true"
+  statusbadge.url: https://example.com
+  timeout.reconciliation: 1h0m0s
+  timeout.reconciliation.jitter: 1h0m0s
+  ui.bannercontent: Example banner
+  ui.bannerpermanent: "true"
+  ui.bannerposition: top
+  ui.bannerurl: https://example.com
+  ui.cssurl: /shared/app/custom.css
+  ui.loginButtonText: Log in via SSO
+  url: https://example.com
+  users.anonymous.enabled: "true"
+  users.session.duration: 1h0m0s
+  webhook.maxPayloadSizeMB: "10"
+  webhook.refresh.jitter: 1h0m0s
+  webhook.refresh.jitter.threshold: "1"
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd

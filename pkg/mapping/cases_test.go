@@ -15,6 +15,7 @@ import (
 
 	argov1alpha1 "github.com/crenshaw-dev/argocd-config/api/v1alpha1"
 	"github.com/crenshaw-dev/argocd-config/pkg/mapping"
+	"github.com/crenshaw-dev/argocd-config/pkg/validate"
 )
 
 // updateGoldens regenerates expected/ files under testdata/cases.
@@ -25,10 +26,18 @@ var updateGoldens = flag.Bool("update", false, "update golden expected/ files un
 type caseManifest struct {
 	Description string `json:"description" yaml:"description"`
 	Issue       string `json:"issue,omitempty" yaml:"issue,omitempty"`
-	Direction   string `json:"direction" yaml:"direction"` // from | to | roundtrip
-	Name        string `json:"name,omitempty" yaml:"name,omitempty"`
-	Namespace   string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
-	Strict      bool   `json:"strict,omitempty" yaml:"strict,omitempty"`
+	// Direction: from (CM→CR), to (CR→CM), roundtrip (CM→CR→CM),
+	// or to-roundtrip (CR→CM→CR→CM with ConfigMap stability check).
+	Direction string `json:"direction" yaml:"direction"`
+	Name      string `json:"name,omitempty" yaml:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	// Strict fails the case when mapping diagnostics include warnings.
+	Strict bool `json:"strict,omitempty" yaml:"strict,omitempty"`
+	// Validate runs OpenAPI/CEL validation on the input CR and the CR after
+	// FromConfigMaps (to-roundtrip). Failures are errors; with Strict, warnings fail too.
+	Validate bool `json:"validate,omitempty" yaml:"validate,omitempty"`
+	// StrictDecode rejects unknown JSON fields when loading input/configuration.yaml.
+	StrictDecode bool `json:"strictDecode,omitempty" yaml:"strictDecode,omitempty"`
 }
 
 func TestCases(t *testing.T) {
@@ -76,9 +85,9 @@ func runCase(t *testing.T, dir, rel string) {
 		t.Fatalf("%s: case.yaml missing required field 'description'", rel)
 	}
 	switch manifest.Direction {
-	case "from", "to", "roundtrip":
+	case "from", "to", "roundtrip", "to-roundtrip":
 	default:
-		t.Fatalf("%s: case.yaml direction must be from|to|roundtrip, got %q", rel, manifest.Direction)
+		t.Fatalf("%s: case.yaml direction must be from|to|roundtrip|to-roundtrip, got %q", rel, manifest.Direction)
 	}
 	name := manifest.Name
 	if name == "" {
@@ -103,6 +112,8 @@ func runCase(t *testing.T, dir, rel string) {
 		runToCase(t, dir, rel, ns, manifest)
 	case "roundtrip":
 		runRoundtripCase(t, dir, rel, name, ns, manifest)
+	case "to-roundtrip":
+		runToRoundtripCase(t, dir, rel, name, ns, manifest)
 	}
 }
 
@@ -199,6 +210,102 @@ func runRoundtripCase(t *testing.T, dir, rel, name, ns string, m caseManifest) {
 	assertYAMLEqual(t, rel, m.Description, wantDiagPath, diag.Items())
 }
 
+// runToRoundtripCase exercises CR → CM → CR → CM.
+// Goldens capture the first ConfigMaps emission and the CR after FromConfigMaps
+// (lossy reverse mapping). The second ConfigMaps emission must match the first
+// after known-safe normalizations (DiffConfigMapDataNormalized).
+func runToRoundtripCase(t *testing.T, dir, rel, name, ns string, m caseManifest) {
+	t.Helper()
+	cfg, err := loadCaseConfigurationStrict(filepath.Join(dir, "input", "configuration.yaml"), m.StrictDecode)
+	if err != nil {
+		t.Fatalf("%s: load input configuration: %v\n%s", rel, err, m.Description)
+	}
+	assertCaseValidate(t, rel, m, "input", cfg)
+
+	cms1, diag1, err := mapping.ToConfigMaps(cfg, ns)
+	if err != nil {
+		t.Fatalf("%s: ToConfigMaps: %v\n%s", rel, err, m.Description)
+	}
+	cfg2, diag2, err := mapping.FromConfigMaps(cms1, name, ns)
+	if err != nil {
+		t.Fatalf("%s: FromConfigMaps: %v\n%s", rel, err, m.Description)
+	}
+	assertCaseValidate(t, rel, m, "after FromConfigMaps", cfg2)
+
+	cms2, diag3, err := mapping.ToConfigMapsWithSource(cfg2, ns, cms1)
+	if err != nil {
+		t.Fatalf("%s: second ToConfigMaps: %v\n%s", rel, err, m.Description)
+	}
+	assertConfigMapsStable(t, rel, m.Description, cms1, cms2)
+
+	diag := &mapping.Diagnostics{}
+	diag.Merge(diag1)
+	diag.Merge(diag2)
+	diag.Merge(diag3)
+	if diag.HasErrors() {
+		t.Fatalf("%s: mapping errors during to-roundtrip:\n%s\n%s", rel, formatDiag(diag), m.Description)
+	}
+	if m.Strict && diag.HasWarnings() {
+		t.Fatalf("%s: strict=true but got mapping warnings:\n%s\n%s", rel, formatDiag(diag), m.Description)
+	}
+
+	wantCfgPath := filepath.Join(dir, "expected", "configuration.yaml")
+	wantCMDir := filepath.Join(dir, "expected", "configmaps")
+	wantDiagPath := filepath.Join(dir, "expected", "diagnostics.yaml")
+	if *updateGoldens {
+		if err := writeYAMLFile(wantCfgPath, cfg2); err != nil {
+			t.Fatal(err)
+		}
+		if err := writeConfigMapsDir(wantCMDir, cms1); err != nil {
+			t.Fatal(err)
+		}
+		if err := writeYAMLFile(wantDiagPath, diag.Items()); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	assertYAMLEqual(t, rel, m.Description, wantCfgPath, cfg2)
+	assertConfigMapsEqual(t, rel, m.Description, wantCMDir, cms1)
+	assertYAMLEqual(t, rel, m.Description, wantDiagPath, diag.Items())
+}
+
+func assertCaseValidate(t *testing.T, rel string, m caseManifest, label string, cfg *argov1alpha1.ArgoCDConfiguration) {
+	t.Helper()
+	if !m.Validate {
+		return
+	}
+	diag := validate.Validate(cfg)
+	if diag.HasErrors() {
+		t.Fatalf("%s: validate %s: %v\n%s", rel, label, diag, m.Description)
+	}
+	// CEL/OpenAPI warnings are treated as failures whenever validate is enabled.
+	if diag.HasWarnings() {
+		t.Fatalf("%s: validate %s unexpected warnings: %v\n%s", rel, label, diag, m.Description)
+	}
+}
+
+func assertConfigMapsStable(t *testing.T, rel, desc string, first, second mapping.ConfigMaps) {
+	t.Helper()
+	check := func(cmName string, a, b *corev1.ConfigMap) {
+		var ad, bd map[string]string
+		if a != nil {
+			ad = a.Data
+		}
+		if b != nil {
+			bd = b.Data
+		}
+		d := mapping.DiffConfigMapDataNormalized(ad, bd)
+		if len(d.Missing) == 0 && len(d.Extra) == 0 && len(d.Changed) == 0 {
+			return
+		}
+		t.Fatalf("%s: ConfigMap %s not stable after CR→CM→CR→CM\n%s\nmissing=%v extra=%v changed=%v",
+			rel, cmName, desc, d.Missing, d.Extra, d.Changed)
+	}
+	check(mapping.ArgoCDCMName, first.CM, second.CM)
+	check(mapping.ArgoCDCmdParamsCMName, first.CmdParams, second.CmdParams)
+	check(mapping.ArgoCDRBACCMName, first.RBAC, second.RBAC)
+}
+
 func loadManifest(path string) (caseManifest, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -251,15 +358,32 @@ func readOptionalCM(path string) (*corev1.ConfigMap, error) {
 }
 
 func loadCaseConfiguration(path string) (*argov1alpha1.ArgoCDConfiguration, error) {
+	return loadCaseConfigurationStrict(path, false)
+}
+
+func loadCaseConfigurationStrict(path string, strictDecode bool) (*argov1alpha1.ArgoCDConfiguration, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	cfg := &argov1alpha1.ArgoCDConfiguration{}
-	if err := yaml.Unmarshal(b, cfg); err != nil {
+	if !strictDecode {
+		cfg := &argov1alpha1.ArgoCDConfiguration{}
+		if err := yaml.Unmarshal(b, cfg); err != nil {
+			return nil, err
+		}
+		return cfg, nil
+	}
+	jsonData, err := yaml.YAMLToJSON(b)
+	if err != nil {
 		return nil, err
 	}
-	return cfg, nil
+	dec := json.NewDecoder(bytes.NewReader(jsonData))
+	dec.DisallowUnknownFields()
+	var cfg argov1alpha1.ArgoCDConfiguration
+	if err := dec.Decode(&cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }
 
 func writeYAMLFile(path string, obj any) error {

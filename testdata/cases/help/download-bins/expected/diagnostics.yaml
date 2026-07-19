@@ -6,11 +6,3 @@
   key: argocd-rbac-cm
   message: no source ConfigMap provided; labels/annotations cannot be preserved
   severity: warn
-- direction: cm->cr
-  key: help.download.darwin-amd64
-  message: unhandled key in argocd-cm; value will be dropped on conversion
-  severity: warn
-- direction: cm->cr
-  key: help.download.linux-amd64
-  message: unhandled key in argocd-cm; value will be dropped on conversion
-  severity: warn
