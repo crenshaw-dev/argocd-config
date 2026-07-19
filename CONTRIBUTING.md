@@ -46,7 +46,7 @@ testdata/cases/<subsystem>/<case-name>/
 | Field | Required | Values / notes |
 | --- | --- | --- |
 | `description` | yes | One-line summary shown in test failures |
-| `direction` | yes | `from` (CM→CR), `to` (CR→CM), `roundtrip` (CM→CR→CM), or `to-roundtrip` (CR→CM→CR→CM) |
+| `direction` | yes | Prefer `roundtrip` or `to-roundtrip` (see below). `from` / `to` only when a full loop is the wrong fixture |
 | `name` | no | CR metadata name (default: singleton name) |
 | `namespace` | no | Namespace for ConfigMaps (default: `argocd`) |
 | `strict` | no | If true, mapping warnings fail the case |
@@ -54,11 +54,29 @@ testdata/cases/<subsystem>/<case-name>/
 | `strictDecode` | no | If true, reject unknown fields when loading `input/configuration.yaml` |
 | `issue` | no | Link or id for bug repro cases |
 
-`to-roundtrip` also asserts ConfigMap data is stable after CR→CM→CR→CM (`DiffConfigMapDataNormalized` empty) and fails on mapping errors. The fullest case is `roundtrip/example-full` (symlinked to repo-root `EXAMPLE.yaml`). After regenerating `EXAMPLE.yaml`, refresh its goldens with:
+### Choosing `direction`
+
+**Prefer a full loop** whenever the mapping should survive conversion both ways:
+
+| Direction | Flow | Prefer when… |
+| --- | --- | --- |
+| `roundtrip` | CM → CR → CM | Default for subsystem coverage starting from legacy ConfigMaps |
+| `to-roundtrip` | CR → CM → CR → CM | Starting from a CR (e.g. `EXAMPLE.yaml`); also asserts ConfigMap stability via `DiffConfigMapDataNormalized` |
+
+The fullest case is `roundtrip/example-full` (symlinked to repo-root `EXAMPLE.yaml`). After regenerating `EXAMPLE.yaml`, refresh its goldens with:
 
 ```bash
 go test ./pkg/mapping -run 'TestCases/roundtrip/example-full' -update
 ```
+
+**Use one-way directions only when a loop would be meaningless or hide the behavior under test:**
+
+| Direction | Flow | Appropriate when… | Examples |
+| --- | --- | --- | --- |
+| `from` | CM → CR | You care about CM→CR parse shape or diagnostics, and there is no useful CR→CM expectation (invalid input, warn-then-normalize, drop-on-read) | `regressions/bad-duration`, `unknown-key-warn`, `resource/compareoptions-off` |
+| `to` | CR → CM | You care about CR→CM emit or diagnostics that cannot roundtrip cleanly (lossy writers, documented limitations) | `to/oidc-secret-custom-name` (error diagnostic), focused CR→CM writer locks under `to/` |
+
+Do **not** default to `from`/`to` for ordinary field coverage — that under-tests the other direction. If both sides should work, use `roundtrip` or `to-roundtrip`.
 
 ### Two workflows
 
