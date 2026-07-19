@@ -84,6 +84,12 @@ When a case should emit warnings or errors, check in `expected/diagnostics.yaml`
 
 `make cover` and `make cover-gate` report statement coverage for handwritten code under `pkg/` and `cmd/` (excluding generated `api/` and `zz_generated` files). Coverage floors are a CI guardrail, not a substitute for good cases.
 
+### Round-trip self-check normalizations
+
+`from-configmaps` always round-trips CR→CM and warns on remaining diffs (failing under `--strict`). Known-safe formatting differences are filtered by equalers in [`pkg/mapping/roundtrip_normalize.go`](pkg/mapping/roundtrip_normalize.go) (`RoundTripValueEqualers`, plus key-pair helpers like impersonation mode).
+
+When `--strict` flags a benign serialization diff, add a focused equaler + unit test there rather than weakening the check. Use `--permissive` only as a local escape hatch to inspect output without the self-check.
+
 ## Adding or changing fields
 
 Follow the **Adding a field (contributor guide)** section in [README.md](README.md). In short:

@@ -1257,8 +1257,8 @@ spec:
                               Mode controls sync service-account impersonation
                               (argocd-cm: application.sync.impersonation.enabled / .enforced):
                               disabled — impersonation off;
-                              optional — use a project destination SA when configured, otherwise fall back to the controller SA;
-                              required — destination SA required or the sync fails.
+                              optional — enabled with enforced=false (fall back to controller SA when no destination SA);
+                              required — enabled with enforced=true or enforced omitted (Argo CD default when enabled).
                               Migration: if set, takes precedence over argocd-cm application.sync.impersonation.enabled and .enforced as a pair.
                             enum:
                             - disabled

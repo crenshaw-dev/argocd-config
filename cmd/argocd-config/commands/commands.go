@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -89,7 +88,7 @@ func newFromConfigMapsCommand(g *GlobalOpts) *cobra.Command {
 		name        string
 		namespace   string
 		outFile     string
-		selfCheck   bool
+		permissive  bool
 	)
 	cmd := &cobra.Command{
 		Use:   "from-configmaps",
@@ -115,7 +114,7 @@ func newFromConfigMapsCommand(g *GlobalOpts) *cobra.Command {
 				diag.Merge(validate.Validate(cfg))
 			}
 
-			if selfCheck {
+			if !permissive {
 				selfCheckRoundTrip(cms, cfg, namespace, diag)
 			}
 
@@ -134,7 +133,7 @@ func newFromConfigMapsCommand(g *GlobalOpts) *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", mapping.DefaultConfigurationName, "Name of the ArgoCDConfiguration")
 	cmd.Flags().StringVar(&namespace, "namespace", "argocd", "Namespace of the ArgoCDConfiguration (and ConfigMaps when --from-cluster)")
 	cmd.Flags().StringVarP(&outFile, "output", "o", "-", "Output file (- for stdout)")
-	cmd.Flags().BoolVar(&selfCheck, "self-check", false, "Round-trip CM->CR->CM and warn on unexpected key diffs")
+	cmd.Flags().BoolVar(&permissive, "permissive", false, "Skip round-trip self-check (escape hatch; inspect output manually)")
 	return cmd
 }
 
@@ -413,38 +412,16 @@ func diffConfigMapData(diag *mapping.Diagnostics, cmName string, orig, round *co
 		}
 		return
 	}
-	missing, extra, changed := diffDataKeys(orig.Data, round.Data)
-	for _, k := range missing {
+	d := mapping.DiffConfigMapDataNormalized(orig.Data, round.Data)
+	for _, k := range d.Missing {
 		diag.Warn(mapping.DirCRToCM, k, fmt.Sprintf("key missing after round-trip in %s", cmName))
 	}
-	for _, k := range extra {
+	for _, k := range d.Extra {
 		diag.Warn(mapping.DirCRToCM, k, fmt.Sprintf("unexpected key after round-trip in %s", cmName))
 	}
-	for _, k := range changed {
+	for _, k := range d.Changed {
 		diag.Warn(mapping.DirCRToCM, k, fmt.Sprintf("value changed after round-trip in %s", cmName))
 	}
-}
-
-func diffDataKeys(orig, round map[string]string) (missing, extra, changed []string) {
-	for k, v := range orig {
-		rv, ok := round[k]
-		if !ok {
-			missing = append(missing, k)
-			continue
-		}
-		if rv != v {
-			changed = append(changed, k)
-		}
-	}
-	for k := range round {
-		if _, ok := orig[k]; !ok {
-			extra = append(extra, k)
-		}
-	}
-	sort.Strings(missing)
-	sort.Strings(extra)
-	sort.Strings(changed)
-	return missing, extra, changed
 }
 
 func readCMFile(path string) (*corev1.ConfigMap, error) {

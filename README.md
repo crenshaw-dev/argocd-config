@@ -75,10 +75,10 @@ Global flags on conversion commands:
 | --- | --- |
 | `--strict` | Treat warnings as errors (non-zero exit) |
 | `--report text\|json` | Diagnostics output format |
-| `--self-check` | (`from-configmaps`) Round-trip CM→CR→CM and warn on key diffs |
+| `--permissive` | (`from-configmaps`) Skip round-trip self-check |
 | `--no-validate` | Skip post-conversion validation |
 
-`from-configmaps` takes `--cm` / `--cmd-params` / `--rbac` file paths (any subset), `-o` for output, or `--from-cluster` (with optional `--kubeconfig` / `--context`) to load the standard-named ConfigMaps from a live cluster. `to-configmaps` can preserve labels/annotations via `--source-cm` / `--source-cmd-params` / `--source-rbac`.
+`from-configmaps` takes `--cm` / `--cmd-params` / `--rbac` file paths (any subset), `-o` for output, or `--from-cluster` (with optional `--kubeconfig` / `--context`) to load the standard-named ConfigMaps from a live cluster. After conversion it always round-trips CR→CM and warns on remaining diffs after known-safe normalizations (see `pkg/mapping/roundtrip_normalize.go`); use `--permissive` to skip. `to-configmaps` can preserve labels/annotations via `--source-cm` / `--source-cmd-params` / `--source-rbac`.
 
 ## Coverage and limitations
 

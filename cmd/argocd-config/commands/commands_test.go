@@ -431,18 +431,52 @@ spec:
 	}
 }
 
-func TestFromConfigMapsSelfCheck(t *testing.T) {
+func TestFromConfigMapsSelfCheckClean(t *testing.T) {
 	root := NewRootCommand()
 	root.SetOut(&bytes.Buffer{})
-	root.SetErr(&bytes.Buffer{})
+	errBuf := &bytes.Buffer{}
+	root.SetErr(errBuf)
 	root.SetArgs(append([]string{
 		"from-configmaps",
-		"--self-check",
 		"--output", "/dev/null",
 		"--no-validate",
+		"--strict",
 	}, sampleCMSFlags(t)...))
 	if err := root.Execute(); err != nil {
-		t.Fatalf("self-check round trip: %v", err)
+		t.Fatalf("self-check with normalizations should be clean under --strict: %v\nstderr=%s", err, errBuf.String())
+	}
+}
+
+func TestFromConfigMapsPermissiveSkipsSelfCheck(t *testing.T) {
+	// Minimal CM with a value that would round-trip differently if checked;
+	// --permissive should skip the check entirely.
+	cmPath := filepath.Join(t.TempDir(), "argocd-cm.yaml")
+	const cmYAML = `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  timeout.reconciliation: 180s
+`
+	if err := os.WriteFile(cmPath, []byte(cmYAML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCommand()
+	root.SetOut(&bytes.Buffer{})
+	errBuf := &bytes.Buffer{}
+	root.SetErr(errBuf)
+	root.SetArgs([]string{
+		"from-configmaps",
+		"--cm", cmPath,
+		"--permissive",
+		"--output", "/dev/null",
+		"--no-validate",
+	})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("permissive: %v", err)
+	}
+	if strings.Contains(errBuf.String(), "round-trip") {
+		t.Fatalf("permissive should skip self-check diagnostics, got: %s", errBuf.String())
 	}
 }
 
