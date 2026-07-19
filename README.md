@@ -6,7 +6,7 @@
 
 Manage Argo CD settings as a single typed resource (`ArgoCDConfiguration`) instead of editing `argocd-cm`, `argocd-cmd-params-cm`, and `argocd-rbac-cm` by hand. Until Argo CD accepts this CRD in-tree, treat the CR as your source of truth and generate ConfigMaps from it.
 
-For a manifest that exercises every CRD field (useful as a schema reference), see [EXAMPLE.yaml](EXAMPLE.yaml). Completeness + CEL checks live in `pkg/validate/example_test.go`; the CR→CM→CR→CM round-trip with golden ConfigMaps is `testdata/cases/roundtrip/example-full`.
+For a manifest that exercises every CRD field (useful as a schema reference), see [EXAMPLE.yaml](EXAMPLE.yaml). Completeness + CEL checks live in `pkg/validate/example_test.go`; the CR→CM→CR→CM round-trip with golden ConfigMaps is `testdata/cases/roundtrip/example-full`. Field-level API reference (generated from Go godoc): [docs/api-reference.md](docs/api-reference.md) (`make api-docs`).
 
 ## Install the CLI
 

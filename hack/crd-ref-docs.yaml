@@ -1,0 +1,14 @@
+# Config for elastic/crd-ref-docs (make api-docs).
+# https://github.com/elastic/crd-ref-docs
+#
+# Templates live in hack/crd-ref-docs-templates/markdown (Default column removed).
+processor:
+  # Hide conversion scaffolding and generated list wrappers.
+  ignoreTypes:
+    - "ArgoCDConfigurationList$"
+  ignoreFields:
+    - "TypeMeta$"
+    - "ObjectMeta$"
+    - "ListMeta$"
+render:
+  kubernetesVersion: "1.29"

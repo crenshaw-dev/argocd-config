@@ -14,10 +14,11 @@ make generate manifests build test
 
 - **`make generate`** — regenerate DeepCopy code under `api/`
 - **`make manifests`** — regenerate CRD YAML under `config/crd/bases/`
+- **`make api-docs`** — regenerate [docs/api-reference.md](docs/api-reference.md) from Go types (`crd-ref-docs`)
 - **`make build`** — build `bin/argocd-config`
 - **`make test`** — run unit tests with race detector
 
-Run `make fmt` before submitting changes.
+Run `make fmt` before submitting changes. After changing field docs or API types, run `make api-docs` and commit the updated reference.
 
 ## Adding a golden test case
 
