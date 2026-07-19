@@ -136,7 +136,7 @@ func newValidators(crdYAML []byte) (*crdValidators, error) {
 	}, nil
 }
 
-func toUnstructured(cfg *argov1alpha1.ArgoCDConfiguration) (map[string]interface{}, error) {
+func toUnstructured(cfg *argov1alpha1.ArgoCDConfiguration) (map[string]any, error) {
 	cp := cfg.DeepCopy()
 	cp.SetGroupVersionKind(argov1alpha1.GroupVersion.WithKind("ArgoCDConfiguration"))
 	return runtime.DefaultUnstructuredConverter.ToUnstructured(cp)

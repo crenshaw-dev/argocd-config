@@ -1,6 +1,7 @@
 package mapping_test
 
 import (
+	"maps"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -30,9 +31,7 @@ func cloneCMData(data map[string]string) map[string]string {
 		return map[string]string{}
 	}
 	out := make(map[string]string, len(data))
-	for k, v := range data {
-		out[k] = v
-	}
+	maps.Copy(out, data)
 	return out
 }
 
@@ -41,9 +40,7 @@ func cmWithData(base *corev1.ConfigMap, extra map[string]string) *corev1.ConfigM
 	if cm.Data == nil {
 		cm.Data = map[string]string{}
 	}
-	for k, v := range extra {
-		cm.Data[k] = v
-	}
+	maps.Copy(cm.Data, extra)
 	return cm
 }
 

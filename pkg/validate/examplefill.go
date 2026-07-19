@@ -59,7 +59,7 @@ func fillValue(v reflect.Value, jsonName string, ctx fillContext) {
 		}
 		fillValue(v.Elem(), jsonName, ctx)
 	case reflect.Struct:
-		if v.Type() == reflect.TypeOf(runtime.RawExtension{}) {
+		if v.Type() == reflect.TypeFor[runtime.RawExtension]() {
 			v.Set(reflect.ValueOf(runtime.RawExtension{Raw: []byte(`{"example":true}`)}))
 			return
 		}
@@ -98,12 +98,12 @@ func fillStruct(v reflect.Value, ctx fillContext) {
 		v.FieldByName("Namespace").SetString(exampleNamespace)
 		return
 	}
-	if t == reflect.TypeOf(metav1.Duration{}) {
+	if t == reflect.TypeFor[metav1.Duration]() {
 		d := metav1.Duration{Duration: mustParseDuration(exampleDuration)}
 		v.Set(reflect.ValueOf(d))
 		return
 	}
-	if t == reflect.TypeOf(resource.Quantity{}) {
+	if t == reflect.TypeFor[resource.Quantity]() {
 		qty := exampleQuantity
 		// reposerver.grpc.max.size is historically an integer binary-MB count.
 		if strings.EqualFold(ctx.fieldName, "GRPCMaxSize") || strings.HasSuffix(ctx.jsonPath, "grpcMaxSize") {
@@ -112,7 +112,7 @@ func fillStruct(v reflect.Value, ctx fillContext) {
 		v.Set(reflect.ValueOf(resource.MustParse(qty)))
 		return
 	}
-	if t == reflect.TypeOf(corev1.SecretKeySelector{}) {
+	if t == reflect.TypeFor[corev1.SecretKeySelector]() {
 		// Only argocd-secret keys round-trip into oidc.config ($string form).
 		optional := true
 		v.Set(reflect.ValueOf(corev1.SecretKeySelector{
@@ -166,18 +166,18 @@ func setScalar(v reflect.Value, jsonName string, ctx fillContext) {
 		v.SetFloat(0.5)
 	case reflect.Struct:
 		switch v.Type() {
-		case reflect.TypeOf(metav1.Duration{}):
+		case reflect.TypeFor[metav1.Duration]():
 			d := metav1.Duration{}
 			_ = d.UnmarshalJSON([]byte(`"` + exampleDuration + `"`))
 			v.Set(reflect.ValueOf(d))
-		case reflect.TypeOf(resource.Quantity{}):
+		case reflect.TypeFor[resource.Quantity]():
 			qty := exampleQuantity
 			if strings.EqualFold(jsonName, "grpcMaxSize") {
 				qty = "10Mi"
 			}
 			q := resource.MustParse(qty)
 			v.Set(reflect.ValueOf(q))
-		case reflect.TypeOf(runtime.RawExtension{}):
+		case reflect.TypeFor[runtime.RawExtension]():
 			v.Set(reflect.ValueOf(runtime.RawExtension{Raw: []byte(`{"example":true}`)}))
 		default:
 			if v.Type().Name() == "AbsoluteHTTPURL" || v.Type().PkgPath() == argov1alpha1.GroupVersion.Group+"/v1alpha1" && v.Type().Name() == "AbsoluteHTTPURL" {
@@ -607,22 +607,22 @@ func checkScalar(v reflect.Value, jsonPath string, out *[]UnsetField) {
 		}
 	case reflect.Struct:
 		switch t {
-		case reflect.TypeOf(metav1.Duration{}):
+		case reflect.TypeFor[metav1.Duration]():
 			if v.FieldByName("Duration").Int() == 0 {
 				reportUnset(jsonPath, "zero duration", out)
 			}
-		case reflect.TypeOf(resource.Quantity{}):
+		case reflect.TypeFor[resource.Quantity]():
 			q := v.Interface().(resource.Quantity)
 			if q.IsZero() {
 				reportUnset(jsonPath, "zero quantity", out)
 			}
-		case reflect.TypeOf(corev1.SecretKeySelector{}):
+		case reflect.TypeFor[corev1.SecretKeySelector]():
 			name := v.FieldByName("LocalObjectReference").FieldByName("Name").String()
 			key := v.FieldByName("Key").String()
 			if name == "" || key == "" {
 				reportUnset(jsonPath, "incomplete secretKeySelector", out)
 			}
-		case reflect.TypeOf(runtime.RawExtension{}):
+		case reflect.TypeFor[runtime.RawExtension]():
 			raw := v.FieldByName("Raw")
 			if raw.Len() == 0 {
 				reportUnset(jsonPath, "empty rawExtension", out)

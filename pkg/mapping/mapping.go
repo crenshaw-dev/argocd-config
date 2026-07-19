@@ -7,6 +7,7 @@ package mapping
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -125,15 +126,11 @@ func preserveMeta(dst, src *corev1.ConfigMap, diag *Diagnostics) {
 	}
 	if len(src.Labels) > 0 {
 		dst.Labels = make(map[string]string, len(src.Labels))
-		for k, v := range src.Labels {
-			dst.Labels[k] = v
-		}
+		maps.Copy(dst.Labels, src.Labels)
 	}
 	if len(src.Annotations) > 0 {
 		dst.Annotations = make(map[string]string, len(src.Annotations))
-		for k, v := range src.Annotations {
-			dst.Annotations[k] = v
-		}
+		maps.Copy(dst.Annotations, src.Annotations)
 	}
 }
 
@@ -940,8 +937,8 @@ func mapAccounts(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, dia
 		}
 		kt.use(k)
 		rest := strings.TrimPrefix(k, "accounts.")
-		if strings.HasSuffix(rest, ".enabled") {
-			name := strings.TrimSuffix(rest, ".enabled")
+		if before, ok := strings.CutSuffix(rest, ".enabled"); ok {
+			name := before
 			a := accounts[name]
 			if a == nil {
 				a = &argov1alpha1.AccountConfig{Name: name}
