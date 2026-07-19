@@ -1,0 +1,2 @@
+description: "application.sync.impersonation.enabled=false maps to mode disabled"
+direction: roundtrip

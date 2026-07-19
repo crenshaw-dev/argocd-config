@@ -1,0 +1,2 @@
+description: "Wildcard GVK */* via split key *_* and monolithic */* maps to group/kind *"
+direction: roundtrip

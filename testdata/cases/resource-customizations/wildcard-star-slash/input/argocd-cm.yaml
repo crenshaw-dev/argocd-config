@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  # Split-key form: underscores stand in for '/' so *_* is the */* wildcard GVK.
+  "resource.customizations.health.*_*": |
+    hs = {}
+    hs.status = "Healthy"
+    return hs
+  "resource.customizations.useOpenLibs.*_*": "true"
+  # Monolithic blob form uses the literal */* key (same override as "all").
+  resource.customizations: |
+    "*/*":
+      ignoreDifferences:
+        jsonPointers:
+          - /metadata/resourceVersion
+      ignoreResourceUpdates:
+        jsonPointers:
+          - /metadata/generation

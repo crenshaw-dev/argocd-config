@@ -136,6 +136,79 @@ func TestMappingTable(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "resource customization wildcard */* via *_* split key",
+			cms: mapping.ConfigMaps{
+				CM: cmWithData(&corev1.ConfigMap{}, map[string]string{
+					"resource.customizations.health.*_*": "return {status=\"Healthy\"}\n",
+				}),
+			},
+			check: func(t *testing.T, cfg *argov1alpha1.ArgoCDConfiguration, diag *mapping.Diagnostics) {
+				t.Helper()
+				r := cfg.Spec.Controller.Resource
+				if r == nil || len(r.Customizations) != 1 {
+					t.Fatalf("customizations = %#v", r)
+				}
+				c := r.Customizations[0]
+				if c.Group != "*" || c.Kind != "*" {
+					t.Fatalf("expected */* wildcard, got %s/%s", c.Group, c.Kind)
+				}
+				if c.HealthLua == "" {
+					t.Fatal("expected healthLua")
+				}
+			},
+		},
+		{
+			name: "resource customization wildcard */* via monolithic blob key",
+			cms: mapping.ConfigMaps{
+				CM: cmWithData(&corev1.ConfigMap{}, map[string]string{
+					"resource.customizations": `"*/*":
+  ignoreDifferences:
+    jsonPointers:
+      - /metadata/resourceVersion
+`,
+				}),
+			},
+			check: func(t *testing.T, cfg *argov1alpha1.ArgoCDConfiguration, diag *mapping.Diagnostics) {
+				t.Helper()
+				r := cfg.Spec.Controller.Resource
+				if r == nil || len(r.Customizations) != 1 {
+					t.Fatalf("customizations = %#v", r)
+				}
+				c := r.Customizations[0]
+				if c.Group != "*" || c.Kind != "*" {
+					t.Fatalf("expected */* wildcard, got %s/%s", c.Group, c.Kind)
+				}
+				if c.IgnoreDifferences == nil || len(c.IgnoreDifferences.JSONPointers) != 1 {
+					t.Fatalf("IgnoreDifferences = %#v", c.IgnoreDifferences)
+				}
+			},
+		},
+		{
+			name: "sync impersonation disabled",
+			cms: mapping.ConfigMaps{
+				CM: cmWithData(&corev1.ConfigMap{}, map[string]string{
+					"application.sync.impersonation.enabled": "false",
+				}),
+			},
+			check: func(t *testing.T, cfg *argov1alpha1.ArgoCDConfiguration, diag *mapping.Diagnostics) {
+				t.Helper()
+				imp := cfg.Spec.Controller.Sync.Impersonation
+				if imp == nil || imp.Mode != "disabled" {
+					t.Fatalf("Impersonation = %#v", imp)
+				}
+				out, _, err := mapping.ToConfigMaps(cfg, "argocd")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if out.CM.Data["application.sync.impersonation.enabled"] != "false" {
+					t.Fatalf("enabled = %q", out.CM.Data["application.sync.impersonation.enabled"])
+				}
+				if _, ok := out.CM.Data["application.sync.impersonation.enforced"]; ok {
+					t.Fatalf("enforced should be absent when disabled, got %q", out.CM.Data["application.sync.impersonation.enforced"])
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {

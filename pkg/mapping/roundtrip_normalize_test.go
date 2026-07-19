@@ -62,6 +62,16 @@ func TestImpersonationAbsentEnforcedRequired(t *testing.T) {
 	}
 }
 
+func TestImpersonationDisabledCanonical(t *testing.T) {
+	d := mapping.DiffConfigMapDataNormalized(
+		map[string]string{"application.sync.impersonation.enabled": "false"},
+		map[string]string{"application.sync.impersonation.enabled": "false"},
+	)
+	if len(d.Extra) != 0 || len(d.Changed) != 0 || len(d.Missing) != 0 {
+		t.Fatalf("expected disabled modes equal, got %#v", d)
+	}
+}
+
 func TestMissingAndExtraKeys(t *testing.T) {
 	d := mapping.DiffConfigMapDataNormalized(
 		map[string]string{"a": "1", "b": "2"},

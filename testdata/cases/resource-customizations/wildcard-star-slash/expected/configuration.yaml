@@ -1,0 +1,22 @@
+apiVersion: argo.crenshaw.dev/v1alpha1
+kind: ArgoCDConfiguration
+metadata:
+  name: argocd-config
+  namespace: argocd
+spec:
+  controller:
+    resource:
+      customizations:
+      - group: '*'
+        healthLua: |
+          hs = {}
+          hs.status = "Healthy"
+          return hs
+        ignoreDifferences:
+          jsonPointers:
+          - /metadata/resourceVersion
+        ignoreResourceUpdates:
+          jsonPointers:
+          - /metadata/generation
+        kind: '*'
+        useOpenLibs: true
