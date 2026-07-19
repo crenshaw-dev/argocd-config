@@ -47,11 +47,6 @@ cover-html: cover
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Wrote coverage.html"
 
-.PHONY: cover-gate
-cover-gate: ## Fail if package coverage below floors
-	go test -coverprofile=/tmp/gate.out -covermode=atomic ./pkg/mapping ./pkg/convert ./pkg/validate ./cmd/argocd-config/commands
-	@./hack/check-coverage.sh /tmp/gate.out
-
 .PHONY: fmt
 fmt: ## Format Go sources.
 	go fmt ./...

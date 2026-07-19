@@ -109,7 +109,7 @@ When a case should emit warnings or errors, check in `expected/diagnostics.yaml`
 | **Property** | `pkg/mapping/property_test.go` | CM → CR → CM → CR semantic equality invariant |
 | **Fuzz** | `pkg/mapping/fuzz_test.go`, `pkg/convert/convert_test.go` | Randomized inputs seeded from corpus + sample ConfigMaps |
 
-`make cover` and `make cover-gate` report statement coverage for handwritten code under `pkg/` and `cmd/` (excluding generated `api/` and `zz_generated` files). Coverage floors are a CI guardrail, not a substitute for good cases.
+`make cover` reports local statement coverage for handwritten code under `pkg/` and `cmd/`. CI uploads to [Codecov](https://codecov.io/gh/crenshaw-dev/argocd-config), which gates PRs via `codecov.yml` (project must not drop more than 1% vs base; patch coverage target 80%). Generated/`testdata`/`hack` paths and `examplefill.go` are ignored there.
 
 ### Round-trip self-check normalizations
 

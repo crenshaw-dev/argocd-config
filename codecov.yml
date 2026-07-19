@@ -10,12 +10,14 @@ coverage:
         target: 80%
         threshold: 5%
 
-# Generated code and fixtures are not meaningful coverage targets.
+# Generated code, fixtures, and branch-heavy EXAMPLE reflection helpers are not
+# meaningful coverage targets.
 ignore:
   - "**/zz_generated.deepcopy.go"
   - "api/v1alpha1/groupversion_info.go"
   - "api/v1beta1/groupversion_info.go"
   - "cmd/argocd-config/main.go"
+  - "pkg/validate/examplefill.go"
   - "testdata"
   - "hack"
 

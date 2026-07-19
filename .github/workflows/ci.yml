@@ -47,9 +47,6 @@ jobs:
           fail_ci_if_error: true
           verbose: true
 
-      - name: Coverage gate
-        run: make cover-gate
-
       - name: govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
