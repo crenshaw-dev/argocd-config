@@ -1,2 +1,2 @@
-description: "resource.customizations.actions.* and health.* split keys map to ResourceCustomization"
+description: "resource.customizations.actions.* and health.* split keys map to separate concern lists"
 direction: roundtrip

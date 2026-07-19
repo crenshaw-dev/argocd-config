@@ -146,10 +146,10 @@ func TestMappingTable(t *testing.T) {
 			check: func(t *testing.T, cfg *argov1alpha1.ArgoCDConfiguration, diag *mapping.Diagnostics) {
 				t.Helper()
 				r := cfg.Spec.Controller.Resource
-				if r == nil || len(r.Customizations) != 1 {
-					t.Fatalf("customizations = %#v", r)
+				if r == nil || len(r.Health) != 1 {
+					t.Fatalf("health = %#v", r)
 				}
-				c := r.Customizations[0]
+				c := r.Health[0]
 				if c.Group != "*" || c.Kind != "*" {
 					t.Fatalf("expected */* wildcard, got %s/%s", c.Group, c.Kind)
 				}
@@ -172,15 +172,15 @@ func TestMappingTable(t *testing.T) {
 			check: func(t *testing.T, cfg *argov1alpha1.ArgoCDConfiguration, diag *mapping.Diagnostics) {
 				t.Helper()
 				r := cfg.Spec.Controller.Resource
-				if r == nil || len(r.Customizations) != 1 {
-					t.Fatalf("customizations = %#v", r)
+				if r == nil || len(r.IgnoreDifferences) != 1 {
+					t.Fatalf("ignoreDifferences = %#v", r)
 				}
-				c := r.Customizations[0]
+				c := r.IgnoreDifferences[0]
 				if c.Group != "*" || c.Kind != "*" {
 					t.Fatalf("expected */* wildcard, got %s/%s", c.Group, c.Kind)
 				}
-				if c.IgnoreDifferences == nil || len(c.IgnoreDifferences.JSONPointers) != 1 {
-					t.Fatalf("IgnoreDifferences = %#v", c.IgnoreDifferences)
+				if len(c.JSONPointers) != 1 {
+					t.Fatalf("JSONPointers = %#v", c.JSONPointers)
 				}
 			},
 		},

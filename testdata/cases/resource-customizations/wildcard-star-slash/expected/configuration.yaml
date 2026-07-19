@@ -6,17 +6,21 @@ metadata:
 spec:
   controller:
     resource:
-      customizations:
+      health:
       - group: '*'
         healthLua: |
           hs = {}
           hs.status = "Healthy"
           return hs
-        ignoreDifferences:
-          jsonPointers:
-          - /metadata/resourceVersion
-        ignoreResourceUpdates:
-          jsonPointers:
-          - /metadata/generation
         kind: '*'
         useOpenLibs: true
+      ignoreDifferences:
+      - group: '*'
+        jsonPointers:
+        - /metadata/resourceVersion
+        kind: '*'
+      ignoreResourceUpdates:
+      - group: '*'
+        jsonPointers:
+        - /metadata/generation
+        kind: '*'

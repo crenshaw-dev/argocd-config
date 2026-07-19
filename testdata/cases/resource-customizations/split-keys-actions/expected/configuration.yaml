@@ -6,8 +6,8 @@ metadata:
 spec:
   controller:
     resource:
-      customizations:
-      - actions:
+      actions:
+      - definitions:
         - actionLua: |
             return obj
           name: restart
@@ -17,6 +17,7 @@ spec:
           return actions
         group: apps
         kind: Deployment
+      health:
       - group: cert-manager.io
         healthLua: |
           hs = {}

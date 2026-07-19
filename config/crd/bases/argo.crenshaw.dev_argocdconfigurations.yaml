@@ -968,30 +968,22 @@ spec:
                       Resource holds watch filters and per-GVK customizations.
                       Migration: organizational subgroup; no legacy key — see child fields.
                     properties:
-                      customLabelKeys:
+                      actions:
                         description: |-
-                          CustomLabelKeys are resource label keys shown in the resource node info panel
-                          (argocd-cm: resource.customLabels).
-                          Migration: if present, takes precedence over argocd-cm resource.customLabels; replaces the whole collection.
-                        items:
-                          pattern: ^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?/)?([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)$
-                          type: string
-                        type: array
-                      customizations:
-                        description: |-
-                          Customizations are per-GVK health, action, and ignore-difference overrides
-                          (argocd-cm: resource.customizations.*).
-                          Migration: if present, takes precedence over argocd-cm resource.customizations.*; replaces the whole collection.
+                          Actions is per-GVK custom resource actions: discovery script plus named definitions
+                          (argocd-cm: resource.customizations.actions.*). Discovery and definitions stay grouped
+                          because they form one actions blob per GVK in Argo CD.
+                          Migration: if present, takes precedence over argocd-cm resource.customizations.actions.*;
+                          replaces the whole collection.
                         items:
                           description: |-
-                            ResourceCustomization is a per-GVK override for health, actions, and ignore rules
-                            (argocd-cm: resource.customizations.*).<group_kind> uses <group>_<kind>.
+                            ResourceActionsCustomization is a per-GVK custom-actions override: discovery plus
+                            named action definitions (argocd-cm: resource.customizations.actions.<group_kind>).
                           properties:
-                            actions:
+                            definitions:
                               description: |-
-                                Actions are named custom resource actions (legacy: definitions[] in the
+                                Definitions are named custom resource actions (legacy: definitions[] in the
                                 resource.customizations.actions.<group_kind> YAML blob).
-                                Migration: settings group with DiscoveryLua / MergeBuiltinActions (see DiscoveryLua).
                               items:
                                 description: ResourceActionDefinition is one named
                                   custom resource action.
@@ -1019,123 +1011,22 @@ spec:
                             discoveryLua:
                               description: |-
                                 DiscoveryLua is a Lua script that returns which custom actions are available
-                                (and optional disabled flags) for the resource.
-                                Legacy: discovery.lua inside resource.customizations.actions.<group_kind>.
-                                With Actions / MergeBuiltinActions, forms the actions settings group that replaces
-                                the whole actions blob when any of the three is set.
-                                Migration: if set (or Actions/MergeBuiltinActions present), takes precedence over
-                                argocd-cm resource.customizations.actions.<group_kind> as a whole.
+                                (and optional disabled flags) for the resource (legacy: discovery.lua).
                               type: string
                             group:
-                              description: |-
-                                Group is the API group ("" for core, "*" for wildcard).
-                                Legacy key prefix: resource.customizations.<type>.<group>_<kind>.
+                              description: Group is the API group ("" for core, "*"
+                                for wildcard).
                               pattern: ^$|^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])$
                               type: string
-                            healthLua:
-                              description: |-
-                                HealthLua is a Lua script that overrides built-in health assessment for this GVK.
-                                Must return a table with status (Healthy/Progressing/Degraded/…) and optional message.
-                                When absent, default health is Progressing until a status is produced.
-                                Legacy: resource.customizations.health.<group_kind> or health.lua in the unified blob.
-                                Migration: if set, takes precedence over argocd-cm resource.customizations.health.<group_kind>.
-                              type: string
-                            ignoreDifferences:
-                              description: |-
-                                IgnoreDifferences are JSON Pointer / jq paths / managedFields managers ignored
-                                during live vs desired sync diff.
-                                Legacy: resource.customizations.ignoreDifferences.<group_kind>.
-                              properties:
-                                jqPathExpressions:
-                                  description: JQPathExpressions are jq expressions
-                                    selecting fields to ignore.
-                                  items:
-                                    type: string
-                                  type: array
-                                jsonPointers:
-                                  description: JSONPointers are RFC 6901 JSON Pointers
-                                    to ignore (e.g. /spec/replicas).
-                                  items:
-                                    type: string
-                                  type: array
-                                managedFieldsManagers:
-                                  description: |-
-                                    ManagedFieldsManagers ignores fields owned by these managedFields managers
-                                    (they take precedence over desired state for those fields).
-                                  items:
-                                    type: string
-                                  type: array
-                              type: object
-                            ignoreResourceUpdates:
-                              description: |-
-                                IgnoreResourceUpdates are paths whose changes should not trigger application
-                                reconcile (requires ignoreResourceUpdatesEnabled).
-                                Legacy: resource.customizations.ignoreResourceUpdates.<group_kind>.
-                              properties:
-                                jqPathExpressions:
-                                  description: JQPathExpressions are jq expressions
-                                    selecting fields to ignore.
-                                  items:
-                                    type: string
-                                  type: array
-                                jsonPointers:
-                                  description: JSONPointers are RFC 6901 JSON Pointers
-                                    to ignore (e.g. /spec/replicas).
-                                  items:
-                                    type: string
-                                  type: array
-                                managedFieldsManagers:
-                                  description: |-
-                                    ManagedFieldsManagers ignores fields owned by these managedFields managers
-                                    (they take precedence over desired state for those fields).
-                                  items:
-                                    type: string
-                                  type: array
-                              type: object
                             kind:
-                              description: |-
-                                Kind is the Kubernetes Kind ("*" for wildcard). Required.
-                                Wildcards are only valid in the unified resource.customizations YAML blob,
-                                not in split ConfigMap keys.
+                              description: Kind is the Kubernetes Kind ("*" for wildcard).
+                                Required.
                               pattern: ^([A-Z][A-Za-z0-9]*|[*])$
                               type: string
-                            knownTypeFields:
-                              description: |-
-                                KnownTypeFields declares typed fields used for structured diff normalization
-                                (e.g. treating a nested object as core/v1/PodSpec).
-                                Legacy: resource.customizations.knownTypeFields.<group_kind>.
-                              items:
-                                description: KnownTypeField names a field with a known
-                                  Go/Kubernetes type for diffing.
-                                properties:
-                                  field:
-                                    description: |-
-                                      Field is the JSON path within the resource needing typed normalization
-                                      (e.g. "spec.template.spec"). Legacy: knownTypeFields[].field.
-                                    type: string
-                                  type:
-                                    description: |-
-                                      Type is the known Kubernetes type name for normalization
-                                      (e.g. "core/v1/PodSpec", "core/Quantity").
-                                      See util/argo/normalizers/diffing_known_types.txt in argo-cd.
-                                    type: string
-                                type: object
-                              type: array
-                              x-kubernetes-list-map-keys:
-                              - field
-                              x-kubernetes-list-type: map
                             mergeBuiltinActions:
                               description: |-
                                 MergeBuiltinActions merges custom actions with built-in ones instead of
-                                replacing them (Argo CD ≥ 2.13; legacy: mergeBuiltinActions in the actions blob).
-                                Default false — custom actions replace built-ins.
-                                Migration: settings group with DiscoveryLua / Actions (see DiscoveryLua).
-                              type: boolean
-                            useOpenLibs:
-                              description: |-
-                                UseOpenLibs enables standard Lua libraries for health/action scripts for this GVK
-                                (disabled by default for security). Legacy: resource.customizations.useOpenLibs.<group_kind>
-                                or health.lua.useOpenLibs. Default false.
+                                replacing them (Argo CD ≥ 2.13; legacy: mergeBuiltinActions). Default false.
                               type: boolean
                           required:
                           - kind
@@ -1145,6 +1036,15 @@ spec:
                         - group
                         - kind
                         x-kubernetes-list-type: map
+                      customLabelKeys:
+                        description: |-
+                          CustomLabelKeys are resource label keys shown in the resource node info panel
+                          (argocd-cm: resource.customLabels).
+                          Migration: if present, takes precedence over argocd-cm resource.customLabels; replaces the whole collection.
+                        items:
+                          pattern: ^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?/)?([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)$
+                          type: string
+                        type: array
                       eventLabels:
                         description: |-
                           EventLabels controls which Application/AppProject label keys are copied onto
@@ -1208,6 +1108,148 @@ spec:
                           type: object
                         type: array
                         x-kubernetes-list-type: atomic
+                      health:
+                        description: |-
+                          Health is per-GVK health Lua overrides (argocd-cm: resource.customizations.health.*
+                          and useOpenLibs.*). Listed by concern so you edit health without scanning mixed GVK rows.
+                          Migration: if present, takes precedence over argocd-cm resource.customizations.health.*
+                          and resource.customizations.useOpenLibs.*; replaces those collections.
+                        items:
+                          description: |-
+                            ResourceHealthCustomization is a per-GVK health Lua override
+                            (argocd-cm: resource.customizations.health.<group_kind> /
+                            resource.customizations.useOpenLibs.<group_kind>).
+                          properties:
+                            group:
+                              description: Group is the API group ("" for core, "*"
+                                for wildcard).
+                              pattern: ^$|^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])$
+                              type: string
+                            healthLua:
+                              description: |-
+                                HealthLua is a Lua script that overrides built-in health assessment for this GVK.
+                                Must return a table with status (Healthy/Progressing/Degraded/…) and optional message.
+                                When absent, default health is Progressing until a status is produced.
+                                Legacy: resource.customizations.health.<group_kind> or health.lua in the unified blob.
+                              type: string
+                            kind:
+                              description: |-
+                                Kind is the Kubernetes Kind ("*" for wildcard). Required.
+                                Wildcards are only valid in the unified resource.customizations YAML blob,
+                                not in split ConfigMap keys.
+                              pattern: ^([A-Z][A-Za-z0-9]*|[*])$
+                              type: string
+                            useOpenLibs:
+                              description: |-
+                                UseOpenLibs enables standard Lua libraries for health and action scripts for this GVK
+                                (disabled by default for security). Legacy: resource.customizations.useOpenLibs.<group_kind>
+                                or health.lua.useOpenLibs. Default false. Lives on the health entry because Argo CD's
+                                monolithic blob nests it under health.lua; the flag still applies to action scripts too.
+                              type: boolean
+                          required:
+                          - kind
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - group
+                        - kind
+                        x-kubernetes-list-type: map
+                      ignoreDifferences:
+                        description: |-
+                          IgnoreDifferences is per-GVK sync-diff ignore rules
+                          (argocd-cm: resource.customizations.ignoreDifferences.*).
+                          Migration: if present, takes precedence over argocd-cm resource.customizations.ignoreDifferences.*;
+                          replaces the whole collection.
+                        items:
+                          description: |-
+                            ResourceIgnoreCustomization is a per-GVK ignoreDifferences or ignoreResourceUpdates
+                            override (argocd-cm: resource.customizations.ignoreDifferences.<group_kind> /
+                            ignoreResourceUpdates.<group_kind>).
+                          properties:
+                            group:
+                              description: Group is the API group ("" for core, "*"
+                                for wildcard).
+                              pattern: ^$|^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])$
+                              type: string
+                            jqPathExpressions:
+                              description: JQPathExpressions are jq expressions selecting
+                                fields to ignore.
+                              items:
+                                type: string
+                              type: array
+                            jsonPointers:
+                              description: JSONPointers are RFC 6901 JSON Pointers
+                                to ignore (e.g. /spec/replicas).
+                              items:
+                                type: string
+                              type: array
+                            kind:
+                              description: Kind is the Kubernetes Kind ("*" for wildcard).
+                                Required.
+                              pattern: ^([A-Z][A-Za-z0-9]*|[*])$
+                              type: string
+                            managedFieldsManagers:
+                              description: ManagedFieldsManagers ignores fields owned
+                                by these managedFields managers.
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - kind
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - group
+                        - kind
+                        x-kubernetes-list-type: map
+                      ignoreResourceUpdates:
+                        description: |-
+                          IgnoreResourceUpdates is per-GVK rules for fields whose changes should not trigger
+                          reconcile (argocd-cm: resource.customizations.ignoreResourceUpdates.*).
+                          Migration: if present, takes precedence over argocd-cm resource.customizations.ignoreResourceUpdates.*;
+                          replaces the whole collection.
+                        items:
+                          description: |-
+                            ResourceIgnoreCustomization is a per-GVK ignoreDifferences or ignoreResourceUpdates
+                            override (argocd-cm: resource.customizations.ignoreDifferences.<group_kind> /
+                            ignoreResourceUpdates.<group_kind>).
+                          properties:
+                            group:
+                              description: Group is the API group ("" for core, "*"
+                                for wildcard).
+                              pattern: ^$|^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])$
+                              type: string
+                            jqPathExpressions:
+                              description: JQPathExpressions are jq expressions selecting
+                                fields to ignore.
+                              items:
+                                type: string
+                              type: array
+                            jsonPointers:
+                              description: JSONPointers are RFC 6901 JSON Pointers
+                                to ignore (e.g. /spec/replicas).
+                              items:
+                                type: string
+                              type: array
+                            kind:
+                              description: Kind is the Kubernetes Kind ("*" for wildcard).
+                                Required.
+                              pattern: ^([A-Z][A-Za-z0-9]*|[*])$
+                              type: string
+                            managedFieldsManagers:
+                              description: ManagedFieldsManagers ignores fields owned
+                                by these managedFields managers.
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - kind
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - group
+                        - kind
+                        x-kubernetes-list-type: map
                       inclusions:
                         description: |-
                           Inclusions, when set, limits the watch cache to only these group/kind/cluster
@@ -1247,6 +1289,59 @@ spec:
                           type: object
                         type: array
                         x-kubernetes-list-type: atomic
+                      knownTypeFields:
+                        description: |-
+                          KnownTypeFields is per-GVK typed-field declarations for structured diff
+                          (argocd-cm: resource.customizations.knownTypeFields.*).
+                          Migration: if present, takes precedence over argocd-cm resource.customizations.knownTypeFields.*;
+                          replaces the whole collection.
+                        items:
+                          description: |-
+                            ResourceKnownTypesCustomization is a per-GVK knownTypeFields override
+                            (argocd-cm: resource.customizations.knownTypeFields.<group_kind>).
+                          properties:
+                            fields:
+                              description: |-
+                                Fields declares typed fields used for structured diff normalization
+                                (e.g. treating a nested object as core/v1/PodSpec).
+                              items:
+                                description: KnownTypeField names a field with a known
+                                  Go/Kubernetes type for diffing.
+                                properties:
+                                  field:
+                                    description: |-
+                                      Field is the JSON path within the resource needing typed normalization
+                                      (e.g. "spec.template.spec"). Legacy: knownTypeFields[].field.
+                                    type: string
+                                  type:
+                                    description: |-
+                                      Type is the known Kubernetes type name for normalization
+                                      (e.g. "core/v1/PodSpec", "core/Quantity").
+                                      See util/argo/normalizers/diffing_known_types.txt in argo-cd.
+                                    type: string
+                                type: object
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - field
+                              x-kubernetes-list-type: map
+                            group:
+                              description: Group is the API group ("" for core, "*"
+                                for wildcard).
+                              pattern: ^$|^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])$
+                              type: string
+                            kind:
+                              description: Kind is the Kubernetes Kind ("*" for wildcard).
+                                Required.
+                              pattern: ^([A-Z][A-Za-z0-9]*|[*])$
+                              type: string
+                          required:
+                          - kind
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - group
+                        - kind
+                        x-kubernetes-list-type: map
                       respectRBAC:
                         description: |-
                           RespectRBAC limits watched resources to those the controller can list:

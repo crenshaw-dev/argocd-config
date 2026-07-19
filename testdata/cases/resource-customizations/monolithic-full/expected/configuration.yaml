@@ -6,8 +6,8 @@ metadata:
 spec:
   controller:
     resource:
-      customizations:
-      - actions:
+      actions:
+      - definitions:
         - actionLua: |
             return obj
           name: restart
@@ -21,23 +21,33 @@ spec:
           actions["pause"] = {}
           return actions
         group: apps
+        kind: Deployment
+        mergeBuiltinActions: true
+      health:
+      - group: apps
         healthLua: |
           hs = {}
           hs.status = "Healthy"
           return hs
-        ignoreDifferences:
-          jsonPointers:
-          - /spec/replicas
-        ignoreResourceUpdates:
-          jsonPointers:
-          - /metadata/resourceVersion
         kind: Deployment
-        knownTypeFields:
-        - field: spec.template.spec
-          type: core/v1/PodSpec
-        mergeBuiltinActions: true
         useOpenLibs: true
       - group: cert-manager.io
         healthLua: |
           return {status="Healthy"}
         kind: Certificate
+      ignoreDifferences:
+      - group: apps
+        jsonPointers:
+        - /spec/replicas
+        kind: Deployment
+      ignoreResourceUpdates:
+      - group: apps
+        jsonPointers:
+        - /metadata/resourceVersion
+        kind: Deployment
+      knownTypeFields:
+      - fields:
+        - field: spec.template.spec
+          type: core/v1/PodSpec
+        group: apps
+        kind: Deployment

@@ -58,13 +58,13 @@ Subsystem → primary case paths under `testdata/cases/` (direction `roundtrip` 
 | `resource.sensitive.mask.annotations` | ✅ | `spec.controller.resource.sensitiveMaskAnnotationKeys` | |
 | `resource.includeEventLabelKeys` | ✅ | `spec.controller.resource.eventLabels.includeKeyGlobs` | |
 | `resource.excludeEventLabelKeys` | ✅ | `spec.controller.resource.eventLabels.excludeKeyGlobs` | |
-| `resource.customizations` | ✅ | `spec.controller.resource.customizations` | Legacy monolithic key |
-| `resource.customizations.health.*` | ✅ | `spec.controller.resource.customizations[].healthLua` | Prefix + GVK suffix |
-| `resource.customizations.useOpenLibs.*` | ✅ | `spec.controller.resource.customizations[].useOpenLibs` | |
-| `resource.customizations.actions.*` | ✅ | `spec.controller.resource.customizations[].{discoveryLua,mergeBuiltinActions,actions}` | CM blob uses `definitions[]`; CR flattens to `actions` |
-| `resource.customizations.ignoreDifferences.*` | ✅ | `spec.controller.resource.customizations[].ignoreDifferences` | |
-| `resource.customizations.ignoreResourceUpdates.*` | ✅ | `spec.controller.resource.customizations[].ignoreResourceUpdates` | |
-| `resource.customizations.knownTypeFields.*` | ✅ | `spec.controller.resource.customizations[].knownTypeFields` | |
+| `resource.customizations` | ✅ | `spec.controller.resource.{health,actions,ignoreDifferences,…}` | Monolithic blob split into concern lists |
+| `resource.customizations.health.*` | ✅ | `spec.controller.resource.health[]` | Prefix + GVK suffix |
+| `resource.customizations.useOpenLibs.*` | ✅ | `spec.controller.resource.health[].useOpenLibs` | On health entry (Argo CD nests under health.lua) |
+| `resource.customizations.actions.*` | ✅ | `spec.controller.resource.actions[]` | discovery + definitions grouped per GVK |
+| `resource.customizations.ignoreDifferences.*` | ✅ | `spec.controller.resource.ignoreDifferences[]` | |
+| `resource.customizations.ignoreResourceUpdates.*` | ✅ | `spec.controller.resource.ignoreResourceUpdates[]` | |
+| `resource.customizations.knownTypeFields.*` | ✅ | `spec.controller.resource.knownTypeFields[]` | |
 | `globalProjects` | ✅ | `spec.controller.globalProjects` | |
 | `ui.cssurl` | ✅ | `spec.server.ui.cssURL` | Path-or-URL |
 | `ui.bannercontent` | ✅ | `spec.server.ui.banner.content` | |

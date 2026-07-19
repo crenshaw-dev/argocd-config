@@ -530,8 +530,12 @@ func mapResource(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, dia
 	if err != nil {
 		return err
 	}
-	if len(customs) > 0 {
-		r.Customizations = customs
+	if customs != nil {
+		r.Health = customs.Health
+		r.Actions = customs.Actions
+		r.IgnoreDifferences = customs.IgnoreDifferences
+		r.IgnoreResourceUpdates = customs.IgnoreResourceUpdates
+		r.KnownTypeFields = customs.KnownTypeFields
 		changed = true
 	}
 	if csv, ok := kt.get("resource.customLabels"); ok && csv != "" {
@@ -566,16 +570,63 @@ func mapResource(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, dia
 	return nil
 }
 
-func parseResourceCustomizations(kt *keyTracker, diag *Diagnostics) ([]argov1alpha1.ResourceCustomization, error) {
-	byKey := map[string]*argov1alpha1.ResourceCustomization{}
+type parsedResourceCustomizations struct {
+	Health                []argov1alpha1.ResourceHealthCustomization
+	Actions               []argov1alpha1.ResourceActionsCustomization
+	IgnoreDifferences     []argov1alpha1.ResourceIgnoreCustomization
+	IgnoreResourceUpdates []argov1alpha1.ResourceIgnoreCustomization
+	KnownTypeFields       []argov1alpha1.ResourceKnownTypesCustomization
+}
 
-	ensure := func(group, kind string) *argov1alpha1.ResourceCustomization {
-		key := group + "/" + kind
-		if c, ok := byKey[key]; ok {
+func (p *parsedResourceCustomizations) empty() bool {
+	return p == nil || (len(p.Health) == 0 && len(p.Actions) == 0 &&
+		len(p.IgnoreDifferences) == 0 && len(p.IgnoreResourceUpdates) == 0 &&
+		len(p.KnownTypeFields) == 0)
+}
+
+func parseResourceCustomizations(kt *keyTracker, diag *Diagnostics) (*parsedResourceCustomizations, error) {
+	healthBy := map[string]*argov1alpha1.ResourceHealthCustomization{}
+	actionsBy := map[string]*argov1alpha1.ResourceActionsCustomization{}
+	ignoreDiffBy := map[string]*argov1alpha1.ResourceIgnoreCustomization{}
+	ignoreUpdBy := map[string]*argov1alpha1.ResourceIgnoreCustomization{}
+	knownBy := map[string]*argov1alpha1.ResourceKnownTypesCustomization{}
+
+	gvkKey := func(group, kind string) string { return group + "/" + kind }
+
+	ensureHealth := func(group, kind string) *argov1alpha1.ResourceHealthCustomization {
+		k := gvkKey(group, kind)
+		if c, ok := healthBy[k]; ok {
 			return c
 		}
-		c := &argov1alpha1.ResourceCustomization{Group: group, Kind: kind}
-		byKey[key] = c
+		c := &argov1alpha1.ResourceHealthCustomization{Group: group, Kind: kind}
+		healthBy[k] = c
+		return c
+	}
+	ensureActions := func(group, kind string) *argov1alpha1.ResourceActionsCustomization {
+		k := gvkKey(group, kind)
+		if c, ok := actionsBy[k]; ok {
+			return c
+		}
+		c := &argov1alpha1.ResourceActionsCustomization{Group: group, Kind: kind}
+		actionsBy[k] = c
+		return c
+	}
+	ensureIgnore := func(m map[string]*argov1alpha1.ResourceIgnoreCustomization, group, kind string) *argov1alpha1.ResourceIgnoreCustomization {
+		k := gvkKey(group, kind)
+		if c, ok := m[k]; ok {
+			return c
+		}
+		c := &argov1alpha1.ResourceIgnoreCustomization{Group: group, Kind: kind}
+		m[k] = c
+		return c
+	}
+	ensureKnown := func(group, kind string) *argov1alpha1.ResourceKnownTypesCustomization {
+		k := gvkKey(group, kind)
+		if c, ok := knownBy[k]; ok {
+			return c
+		}
+		c := &argov1alpha1.ResourceKnownTypesCustomization{Group: group, Kind: kind}
+		knownBy[k] = c
 		return c
 	}
 
@@ -586,8 +637,7 @@ func parseResourceCustomizations(kt *keyTracker, diag *Diagnostics) ([]argov1alp
 		}
 		for gk, fields := range m {
 			group, kind := splitGroupKind(gk)
-			c := ensure(group, kind)
-			if err := applyOverrideMap(c, fields); err != nil {
+			if err := applyOverrideMap(group, kind, fields, ensureHealth, ensureActions, ensureIgnore, ensureKnown, ignoreDiffBy, ignoreUpdBy); err != nil {
 				return nil, fmt.Errorf("resource.customizations: %w", err)
 			}
 		}
@@ -612,18 +662,17 @@ func parseResourceCustomizations(kt *keyTracker, diag *Diagnostics) ([]argov1alp
 		if gk == "all" {
 			group, kind = "*", "*"
 		}
-		c := ensure(group, kind)
 		switch typ {
 		case "health":
-			c.HealthLua = v
+			ensureHealth(group, kind).HealthLua = v
 		case "useOpenLibs":
 			b, err := strconv.ParseBool(v)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", k, err)
 			}
-			c.UseOpenLibs = b
+			ensureHealth(group, kind).UseOpenLibs = b
 		case "actions":
-			if err := applyResourceActionsBlob(c, v); err != nil {
+			if err := applyResourceActionsBlob(ensureActions(group, kind), v); err != nil {
 				return nil, fmt.Errorf("%s: %w", k, err)
 			}
 		case "ignoreDifferences":
@@ -631,43 +680,110 @@ func parseResourceCustomizations(kt *keyTracker, diag *Diagnostics) ([]argov1alp
 			if err := yaml.Unmarshal([]byte(v), &d); err != nil {
 				return nil, fmt.Errorf("%s: %w", k, err)
 			}
-			c.IgnoreDifferences = &d
+			c := ensureIgnore(ignoreDiffBy, group, kind)
+			c.JSONPointers = d.JSONPointers
+			c.JQPathExpressions = d.JQPathExpressions
+			c.ManagedFieldsManagers = d.ManagedFieldsManagers
 		case "ignoreResourceUpdates":
 			var d argov1alpha1.OverrideIgnoreDiff
 			if err := yaml.Unmarshal([]byte(v), &d); err != nil {
 				return nil, fmt.Errorf("%s: %w", k, err)
 			}
-			c.IgnoreResourceUpdates = &d
+			c := ensureIgnore(ignoreUpdBy, group, kind)
+			c.JSONPointers = d.JSONPointers
+			c.JQPathExpressions = d.JQPathExpressions
+			c.ManagedFieldsManagers = d.ManagedFieldsManagers
 		case "knownTypeFields":
 			var fields []argov1alpha1.KnownTypeField
 			if err := yaml.Unmarshal([]byte(v), &fields); err != nil {
 				return nil, fmt.Errorf("%s: %w", k, err)
 			}
-			c.KnownTypeFields = fields
+			ensureKnown(group, kind).Fields = fields
 		}
 	}
 
-	out := make([]argov1alpha1.ResourceCustomization, 0, len(byKey))
-	keys := make([]string, 0, len(byKey))
-	for k := range byKey {
-		keys = append(keys, k)
+	out := &parsedResourceCustomizations{
+		Health:                sortedHealth(healthBy),
+		Actions:               sortedActions(actionsBy),
+		IgnoreDifferences:     sortedIgnore(ignoreDiffBy),
+		IgnoreResourceUpdates: sortedIgnore(ignoreUpdBy),
+		KnownTypeFields:       sortedKnown(knownBy),
 	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		out = append(out, *byKey[k])
+	if out.empty() {
+		return nil, nil
 	}
 	return out, nil
 }
 
-func applyOverrideMap(c *argov1alpha1.ResourceCustomization, fields map[string]any) error {
+func sortedHealth(m map[string]*argov1alpha1.ResourceHealthCustomization) []argov1alpha1.ResourceHealthCustomization {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]argov1alpha1.ResourceHealthCustomization, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, *m[k])
+	}
+	return out
+}
+
+func sortedActions(m map[string]*argov1alpha1.ResourceActionsCustomization) []argov1alpha1.ResourceActionsCustomization {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]argov1alpha1.ResourceActionsCustomization, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, *m[k])
+	}
+	return out
+}
+
+func sortedIgnore(m map[string]*argov1alpha1.ResourceIgnoreCustomization) []argov1alpha1.ResourceIgnoreCustomization {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]argov1alpha1.ResourceIgnoreCustomization, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, *m[k])
+	}
+	return out
+}
+
+func sortedKnown(m map[string]*argov1alpha1.ResourceKnownTypesCustomization) []argov1alpha1.ResourceKnownTypesCustomization {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]argov1alpha1.ResourceKnownTypesCustomization, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, *m[k])
+	}
+	return out
+}
+
+func applyOverrideMap(
+	group, kind string,
+	fields map[string]any,
+	ensureHealth func(string, string) *argov1alpha1.ResourceHealthCustomization,
+	ensureActions func(string, string) *argov1alpha1.ResourceActionsCustomization,
+	ensureIgnore func(map[string]*argov1alpha1.ResourceIgnoreCustomization, string, string) *argov1alpha1.ResourceIgnoreCustomization,
+	ensureKnown func(string, string) *argov1alpha1.ResourceKnownTypesCustomization,
+	ignoreDiffBy, ignoreUpdBy map[string]*argov1alpha1.ResourceIgnoreCustomization,
+) error {
 	if s, ok := fields["health.lua"].(string); ok {
-		c.HealthLua = s
+		ensureHealth(group, kind).HealthLua = s
 	}
 	if b, ok := fields["health.lua.useOpenLibs"].(bool); ok {
-		c.UseOpenLibs = b
+		ensureHealth(group, kind).UseOpenLibs = b
 	}
 	if s, ok := fields["actions"].(string); ok {
-		if err := applyResourceActionsBlob(c, s); err != nil {
+		if err := applyResourceActionsBlob(ensureActions(group, kind), s); err != nil {
 			return err
 		}
 	} else if m, ok := fields["actions"].(map[string]any); ok {
@@ -675,7 +791,7 @@ func applyOverrideMap(c *argov1alpha1.ResourceCustomization, fields map[string]a
 		if err != nil {
 			return err
 		}
-		if err := applyResourceActionsBlob(c, string(b)); err != nil {
+		if err := applyResourceActionsBlob(ensureActions(group, kind), string(b)); err != nil {
 			return err
 		}
 	}
@@ -688,7 +804,10 @@ func applyOverrideMap(c *argov1alpha1.ResourceCustomization, fields map[string]a
 		if err := yaml.Unmarshal(b, &d); err != nil {
 			return err
 		}
-		c.IgnoreDifferences = &d
+		c := ensureIgnore(ignoreDiffBy, group, kind)
+		c.JSONPointers = d.JSONPointers
+		c.JQPathExpressions = d.JQPathExpressions
+		c.ManagedFieldsManagers = d.ManagedFieldsManagers
 	}
 	if id, ok := fields["ignoreResourceUpdates"]; ok {
 		b, err := yaml.Marshal(id)
@@ -699,7 +818,10 @@ func applyOverrideMap(c *argov1alpha1.ResourceCustomization, fields map[string]a
 		if err := yaml.Unmarshal(b, &d); err != nil {
 			return err
 		}
-		c.IgnoreResourceUpdates = &d
+		c := ensureIgnore(ignoreUpdBy, group, kind)
+		c.JSONPointers = d.JSONPointers
+		c.JQPathExpressions = d.JQPathExpressions
+		c.ManagedFieldsManagers = d.ManagedFieldsManagers
 	}
 	if ktf, ok := fields["knownTypeFields"]; ok {
 		b, err := yaml.Marshal(ktf)
@@ -710,7 +832,7 @@ func applyOverrideMap(c *argov1alpha1.ResourceCustomization, fields map[string]a
 		if err := yaml.Unmarshal(b, &ktfFields); err != nil {
 			return err
 		}
-		c.KnownTypeFields = ktfFields
+		ensureKnown(group, kind).Fields = ktfFields
 	}
 	return nil
 }
@@ -725,7 +847,7 @@ func splitGroupKind(gk string) (group, kind string) {
 	return "", gk
 }
 
-func applyResourceActionsBlob(c *argov1alpha1.ResourceCustomization, raw string) error {
+func applyResourceActionsBlob(c *argov1alpha1.ResourceActionsCustomization, raw string) error {
 	if strings.TrimSpace(raw) == "" {
 		return nil
 	}
@@ -745,7 +867,7 @@ func applyResourceActionsBlob(c *argov1alpha1.ResourceCustomization, raw string)
 			if !ok {
 				continue
 			}
-			c.Actions = append(c.Actions, argov1alpha1.ResourceActionDefinition{
+			c.Definitions = append(c.Definitions, argov1alpha1.ResourceActionDefinition{
 				Name:      asString(dm["name"]),
 				ActionLua: asString(dm["action.lua"]),
 			})
@@ -754,11 +876,11 @@ func applyResourceActionsBlob(c *argov1alpha1.ResourceCustomization, raw string)
 	return nil
 }
 
-func hasResourceActions(c argov1alpha1.ResourceCustomization) bool {
-	return c.DiscoveryLua != "" || c.MergeBuiltinActions || len(c.Actions) > 0
+func hasResourceActions(c argov1alpha1.ResourceActionsCustomization) bool {
+	return c.DiscoveryLua != "" || c.MergeBuiltinActions || len(c.Definitions) > 0
 }
 
-func marshalResourceActions(c argov1alpha1.ResourceCustomization) (string, error) {
+func marshalResourceActions(c argov1alpha1.ResourceActionsCustomization) (string, error) {
 	if !hasResourceActions(c) {
 		return "", nil
 	}
@@ -769,9 +891,9 @@ func marshalResourceActions(c argov1alpha1.ResourceCustomization) (string, error
 	if c.MergeBuiltinActions {
 		m["mergeBuiltinActions"] = true
 	}
-	if len(c.Actions) > 0 {
-		defs := make([]any, 0, len(c.Actions))
-		for _, d := range c.Actions {
+	if len(c.Definitions) > 0 {
+		defs := make([]any, 0, len(c.Definitions))
+		for _, d := range c.Definitions {
 			defs = append(defs, map[string]any{
 				"name":       d.Name,
 				"action.lua": d.ActionLua,
@@ -784,6 +906,16 @@ func marshalResourceActions(c argov1alpha1.ResourceCustomization) (string, error
 		return "", err
 	}
 	return string(b), nil
+}
+
+func customizationGKKey(group, kind string) string {
+	gk := group + "/" + kind
+	if group == "*" && kind == "*" {
+		gk = "all"
+	} else if group == "" {
+		gk = kind
+	}
+	return strings.ReplaceAll(gk, "/", "_")
 }
 func mapApplication(kt *keyTracker, spec *argov1alpha1.ArgoCDConfigurationSpec, diag *Diagnostics) {
 	if v, ok := kt.get("application.instanceLabelKey"); ok {
@@ -2141,20 +2273,17 @@ func unmapResource(r *argov1alpha1.ResourceConfig, data map[string]string) error
 	if r.RespectRBAC != "" {
 		data["resource.respectRBAC"] = r.RespectRBAC
 	}
-	for _, c := range r.Customizations {
-		gk := c.Group + "/" + c.Kind
-		if c.Group == "*" && c.Kind == "*" {
-			gk = "all"
-		} else if c.Group == "" {
-			gk = c.Kind
-		}
-		gkKey := strings.ReplaceAll(gk, "/", "_")
+	for _, c := range r.Health {
+		gkKey := customizationGKKey(c.Group, c.Kind)
 		if c.HealthLua != "" {
 			data["resource.customizations.health."+gkKey] = c.HealthLua
 		}
 		if c.UseOpenLibs {
 			data["resource.customizations.useOpenLibs."+gkKey] = "true"
 		}
+	}
+	for _, c := range r.Actions {
+		gkKey := customizationGKKey(c.Group, c.Kind)
 		if hasResourceActions(c) {
 			b, err := marshalResourceActions(c)
 			if err != nil {
@@ -2164,22 +2293,35 @@ func unmapResource(r *argov1alpha1.ResourceConfig, data map[string]string) error
 				data["resource.customizations.actions."+gkKey] = b
 			}
 		}
-		if c.IgnoreDifferences != nil {
-			b, err := yaml.Marshal(c.IgnoreDifferences)
-			if err != nil {
-				return err
-			}
-			data["resource.customizations.ignoreDifferences."+gkKey] = string(b)
+	}
+	for _, c := range r.IgnoreDifferences {
+		gkKey := customizationGKKey(c.Group, c.Kind)
+		b, err := yaml.Marshal(argov1alpha1.OverrideIgnoreDiff{
+			JSONPointers:          c.JSONPointers,
+			JQPathExpressions:     c.JQPathExpressions,
+			ManagedFieldsManagers: c.ManagedFieldsManagers,
+		})
+		if err != nil {
+			return err
 		}
-		if c.IgnoreResourceUpdates != nil {
-			b, err := yaml.Marshal(c.IgnoreResourceUpdates)
-			if err != nil {
-				return err
-			}
-			data["resource.customizations.ignoreResourceUpdates."+gkKey] = string(b)
+		data["resource.customizations.ignoreDifferences."+gkKey] = string(b)
+	}
+	for _, c := range r.IgnoreResourceUpdates {
+		gkKey := customizationGKKey(c.Group, c.Kind)
+		b, err := yaml.Marshal(argov1alpha1.OverrideIgnoreDiff{
+			JSONPointers:          c.JSONPointers,
+			JQPathExpressions:     c.JQPathExpressions,
+			ManagedFieldsManagers: c.ManagedFieldsManagers,
+		})
+		if err != nil {
+			return err
 		}
-		if len(c.KnownTypeFields) > 0 {
-			b, err := yaml.Marshal(c.KnownTypeFields)
+		data["resource.customizations.ignoreResourceUpdates."+gkKey] = string(b)
+	}
+	for _, c := range r.KnownTypeFields {
+		gkKey := customizationGKKey(c.Group, c.Kind)
+		if len(c.Fields) > 0 {
+			b, err := yaml.Marshal(c.Fields)
 			if err != nil {
 				return err
 			}

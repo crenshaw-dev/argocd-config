@@ -621,14 +621,52 @@ type ResourceConfig struct {
 	// +optional
 	// +listType=atomic
 	Inclusions []FilteredResource `json:"inclusions,omitempty"`
-	// Customizations are per-GVK health, action, and ignore-difference overrides
-	// (argocd-cm: resource.customizations.*).
-	// Migration: if present, takes precedence over argocd-cm resource.customizations.*; replaces the whole collection.
+	// Health is per-GVK health Lua overrides (argocd-cm: resource.customizations.health.*
+	// and useOpenLibs.*). Listed by concern so you edit health without scanning mixed GVK rows.
+	// Migration: if present, takes precedence over argocd-cm resource.customizations.health.*
+	// and resource.customizations.useOpenLibs.*; replaces those collections.
 	// +optional
 	// +listType=map
 	// +listMapKey=group
 	// +listMapKey=kind
-	Customizations []ResourceCustomization `json:"customizations,omitempty"`
+	Health []ResourceHealthCustomization `json:"health,omitempty"`
+	// Actions is per-GVK custom resource actions: discovery script plus named definitions
+	// (argocd-cm: resource.customizations.actions.*). Discovery and definitions stay grouped
+	// because they form one actions blob per GVK in Argo CD.
+	// Migration: if present, takes precedence over argocd-cm resource.customizations.actions.*;
+	// replaces the whole collection.
+	// +optional
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=kind
+	Actions []ResourceActionsCustomization `json:"actions,omitempty"`
+	// IgnoreDifferences is per-GVK sync-diff ignore rules
+	// (argocd-cm: resource.customizations.ignoreDifferences.*).
+	// Migration: if present, takes precedence over argocd-cm resource.customizations.ignoreDifferences.*;
+	// replaces the whole collection.
+	// +optional
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=kind
+	IgnoreDifferences []ResourceIgnoreCustomization `json:"ignoreDifferences,omitempty"`
+	// IgnoreResourceUpdates is per-GVK rules for fields whose changes should not trigger
+	// reconcile (argocd-cm: resource.customizations.ignoreResourceUpdates.*).
+	// Migration: if present, takes precedence over argocd-cm resource.customizations.ignoreResourceUpdates.*;
+	// replaces the whole collection.
+	// +optional
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=kind
+	IgnoreResourceUpdates []ResourceIgnoreCustomization `json:"ignoreResourceUpdates,omitempty"`
+	// KnownTypeFields is per-GVK typed-field declarations for structured diff
+	// (argocd-cm: resource.customizations.knownTypeFields.*).
+	// Migration: if present, takes precedence over argocd-cm resource.customizations.knownTypeFields.*;
+	// replaces the whole collection.
+	// +optional
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=kind
+	KnownTypeFields []ResourceKnownTypesCustomization `json:"knownTypeFields,omitempty"`
 	// RespectRBAC limits watched resources to those the controller can list:
 	// empty (off), "normal", or "strict" (argocd-cm: resource.respectRBAC).
 	// Migration: if set, takes precedence over argocd-cm resource.respectRBAC.
@@ -714,11 +752,11 @@ type CompareOptions struct {
 	IgnoreDifferencesOnResourceUpdates bool `json:"ignoreDifferencesOnResourceUpdates,omitempty"`
 }
 
-// ResourceCustomization is a per-GVK override for health, actions, and ignore rules
-// (argocd-cm: resource.customizations.*).<group_kind> uses <group>_<kind>.
-type ResourceCustomization struct {
+// ResourceHealthCustomization is a per-GVK health Lua override
+// (argocd-cm: resource.customizations.health.<group_kind> /
+// resource.customizations.useOpenLibs.<group_kind>).
+type ResourceHealthCustomization struct {
 	// Group is the API group ("" for core, "*" for wildcard).
-	// Legacy key prefix: resource.customizations.<type>.<group>_<kind>.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^$|^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])$`
 	Group string `json:"group,omitempty"`
@@ -732,53 +770,83 @@ type ResourceCustomization struct {
 	// Must return a table with status (Healthy/Progressing/Degraded/…) and optional message.
 	// When absent, default health is Progressing until a status is produced.
 	// Legacy: resource.customizations.health.<group_kind> or health.lua in the unified blob.
-	// Migration: if set, takes precedence over argocd-cm resource.customizations.health.<group_kind>.
 	// +optional
 	HealthLua string `json:"healthLua,omitempty"`
-	// UseOpenLibs enables standard Lua libraries for health/action scripts for this GVK
+	// UseOpenLibs enables standard Lua libraries for health and action scripts for this GVK
 	// (disabled by default for security). Legacy: resource.customizations.useOpenLibs.<group_kind>
-	// or health.lua.useOpenLibs. Default false.
+	// or health.lua.useOpenLibs. Default false. Lives on the health entry because Argo CD's
+	// monolithic blob nests it under health.lua; the flag still applies to action scripts too.
 	// +optional
 	UseOpenLibs bool `json:"useOpenLibs,omitempty"`
+}
+
+// ResourceActionsCustomization is a per-GVK custom-actions override: discovery plus
+// named action definitions (argocd-cm: resource.customizations.actions.<group_kind>).
+type ResourceActionsCustomization struct {
+	// Group is the API group ("" for core, "*" for wildcard).
+	// +optional
+	// +kubebuilder:validation:Pattern=`^$|^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])$`
+	Group string `json:"group,omitempty"`
+	// Kind is the Kubernetes Kind ("*" for wildcard). Required.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^([A-Z][A-Za-z0-9]*|[*])$`
+	Kind string `json:"kind"`
 	// DiscoveryLua is a Lua script that returns which custom actions are available
-	// (and optional disabled flags) for the resource.
-	// Legacy: discovery.lua inside resource.customizations.actions.<group_kind>.
-	// With Actions / MergeBuiltinActions, forms the actions settings group that replaces
-	// the whole actions blob when any of the three is set.
-	// Migration: if set (or Actions/MergeBuiltinActions present), takes precedence over
-	// argocd-cm resource.customizations.actions.<group_kind> as a whole.
+	// (and optional disabled flags) for the resource (legacy: discovery.lua).
 	// +optional
 	DiscoveryLua string `json:"discoveryLua,omitempty"`
 	// MergeBuiltinActions merges custom actions with built-in ones instead of
-	// replacing them (Argo CD ≥ 2.13; legacy: mergeBuiltinActions in the actions blob).
-	// Default false — custom actions replace built-ins.
-	// Migration: settings group with DiscoveryLua / Actions (see DiscoveryLua).
+	// replacing them (Argo CD ≥ 2.13; legacy: mergeBuiltinActions). Default false.
 	// +optional
 	MergeBuiltinActions bool `json:"mergeBuiltinActions,omitempty"`
-	// Actions are named custom resource actions (legacy: definitions[] in the
+	// Definitions are named custom resource actions (legacy: definitions[] in the
 	// resource.customizations.actions.<group_kind> YAML blob).
-	// Migration: settings group with DiscoveryLua / MergeBuiltinActions (see DiscoveryLua).
 	// +optional
 	// +listType=map
 	// +listMapKey=name
-	Actions []ResourceActionDefinition `json:"actions,omitempty"`
-	// IgnoreDifferences are JSON Pointer / jq paths / managedFields managers ignored
-	// during live vs desired sync diff.
-	// Legacy: resource.customizations.ignoreDifferences.<group_kind>.
+	Definitions []ResourceActionDefinition `json:"definitions,omitempty"`
+}
+
+// ResourceIgnoreCustomization is a per-GVK ignoreDifferences or ignoreResourceUpdates
+// override (argocd-cm: resource.customizations.ignoreDifferences.<group_kind> /
+// ignoreResourceUpdates.<group_kind>).
+type ResourceIgnoreCustomization struct {
+	// Group is the API group ("" for core, "*" for wildcard).
 	// +optional
-	IgnoreDifferences *OverrideIgnoreDiff `json:"ignoreDifferences,omitempty"`
-	// IgnoreResourceUpdates are paths whose changes should not trigger application
-	// reconcile (requires ignoreResourceUpdatesEnabled).
-	// Legacy: resource.customizations.ignoreResourceUpdates.<group_kind>.
+	// +kubebuilder:validation:Pattern=`^$|^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])$`
+	Group string `json:"group,omitempty"`
+	// Kind is the Kubernetes Kind ("*" for wildcard). Required.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^([A-Z][A-Za-z0-9]*|[*])$`
+	Kind string `json:"kind"`
+	// JSONPointers are RFC 6901 JSON Pointers to ignore (e.g. /spec/replicas).
 	// +optional
-	IgnoreResourceUpdates *OverrideIgnoreDiff `json:"ignoreResourceUpdates,omitempty"`
-	// KnownTypeFields declares typed fields used for structured diff normalization
+	JSONPointers []string `json:"jsonPointers,omitempty"`
+	// JQPathExpressions are jq expressions selecting fields to ignore.
+	// +optional
+	JQPathExpressions []string `json:"jqPathExpressions,omitempty"`
+	// ManagedFieldsManagers ignores fields owned by these managedFields managers.
+	// +optional
+	ManagedFieldsManagers []string `json:"managedFieldsManagers,omitempty"`
+}
+
+// ResourceKnownTypesCustomization is a per-GVK knownTypeFields override
+// (argocd-cm: resource.customizations.knownTypeFields.<group_kind>).
+type ResourceKnownTypesCustomization struct {
+	// Group is the API group ("" for core, "*" for wildcard).
+	// +optional
+	// +kubebuilder:validation:Pattern=`^$|^([a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*|[*])$`
+	Group string `json:"group,omitempty"`
+	// Kind is the Kubernetes Kind ("*" for wildcard). Required.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^([A-Z][A-Za-z0-9]*|[*])$`
+	Kind string `json:"kind"`
+	// Fields declares typed fields used for structured diff normalization
 	// (e.g. treating a nested object as core/v1/PodSpec).
-	// Legacy: resource.customizations.knownTypeFields.<group_kind>.
 	// +optional
 	// +listType=map
 	// +listMapKey=field
-	KnownTypeFields []KnownTypeField `json:"knownTypeFields,omitempty"`
+	Fields []KnownTypeField `json:"fields,omitempty"`
 }
 
 // ResourceActionDefinition is one named custom resource action.

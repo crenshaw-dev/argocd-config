@@ -45,18 +45,18 @@ func TestRoundTripSample(t *testing.T) {
 	if len(cfg.Spec.Server.RBAC.PolicyOverlays) != 1 || cfg.Spec.Server.RBAC.PolicyOverlays[0].Name != "extra" {
 		t.Fatalf("rbac overlays: %#v", cfg.Spec.Server.RBAC.PolicyOverlays)
 	}
-	if cfg.Spec.Controller == nil || cfg.Spec.Controller.Resource == nil || len(cfg.Spec.Controller.Resource.Customizations) == 0 {
-		t.Fatalf("resource customizations missing: %#v", cfg.Spec.Controller)
+	if cfg.Spec.Controller == nil || cfg.Spec.Controller.Resource == nil || len(cfg.Spec.Controller.Resource.Actions) == 0 {
+		t.Fatalf("resource actions missing: %#v", cfg.Spec.Controller)
 	}
 	var foundActions bool
-	for _, c := range cfg.Spec.Controller.Resource.Customizations {
-		if c.Group == "apps" && c.Kind == "Deployment" && (c.DiscoveryLua != "" || len(c.Actions) > 0) {
+	for _, c := range cfg.Spec.Controller.Resource.Actions {
+		if c.Group == "apps" && c.Kind == "Deployment" {
 			foundActions = true
 			if c.DiscoveryLua == "" {
 				t.Fatalf("actions discoveryLua empty: %#v", c)
 			}
-			if len(c.Actions) != 1 || c.Actions[0].Name != "restart" || c.Actions[0].ActionLua == "" {
-				t.Fatalf("actions: %#v", c.Actions)
+			if len(c.Definitions) != 1 || c.Definitions[0].Name != "restart" || c.Definitions[0].ActionLua == "" {
+				t.Fatalf("actions definitions: %#v", c.Definitions)
 			}
 		}
 	}

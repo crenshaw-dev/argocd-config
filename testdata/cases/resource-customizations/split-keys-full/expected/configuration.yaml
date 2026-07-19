@@ -6,32 +6,8 @@ metadata:
 spec:
   controller:
     resource:
-      customizations:
-      - group: '*'
-        ignoreDifferences:
-          jsonPointers:
-          - /spec/replicas
-          managedFieldsManagers:
-          - kube-controller-manager
-        ignoreResourceUpdates:
-          jsonPointers:
-          - /metadata/resourceVersion
-        kind: '*'
-      - healthLua: |
-          hs = {}
-          hs.status = "Healthy"
-          return hs
-        kind: ConfigMap
-      - group: admissionregistration.k8s.io
-        ignoreDifferences:
-          jqPathExpressions:
-          - .webhooks[]?.clientConfig.caBundle
-          jsonPointers:
-          - /webhooks/0/clientConfig/caBundle
-          managedFieldsManagers:
-          - kube-controller-manager
-        kind: MutatingWebhookConfiguration
-      - actions:
+      actions:
+      - definitions:
         - actionLua: |
             return obj
           name: restart
@@ -42,16 +18,42 @@ spec:
         group: apps
         kind: Deployment
         mergeBuiltinActions: true
-      - group: argoproj.io
-        ignoreResourceUpdates:
-          jsonPointers:
-          - /status
-        kind: Application
-      - group: argoproj.io
-        kind: Rollout
-        knownTypeFields:
-        - field: spec.template.spec
-          type: core/v1/PodSpec
+      health:
+      - healthLua: |
+          hs = {}
+          hs.status = "Healthy"
+          return hs
+        kind: ConfigMap
       - group: cert-manager.io
         kind: Certificate
         useOpenLibs: true
+      ignoreDifferences:
+      - group: '*'
+        jsonPointers:
+        - /spec/replicas
+        kind: '*'
+        managedFieldsManagers:
+        - kube-controller-manager
+      - group: admissionregistration.k8s.io
+        jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle
+        jsonPointers:
+        - /webhooks/0/clientConfig/caBundle
+        kind: MutatingWebhookConfiguration
+        managedFieldsManagers:
+        - kube-controller-manager
+      ignoreResourceUpdates:
+      - group: '*'
+        jsonPointers:
+        - /metadata/resourceVersion
+        kind: '*'
+      - group: argoproj.io
+        jsonPointers:
+        - /status
+        kind: Application
+      knownTypeFields:
+      - fields:
+        - field: spec.template.spec
+          type: core/v1/PodSpec
+        group: argoproj.io
+        kind: Rollout

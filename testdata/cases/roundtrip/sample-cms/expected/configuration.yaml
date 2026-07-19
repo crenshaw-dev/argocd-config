@@ -34,8 +34,8 @@ spec:
       jitter: 1m0s
       timeout: 3m0s
     resource:
-      customizations:
-      - actions:
+      actions:
+      - definitions:
         - actionLua: |
             return obj
           name: restart
@@ -45,17 +45,18 @@ spec:
           return actions
         group: apps
         kind: Deployment
+      exclusions:
+      - apiGroups:
+        - '*'
+        kinds:
+        - ProviderConfigUsage
+      health:
       - group: cert-manager.io
         healthLua: |
           hs = {}
           hs.status = "Healthy"
           return hs
         kind: Certificate
-      exclusions:
-      - apiGroups:
-        - '*'
-        kinds:
-        - ProviderConfigUsage
     resourceTrackingMethod: annotation
     selfHeal:
       timeout: 5s

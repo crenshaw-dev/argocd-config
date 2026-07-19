@@ -177,7 +177,7 @@ func TestNewKeyTrackerNilDataAndNilUse(t *testing.T) {
 }
 
 func TestParseAndMarshalResourceActionsEmpty(t *testing.T) {
-	c := argov1alpha1.ResourceCustomization{}
+	c := argov1alpha1.ResourceActionsCustomization{}
 	if err := applyResourceActionsBlob(&c, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -206,15 +206,56 @@ func TestSplitGroupKindWildcards(t *testing.T) {
 }
 
 func TestApplyOverrideMapActionsString(t *testing.T) {
-	c := &argov1alpha1.ResourceCustomization{}
-	err := applyOverrideMap(c, map[string]any{
+	healthBy := map[string]*argov1alpha1.ResourceHealthCustomization{}
+	actionsBy := map[string]*argov1alpha1.ResourceActionsCustomization{}
+	ignoreDiffBy := map[string]*argov1alpha1.ResourceIgnoreCustomization{}
+	ignoreUpdBy := map[string]*argov1alpha1.ResourceIgnoreCustomization{}
+	knownBy := map[string]*argov1alpha1.ResourceKnownTypesCustomization{}
+	ensureHealth := func(group, kind string) *argov1alpha1.ResourceHealthCustomization {
+		k := group + "/" + kind
+		if c, ok := healthBy[k]; ok {
+			return c
+		}
+		c := &argov1alpha1.ResourceHealthCustomization{Group: group, Kind: kind}
+		healthBy[k] = c
+		return c
+	}
+	ensureActions := func(group, kind string) *argov1alpha1.ResourceActionsCustomization {
+		k := group + "/" + kind
+		if c, ok := actionsBy[k]; ok {
+			return c
+		}
+		c := &argov1alpha1.ResourceActionsCustomization{Group: group, Kind: kind}
+		actionsBy[k] = c
+		return c
+	}
+	ensureIgnore := func(m map[string]*argov1alpha1.ResourceIgnoreCustomization, group, kind string) *argov1alpha1.ResourceIgnoreCustomization {
+		k := group + "/" + kind
+		if c, ok := m[k]; ok {
+			return c
+		}
+		c := &argov1alpha1.ResourceIgnoreCustomization{Group: group, Kind: kind}
+		m[k] = c
+		return c
+	}
+	ensureKnown := func(group, kind string) *argov1alpha1.ResourceKnownTypesCustomization {
+		k := group + "/" + kind
+		if c, ok := knownBy[k]; ok {
+			return c
+		}
+		c := &argov1alpha1.ResourceKnownTypesCustomization{Group: group, Kind: kind}
+		knownBy[k] = c
+		return c
+	}
+	err := applyOverrideMap("apps", "Deployment", map[string]any{
 		"actions": "discovery.lua: |\n  return {}\n",
-	})
+	}, ensureHealth, ensureActions, ensureIgnore, ensureKnown, ignoreDiffBy, ignoreUpdBy)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.DiscoveryLua == "" {
-		t.Fatalf("%#v", c)
+	a := actionsBy["apps/Deployment"]
+	if a == nil || a.DiscoveryLua == "" {
+		t.Fatalf("%#v", a)
 	}
 }
 

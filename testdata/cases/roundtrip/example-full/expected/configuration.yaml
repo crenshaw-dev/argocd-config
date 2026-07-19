@@ -137,35 +137,16 @@ spec:
       timeout: 1h0m0s
     repoErrorGracePeriod: 1h0m0s
     resource:
-      customLabelKeys:
-      - app.kubernetes.io/name
-      customizations:
-      - actions:
+      actions:
+      - definitions:
         - actionLua: return true
           name: example
         discoveryLua: return true
         group: apps
-        healthLua: return true
-        ignoreDifferences:
-          jqPathExpressions:
-          - example-jqPathExpressions
-          jsonPointers:
-          - example-jsonPointers
-          managedFieldsManagers:
-          - example-managedFieldsManagers
-        ignoreResourceUpdates:
-          jqPathExpressions:
-          - example-jqPathExpressions
-          jsonPointers:
-          - example-jsonPointers
-          managedFieldsManagers:
-          - example-managedFieldsManagers
         kind: Deployment
-        knownTypeFields:
-        - field: spec.template
-          type: core/v1/PodSpec
         mergeBuiltinActions: true
-        useOpenLibs: true
+      customLabelKeys:
+      - app.kubernetes.io/name
       eventLabels:
         excludeKeyGlobs:
         - example-excludeKeyGlobs
@@ -178,6 +159,29 @@ spec:
         - https://kubernetes.default.svc
         kinds:
         - Deployment
+      health:
+      - group: apps
+        healthLua: return true
+        kind: Deployment
+        useOpenLibs: true
+      ignoreDifferences:
+      - group: apps
+        jqPathExpressions:
+        - example-jqPathExpressions
+        jsonPointers:
+        - example-jsonPointers
+        kind: Deployment
+        managedFieldsManagers:
+        - example-managedFieldsManagers
+      ignoreResourceUpdates:
+      - group: apps
+        jqPathExpressions:
+        - example-jqPathExpressions
+        jsonPointers:
+        - example-jsonPointers
+        kind: Deployment
+        managedFieldsManagers:
+        - example-managedFieldsManagers
       inclusions:
       - apiGroups:
         - apps
@@ -185,6 +189,12 @@ spec:
         - https://kubernetes.default.svc
         kinds:
         - Deployment
+      knownTypeFields:
+      - fields:
+        - field: spec.template
+          type: core/v1/PodSpec
+        group: apps
+        kind: Deployment
       respectRBAC: strict
       sensitiveMaskAnnotationKeys:
       - app.kubernetes.io/name
