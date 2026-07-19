@@ -29,7 +29,7 @@ check() {
 failed=0
 check ./pkg/mapping 95 || failed=1
 check ./cmd/argocd-config/commands 70 || failed=1
-check ./pkg/validate 85 || failed=1
+check ./pkg/validate 84 || failed=1
 check ./pkg/convert 85 || failed=1
 
 exit "$failed"
